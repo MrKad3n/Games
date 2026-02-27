@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Side Scroller | Home</title>
+    <style>
+        :root {
+            --sky-top: #392c84;
+            --sky-bottom: #0f173f;
+            --card: rgba(14, 16, 34, 0.82);
+            --text: #eef5ff;
+            --accent: #29f0b4;
+            --accent-dark: #0bbf8e;
+            --secondary: #ffd44e;
+            --muted: #9bb2cf;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            color: var(--text);
+            overflow: hidden;
+            background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+        }
+
+        .screen {
+            position: relative;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            isolation: isolate;
+        }
+
+        .stars,
+        .stars::before,
+        .stars::after {
+            position: absolute;
+            inset: 0;
+            content: "";
+            background-image:
+                radial-gradient(2px 2px at 12% 22%, rgba(255, 255, 255, 0.9), transparent 55%),
+                radial-gradient(2px 2px at 30% 75%, rgba(255, 255, 255, 0.75), transparent 55%),
+                radial-gradient(2px 2px at 65% 35%, rgba(255, 255, 255, 0.85), transparent 55%),
+                radial-gradient(2px 2px at 79% 82%, rgba(255, 255, 255, 0.7), transparent 55%),
+                radial-gradient(2px 2px at 90% 15%, rgba(255, 255, 255, 0.75), transparent 55%);
+            animation: twinkle 4s ease-in-out infinite alternate;
+            z-index: -3;
+        }
+
+        .stars::before {
+            transform: translateY(-4%) scale(1.12);
+            opacity: 0.6;
+            animation-duration: 6s;
+        }
+
+        .stars::after {
+            transform: translateY(2%) scale(1.25);
+            opacity: 0.35;
+            animation-duration: 8s;
+        }
+
+        .mountains,
+        .hills,
+        .ground {
+            position: absolute;
+            left: -15%;
+            width: 130%;
+            pointer-events: none;
+        }
+
+        .mountains {
+            bottom: 24%;
+            height: 38vh;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.06), transparent 45%),
+                linear-gradient(20deg, rgba(255, 255, 255, 0.06), transparent 50%),
+                #1a1e47;
+            clip-path: polygon(0 100%, 8% 58%, 18% 76%, 30% 40%, 44% 73%, 58% 30%, 73% 68%, 86% 36%, 100% 100%);
+            animation: drift-slow 26s linear infinite;
+            z-index: -2;
+        }
+
+        .hills {
+            bottom: 14%;
+            height: 30vh;
+            background:
+                linear-gradient(180deg, #274b60 0%, #13263f 100%);
+            clip-path: polygon(0 100%, 0 70%, 8% 66%, 16% 74%, 24% 64%, 36% 79%, 48% 58%, 64% 76%, 76% 60%, 88% 70%, 100% 55%, 100% 100%);
+            animation: drift-mid 16s linear infinite;
+            z-index: -1;
+        }
+
+        .ground {
+            bottom: 0;
+            height: 18vh;
+            background:
+                repeating-linear-gradient(90deg, #355b3f 0 24px, #2d4f36 24px 48px),
+                linear-gradient(180deg, #2f5f42, #1f402a);
+            border-top: 4px solid rgba(255, 255, 255, 0.15);
+            animation: drift-fast 8s linear infinite;
+        }
+
+        .menu-card {
+            width: min(92vw, 680px);
+            padding: 2rem;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: var(--card);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35);
+            text-align: center;
+            max-height: 88vh;
+            overflow: auto;
+        }
+
+        .logo {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 14px rgba(41, 240, 180, 0.45);
+            margin-bottom: 0.4rem;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-bottom: 1.6rem;
+            font-size: clamp(0.95rem, 2.4vw, 1.1rem);
+        }
+
+        .button-grid {
+            display: grid;
+            gap: 0.9rem;
+        }
+
+        .menu-btn {
+            width: 100%;
+            border: none;
+            border-radius: 14px;
+            padding: 0.95rem 1rem;
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .menu-btn:focus-visible {
+            outline: 3px solid rgba(255, 255, 255, 0.4);
+            outline-offset: 2px;
+        }
+
+        .menu-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.06);
+        }
+
+        .menu-btn:active {
+            transform: translateY(0);
+        }
+
+        .story {
+            color: #07291f;
+            background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+        }
+
+        .online {
+            color: #2a2204;
+            background: linear-gradient(180deg, #ffe58a, var(--secondary));
+        }
+
+        .online[disabled] {
+            cursor: not-allowed;
+            filter: grayscale(0.1);
+        }
+
+        .status {
+            margin-top: 1rem;
+            min-height: 1.6rem;
+            color: #d1ddff;
+            font-size: 0.95rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+        }
+
+        .signin-panel {
+            margin-top: 1.2rem;
+            padding: 1rem;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            text-align: left;
+        }
+
+        .signin-title {
+            font-weight: 700;
+            margin-bottom: 0.8rem;
+            color: #e7f9ff;
+        }
+
+        .signin-form {
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .field-label {
+            font-size: 0.9rem;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+
+        .field-input {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(7, 10, 22, 0.78);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 0.68rem 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .field-input:focus-visible {
+            outline: 2px solid rgba(41, 240, 180, 0.55);
+            outline-offset: 1px;
+        }
+
+        .signin-btn {
+            margin-top: 0.25rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #5ea8ff, #3077da);
+            color: #edf6ff;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0.75rem 0.9rem;
+            transition: filter 0.2s ease;
+        }
+
+        .signin-btn:hover {
+            filter: brightness(1.07);
+        }
+
+        .profile-panel {
+            margin-top: 1rem;
+            border-radius: 12px;
+            background: rgba(3, 9, 25, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0.9rem;
+            display: none;
+        }
+
+        .profile-panel.show {
+            display: block;
+        }
+
+        .profile-name {
+            font-weight: 700;
+            margin-bottom: 0.7rem;
+        }
+
+        .character-list {
+            list-style: none;
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .character-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.55rem 0.65rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .char-name {
+            font-weight: 600;
+        }
+
+        .char-class {
+            color: #9be8ff;
+            font-size: 0.9rem;
+        }
+
+        /* ---- Game canvas ---- */
+        #gameCanvas {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 100;
+            background: #0a0e1a;
+            cursor: default;
+        }
+        #gameCanvas.active {
+            display: block;
+        }
+
+        @keyframes twinkle {
+            from { opacity: 0.55; }
+            to { opacity: 1; }
+        }
+
+        @keyframes drift-slow {
+            from { transform: translateX(0); }
+            to { transform: translateX(8%); }
+        }
+
+        @keyframes drift-mid {
+            from { transform: translateX(0); }
+            to { transform: translateX(10%); }
+        }
+
+        @keyframes drift-fast {
+            from { background-position: 0 0, 0 0; }
+            to { background-position: 160px 0, 0 0; }
+        }
+    </style>
+</head>
+<body>
+    <main class="screen" id="menuScreen">
+        <div class="stars" aria-hidden="true"></div>
+        <div class="mountains" aria-hidden="true"></div>
+        <div class="hills" aria-hidden="true"></div>
+        <div class="ground" aria-hidden="true"></div>
+
+        <section class="menu-card" aria-label="Main menu">
+            <h1 class="logo">SkyDash Quest</h1>
+            <p class="subtitle">Pick your mode and jump in.</p>
+
+            <div class="button-grid">
+                <button class="menu-btn story" id="mainStoryBtn">Main Story</button>
+                <button class="menu-btn online" id="onlineBtn" disabled>Online (Soon)</button>
+            </div>
+
+            <section class="signin-panel" aria-label="Sign in">
+                <h2 class="signin-title">Player Sign In</h2>
+                <form class="signin-form" id="signinForm">
+                    <div>
+                        <label class="field-label" for="usernameInput">Username</label>
+                        <input class="field-input" id="usernameInput" name="username" type="text" autocomplete="username" placeholder="Enter username" required>
+                    </div>
+                    <div>
+                        <label class="field-label" for="passwordInput">Password</label>
+                        <input class="field-input" id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+                    </div>
+                    <button class="signin-btn" type="submit">Sign In</button>
+                </form>
+
+                <div class="profile-panel" id="profilePanel">
+                    <p class="profile-name" id="profileName"></p>
+                    <ul class="character-list" id="characterList"></ul>
+                </div>
+            </section>
+
+            <p class="status" id="statusText" role="status" aria-live="polite"></p>
+        </section>
+    </main>
+
+    <canvas id="gameCanvas" tabindex="0"></canvas>
+    <script src="script.js"></script>
+</body>
+</html>
