@@ -16,6 +16,9 @@ All images should be **PNG with transparency** (no background). Recommended size
 | `images/enemies/possessed_shrub.png` | A bush / shrub with glowing red eyes, vines, and a menacing look. It's been possessed by the Zenith spirit and given life. | 60×60 px |
 | `images/enemies/thorn_crawler.png` | A large beetle / centipede-like forest bug with thorny legs and red eyes. Fast and aggressive. | 70×50 px |
 | `images/enemies/corrupted_treant.png` | A massive corrupted tree creature. Dark bark, twisted branches for arms, angry red eyes. Mini-boss / boss. | 100×120 px |
+| `images/enemies/shadow_rat.png` | A small dark rat with glowing red eyes and a wispy shadow trail. City pest corrupted by Zenith. | 50×40 px |
+| `images/enemies/possessed_lamp.png` | A tall lamp post with a single glowing red eye in its lamp head. The Zenith gave it life. | 50×100 px |
+| `images/enemies/corrupted_golem.png` | A massive humanoid assembled from city rubble — bricks, steel, concrete. Glowing red eyes in a blocky head. City boss. | 110×130 px |
 
 > **Fallback:** Every enemy is drawn procedurally if its image is missing, so the game is fully playable without these files.
 
@@ -37,16 +40,17 @@ These are choices I made where the description was open-ended. All can be change
 - **Zenith** is an otherworldly spirit that crossed into this realm through a tear in the forest. It possesses natural objects (plants, bugs, trees) and gives them sentience, speech, and hostility.
 - Possessed creatures can **communicate** with the player through a dialogue system. They reveal bits of lore about the Zenith and their own confused new existence.
 
-### Levels (5 total, forest chapter)
+### Levels (2 chapters)
 | # | Name | Theme |
 |---|---|---|
-| 1 | **Whispering Glade** | Tutorial — gentle forest, introduces movement + combat. 2–4 Possessed Shrubs. |
-| 2 | **Thornwood Path** | Darker canopy, more vertical platforming. Thorn Crawlers introduced. |
-| 3 | **The Corrupted Grove** | Dense corruption, mixed enemies. Mini-boss: **Corrupted Treant**. |
-| 4 | **Hollow Creek** | Gaps over dark water, precision platforming. |
-| 5 | **Zenith's Sanctum** | The source of corruption. Final boss: Corrupted Treant (placeholder until Zenith Shade art). |
+| 1 | **The Zenith Forest** | Massive combined forest level (~18000px). 5 zones: Whispering Glade → Thornwood Path → Corrupted Grove → Hollow Creek → Zenith's Core. Vine barriers force platforming, wall-jump sections, 2 treant bosses. |
+| 2 | **The Ravaged City** | Urban ruins (~14000px). Corruption spreads to civilization. New enemies: Shadow Rats, Possessed Lamps, Corrupted Golem boss. Alley gaps, building platforms, scaffolding. |
 
 Levels unlock sequentially. Progress is saved in `localStorage`.
+
+### New Mechanics
+- **Wall Jump**: Slide on walls (hold toward wall while airborne), press W to launch away. Brief horizontal lock after wall jump.
+- **Zenith Vines**: Purple corruption hazards that deal 18 DPS on contact (no iframes). Must platform over them.
 
 ### Enemies
 | Type | HP | Damage | Speed | Behavior |
@@ -54,6 +58,9 @@ Levels unlock sequentially. Progress is saved in `localStorage`.
 | Possessed Shrub | 55 | 10 | Slow | Patrols, chases when player is close. |
 | Thorn Crawler | 35 | 8 | Fast | Quick patrols, aggressive chase. |
 | Corrupted Treant | 220 | 22 | Slow | High HP mini-boss, strong hits. |
+| Shadow Rat | 24 | 6 | Very Fast | Small, fast city pest. Swarming behavior. |
+| Possessed Lamp | 65 | 14 | Slow | Tall lamp post enemy, medium threat. |
+| Corrupted Golem | 300 | 28 | Slow | City boss, massive HP pool. |
 
 ### Combat
 - **X key** performs a directional slash in front of the player.
