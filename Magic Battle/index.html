@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<meta name="description" content="Magic Battle menu" />
+	<title>Magic Battle</title>
+	<style>
+		:root {
+			--bg-top: #1a1633;
+			--bg-bottom: #0f1024;
+			--panel: rgba(255, 255, 255, 0.05);
+			--text: #f5f7ff;
+			--muted: #c2c8e8;
+			--border: rgba(255, 255, 255, 0.2);
+			--glow: rgba(255, 255, 255, 0.15);
+			--btn-green: #28a745;
+			--btn-green-hover: #23923d;
+		}
+
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+			font-family: Arial, sans-serif;
+		}
+
+		body {
+			min-height: 100vh;
+			color: var(--text);
+			background:
+				url('images/backgrounds/menu-bg.jpg'),
+				radial-gradient(70% 50% at 10% 10%, rgba(94, 60, 180, 0.35), transparent 60%),
+				radial-gradient(60% 50% at 85% 20%, rgba(46, 112, 206, 0.28), transparent 65%),
+				linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+			background-size: cover;
+			background-position: center;
+			overflow: hidden;
+		}
+
+		.menu-screen {
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-start;
+			padding: 36px 20px 24px;
+		}
+
+		h1 {
+			text-align: center;
+			color: #fff;
+			margin-top: 12px;
+			margin-bottom: 10px;
+			font-size: clamp(32px, 5vw, 54px);
+			text-shadow: 2px 2px 4px #000;
+			letter-spacing: 0.5px;
+		}
+
+		.subtitle {
+			color: var(--muted);
+			text-align: center;
+			margin-bottom: 34px;
+			text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+		}
+
+		.mode-grid {
+			width: min(1200px, 94vw);
+			display: grid;
+			grid-template-columns: repeat(4, minmax(210px, 1fr));
+			gap: 22px;
+			align-items: stretch;
+		}
+
+		.mode-card {
+			background: var(--panel);
+			border: 3px solid var(--border);
+			border-radius: 12px;
+			min-height: 56vh;
+			max-height: 620px;
+			padding: 18px;
+			text-align: center;
+			position: relative;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+			transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+			background-size: cover;
+			background-position: center;
+			isolation: isolate;
+		}
+
+		.mode-card::before {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background-image: inherit;
+			background-size: cover;
+			background-position: center;
+			filter: brightness(0.68) blur(2px);
+			transform: scale(1.03);
+			z-index: -2;
+		}
+
+		.mode-card::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(180deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.55));
+			z-index: -1;
+		}
+
+		.mode-card:hover {
+			transform: translateY(-6px);
+			box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45), 0 0 18px var(--glow);
+			border-color: rgba(255, 255, 255, 0.45);
+		}
+
+		.mode-card h2,
+		.mode-card p,
+		.mode-card button {
+			position: relative;
+			z-index: 1;
+			text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+		}
+
+		.mode-card h2 {
+			margin-bottom: 14px;
+			font-size: clamp(24px, 2vw, 30px);
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+
+		.mode-card p {
+			margin: 0 auto 24px;
+			color: #f1f3ff;
+			width: 92%;
+			line-height: 1.35;
+			font-size: 15px;
+		}
+
+		.mode-card button {
+			margin: 0 auto;
+			padding: 11px 22px;
+			min-width: 160px;
+			font-size: 16px;
+			border: none;
+			border-radius: 6px;
+			background-color: var(--btn-green);
+			color: #fff;
+			cursor: pointer;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+			transition: background-color 0.2s ease, transform 0.2s ease;
+		}
+
+		.mode-card button:hover {
+			background-color: var(--btn-green-hover);
+			transform: translateY(-1px);
+		}
+
+		#sandbox-card {
+			border-color: #17a2b8;
+			background-image: url('images/backgrounds/sandbox-card.jpg');
+		}
+
+		#inventory-card {
+			border-color: #9c27b0;
+			background-image: url('images/backgrounds/inventory-card.jpg');
+		}
+
+		#dungeons-card {
+			border-color: #ffc107;
+			background-image: url('images/backgrounds/dungeons-card.jpg');
+		}
+
+		#pvp-card {
+			border-color: #ff6b6b;
+			background-image: url('images/backgrounds/pvp-card.jpg');
+		}
+
+		@media (max-width: 1080px) {
+			.mode-grid {
+				grid-template-columns: repeat(2, minmax(220px, 1fr));
+			}
+			.mode-card {
+				min-height: 44vh;
+			}
+		}
+
+		@media (max-width: 620px) {
+			body {
+				overflow-y: auto;
+			}
+			.menu-screen {
+				padding-bottom: 28px;
+			}
+			.mode-grid {
+				grid-template-columns: 1fr;
+			}
+			.mode-card {
+				min-height: 36vh;
+			}
+			.mode-card h2 {
+				font-size: 26px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="menu-screen">
+		<h1>Magic Battle</h1>
+		<p class="subtitle">Choose your mode and begin your next arcane challenge.</p>
+
+		<section class="mode-grid" aria-label="Game mode menu">
+			<article class="mode-card" id="sandbox-card">
+				<h2>Sandbox</h2>
+				<p>Experiment freely with spells, builds, and combos without progression pressure.</p>
+				<button id="sandboxBtn" type="button">Enter Sandbox</button>
+			</article>
+
+			<article class="mode-card" id="inventory-card">
+				<h2>Inventory</h2>
+				<p>Manage your gear, relics, and spell loadouts before heading into battle.</p>
+				<button id="inventoryBtn" type="button">Open Inventory</button>
+			</article>
+
+			<article class="mode-card" id="dungeons-card">
+				<h2>Dungeons</h2>
+				<p>Fight through dangerous floors, defeat bosses, and collect rare loot.</p>
+				<button id="dungeonsBtn" type="button">Start Dungeons</button>
+			</article>
+
+			<article class="mode-card" id="pvp-card">
+				<h2>PvP</h2>
+				<p>Challenge other players in competitive magic duels and climb the rankings.</p>
+				<button id="pvpBtn" type="button">Queue PvP</button>
+			</article>
+		</section>
+	</main>
+
+	<script>
+		const modeRoutes = {
+			sandbox: 'sandbox.html',
+			inventory: 'inventory.html',
+			dungeons: 'dungeons.html',
+			pvp: 'pvp.html'
+		};
+
+		function launchMode(mode) {
+			const route = modeRoutes[mode];
+			if (route) {
+				window.location.href = route;
+			} else {
+				alert('Mode not configured yet.');
+			}
+		}
+
+		document.getElementById('sandboxBtn').addEventListener('click', () => launchMode('sandbox'));
+		document.getElementById('inventoryBtn').addEventListener('click', () => launchMode('inventory'));
+		document.getElementById('dungeonsBtn').addEventListener('click', () => launchMode('dungeons'));
+		document.getElementById('pvpBtn').addEventListener('click', () => launchMode('pvp'));
+	</script>
+</body>
+</html>
