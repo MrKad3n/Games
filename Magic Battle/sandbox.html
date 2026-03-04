@@ -1,0 +1,1192 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Magic Battle — Sandbox</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+		canvas { display: block; }
+
+		#hud {
+			position: fixed; top: 14px; left: 14px;
+			color: #c8c8e0; font: 13px/1.4 Arial, sans-serif;
+			text-shadow: 1px 1px 2px #000;
+			pointer-events: none; z-index: 10;
+		}
+		#backBtn {
+			position: fixed; top: 12px; right: 14px; z-index: 10;
+			padding: 8px 18px; font: 14px Arial, sans-serif;
+			background: rgba(255,255,255,0.12); color: #ddd;
+			border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+			cursor: pointer; transition: background .2s;
+		}
+		#backBtn:hover { background: rgba(255,255,255,0.22); }
+
+		/* ---- spell hotbar ---- */
+		#hotbar {
+			position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+			display: flex; gap: 4px; z-index: 10; pointer-events: none;
+		}
+		.hb-slot {
+			width: 52px; height: 56px; background: rgba(0,0,0,0.55);
+			border: 2px solid rgba(255,255,255,0.2); border-radius: 7px;
+			display: flex; flex-direction: column; align-items: center;
+			justify-content: center; position: relative; transition: border-color .15s, background .15s;
+			overflow: hidden;
+		}
+		.hb-slot.active { border-color: #6c5ce7; background: rgba(108,92,231,0.25); }
+		.hb-cd-overlay {
+			position: absolute; bottom: 0; left: 0; right: 0;
+			background: rgba(0,0,0,0.6); pointer-events: none;
+		}
+		.hb-key { font-size: 10px; color: #888; position: absolute; top: 2px; left: 5px; }
+		.hb-dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 2px; }
+		.hb-name { font-size: 9px; color: #bbb; max-width: 48px; text-align: center;
+			overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.hb-mana { font-size: 9px; color: #3498db; }
+
+		/* ---- mana bar ---- */
+		#manaWrap {
+			position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+			width: 260px; z-index: 10; pointer-events: none;
+		}
+		#manaBarBg {
+			width: 100%; height: 12px; background: rgba(0,0,0,0.5);
+			border: 1px solid rgba(52,152,219,0.4); border-radius: 6px;
+			overflow: hidden;
+		}
+		#manaBarFill {
+			height: 100%; background: linear-gradient(90deg, #2980b9, #3498db);
+			border-radius: 6px; transition: width .1s;
+		}
+		#manaText {
+			text-align: center; font-size: 11px; color: #5dade2;
+			text-shadow: 1px 1px 2px #000; margin-top: 2px;
+		}
+	</style>
+</head>
+<body>
+	<div id="hud">
+		<div><b>Sandbox Mode</b></div>
+		<div>WASD / Arrows — Move &amp; Jump</div>
+		<div>1-0 — Select Spell · X or Click — Cast</div>
+	</div>
+	<button id="backBtn" onclick="location.href='index.html'">← Back to Menu</button>
+	<canvas id="game"></canvas>
+
+	<div id="manaWrap">
+		<div id="manaBarBg"><div id="manaBarFill" style="width:100%"></div></div>
+		<div id="manaText">100 / 100</div>
+	</div>
+	<div id="hotbar"></div>
+
+<script>
+/* =========================================================
+   Magic Battle — Sandbox Mode  (full spell system)
+   ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx    = canvas.getContext('2d');
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+/* =============================================================
+   LOAD PLAYER DATA FROM LOCALSTORAGE
+   ============================================================= */
+let playerData;
+try {
+	const raw = localStorage.getItem('magicBattle_playerData');
+	playerData = raw ? JSON.parse(raw) : null;
+} catch(e) { playerData = null; }
+
+if (!playerData) {
+	playerData = {
+		baseStats: { magicPower:10, magicControl:5, magicCapacity:100, magicDefence:8 },
+		equipment: { staff:null, robe:null, relic1:null, relic2:null },
+		inventory: [],
+		spells: new Array(10).fill(null),
+	};
+	playerData.spells[0] = {
+		name:'Magic Missile',
+		phases:[{ shape:'missile',behavior:'straight',width:1,height:1,speed:1.5,
+			duration:1,power:1,count:1,spread:0,effects:[],color:'#4488ff',trail:'sparkle',
+			nextTrigger:'onHit',orbitRadius:80,orbitSpeed:3,orbitDuration:1.5 }]
+	};
+}
+
+/* --- item DB (stat lookup for equipped items) --- */
+const ITEM_DB={
+	oak_staff:{stats:{magicPower:3}},crystal_staff:{stats:{magicPower:5,magicControl:2}},
+	void_staff:{stats:{magicPower:12,magicControl:5}},elder_staff:{stats:{magicPower:18,magicControl:8,magicCapacity:20}},
+	linen_robe:{stats:{magicDefence:2}},silk_robe:{stats:{magicDefence:4,magicCapacity:10}},
+	arcane_robe:{stats:{magicDefence:7,magicCapacity:25,magicControl:3}},shadow_robe:{stats:{magicDefence:12,magicPower:5}},
+	mana_gem:{stats:{magicCapacity:15}},fire_ring:{stats:{magicPower:6}},frost_amulet:{stats:{magicDefence:5,magicControl:3}},
+	chaos_orb:{stats:{magicPower:8,magicControl:6}},phoenix_feather:{stats:{magicPower:10,magicCapacity:30,magicDefence:5}},
+};
+
+function computeStats() {
+	const s = { ...playerData.baseStats };
+	for (const slotKey of ['staff','robe','relic1','relic2']) {
+		const id = playerData.equipment[slotKey];
+		if (!id || !ITEM_DB[id]) continue;
+		for (const k in ITEM_DB[id].stats) s[k] = (s[k]||0) + ITEM_DB[id].stats[k];
+	}
+	return s;
+}
+
+const stats = computeStats();
+
+/* --- spell cost / control helpers (mirrored from inventory) --- */
+const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10};
+const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4};
+const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,stationary:0,selfCast:3};
+const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,stationary:0,selfCast:2};
+const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6};
+const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5};
+
+function calcSpellCost(spell) {
+	if (!spell || !spell.phases.length) return 0;
+	let cost = 5;
+	for (const ph of spell.phases) {
+		cost += (SHAPE_MANA[ph.shape]||0) + (BEH_MANA[ph.behavior]||0);
+		cost += ph.power * 3 + (ph.count-1)*4 + (ph.width-1)*2 + (ph.height-1)*2;
+		for (const fx of ph.effects) cost += (FX_MANA[fx]||0);
+	}
+	cost *= (0.6 + spell.phases.length * 0.4);
+	return Math.round(cost);
+}
+
+function calcSpellCtrl(spell) {
+	if (!spell || !spell.phases.length) return 0;
+	let req = 0;
+	for (const ph of spell.phases) {
+		req = Math.max(req, SHAPE_CTRL[ph.shape]||0, BEH_CTRL[ph.behavior]||0);
+		for (const fx of ph.effects) req = Math.max(req, FX_CTRL[fx]||0);
+	}
+	req += (spell.phases.length - 1) * 3;
+	return req;
+}
+
+/* =============================================================
+   CONSTANTS
+   ============================================================= */
+const GRAVITY      = 0.55;
+const GROUND_THICK = 60;
+const WORLD_W      = 4000;
+const WORLD_H      = 2400;
+const FPS          = 60;
+
+/* =============================================================
+   CAMERA
+   ============================================================= */
+const camera = { x: 0, y: 0 };
+function updateCamera() {
+	camera.x = player.x - canvas.width / 2;
+	camera.y = player.y - canvas.height / 2;
+	camera.x = Math.max(0, Math.min(camera.x, WORLD_W - canvas.width));
+	camera.y = Math.max(0, Math.min(camera.y, WORLD_H - canvas.height));
+}
+
+/* =============================================================
+   PLATFORMS
+   ============================================================= */
+const platforms = [
+	{ x:0, y:WORLD_H-GROUND_THICK, w:WORLD_W, h:GROUND_THICK },
+	{ x:500,y:2000,w:300,h:24 },{ x:1000,y:1800,w:400,h:24 },
+	{ x:1600,y:1600,w:350,h:24 },{ x:2200,y:1850,w:280,h:24 },
+	{ x:2700,y:1650,w:320,h:24 },{ x:3200,y:1900,w:250,h:24 },
+	{ x:800,y:1500,w:200,h:24 },{ x:1400,y:1350,w:260,h:24 },
+	{ x:2000,y:1450,w:300,h:24 },{ x:2800,y:1400,w:220,h:24 },
+	{ x:3400,y:1550,w:280,h:24 },
+	{ x:0,y:0,w:20,h:WORLD_H },
+	{ x:WORLD_W-20,y:0,w:20,h:WORLD_H },
+];
+
+/* =============================================================
+   TRAINING DUMMIES
+   ============================================================= */
+const dummies = [
+	{ x:1200, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:2000, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:1600, y:1600-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:2700, y:1650-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:3200, y:1900-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+];
+// store original positions for respawn
+const dummySpawns = dummies.map(d => ({ x:d.x, y:d.y }));
+
+/* temporary spell walls created by Solidify effect */
+const spellWalls = [];
+
+/* player buffs from spell effects */
+const playerBuffs = { speedTimer:0, speedMult:1, jumpTimer:0, jumpMult:1, manaRegenTimer:0, manaRegenMult:1 };
+
+/* =============================================================
+   INPUT
+   ============================================================= */
+const keys = {};
+window.addEventListener('keydown', e => {
+	keys[e.key.toLowerCase()] = true;
+	const digit = e.key >= '0' && e.key <= '9' ? (+e.key === 0 ? 9 : +e.key - 1) : -1;
+	if (digit >= 0 && digit < 10) selectSpellSlot(digit);
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+let mouseDown = false;
+canvas.addEventListener('mousedown', () => { mouseDown = true; });
+canvas.addEventListener('mouseup',   () => { mouseDown = false; });
+
+/* =============================================================
+   PLAYER
+   ============================================================= */
+const player = {
+	x: 400, y: WORLD_H - GROUND_THICK - 48,
+	w: 32, h: 48,
+	vx: 0, vy: 0,
+	speed: 4.5,
+	jumpPow: -12,
+	onGround: false,
+	facing: 1,
+	castTimer: 0,
+	castColor: '#4488ff',
+};
+
+/* =============================================================
+   MANA
+   ============================================================= */
+const maxMana = stats.magicCapacity * 3;
+let mana = maxMana;
+const baseManaRegen = 0.05 + stats.magicCapacity * 0.001;
+
+function updateManaHUD() {
+	const pct = Math.max(0, Math.min(100, (mana / maxMana) * 100));
+	document.getElementById('manaBarFill').style.width = pct + '%';
+	document.getElementById('manaText').textContent = `${Math.floor(mana)} / ${maxMana}`;
+}
+
+/* =============================================================
+   SPELL HOTBAR
+   ============================================================= */
+let activeSlot = 0;
+const spellCooldowns = new Array(10).fill(0);
+const spellMaxCooldowns = new Array(10).fill(1);
+
+function selectSpellSlot(idx) { activeSlot = idx; renderHotbar(); }
+
+function renderHotbar() {
+	const bar = document.getElementById('hotbar');
+	bar.innerHTML = '';
+	for (let i = 0; i < 10; i++) {
+		const sp = playerData.spells[i];
+		const el = document.createElement('div');
+		el.className = 'hb-slot' + (i === activeSlot ? ' active' : '');
+		const keyLabel = i === 9 ? '0' : '' + (i + 1);
+		if (sp) {
+			const cost = calcSpellCost(sp);
+			const req  = calcSpellCtrl(sp);
+			const usable = stats.magicControl >= req;
+			const color = sp.phases[0]?.color || '#888';
+			let cdHtml = '';
+			if (spellCooldowns[i] > 0) {
+				const pct = (spellCooldowns[i] / spellMaxCooldowns[i]) * 100;
+				cdHtml = `<div class="hb-cd-overlay" style="height:${pct}%"></div>`;
+			}
+			el.innerHTML = `
+				<span class="hb-key">${keyLabel}</span>
+				<div class="hb-dot" style="background:${usable ? color : '#555'}"></div>
+				<div class="hb-name" style="${usable?'':'color:#666;text-decoration:line-through'}">${sp.name}</div>
+				<div class="hb-mana">${cost}💧</div>
+				${cdHtml}
+			`;
+		} else {
+			el.innerHTML = `<span class="hb-key">${keyLabel}</span><div class="hb-name" style="color:#555">—</div>`;
+		}
+		bar.appendChild(el);
+	}
+}
+renderHotbar();
+
+/* =============================================================
+   LIVE ENTITIES
+   ============================================================= */
+const projectiles = [];
+const particles   = [];
+const dmgNumbers  = [];
+
+/* =============================================================
+   CAST SPELL
+   ============================================================= */
+function castSpell() {
+	const spell = playerData.spells[activeSlot];
+	if (!spell || !spell.phases.length) return;
+	const cost = calcSpellCost(spell);
+	const req  = calcSpellCtrl(spell);
+	if (stats.magicControl < req) return;
+	if (mana < cost) return;
+	if (spellCooldowns[activeSlot] > 0) return;
+
+	mana -= cost;
+	const cd = 30 + spell.phases.length * 10;
+	spellCooldowns[activeSlot] = cd;
+	spellMaxCooldowns[activeSlot] = cd;
+	player.castTimer = 12;
+	player.castColor = spell.phases[0]?.color || '#4488ff';
+
+	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing);
+}
+
+function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
+	if (phaseIdx >= spell.phases.length) return;
+	const ph = spell.phases[phaseIdx];
+	const count = ph.count || 1;
+	const baseAngle = facing === 1 ? 0 : Math.PI;
+	const powerMult = dmgMult || 1;
+
+	for (let i = 0; i < count; i++) {
+		let spreadAngle = 0;
+		if (count > 1) {
+			const spreadRad = (ph.spread || 0) * Math.PI / 180;
+			spreadAngle = ((i / (count - 1)) - 0.5) * spreadRad;
+		}
+		const angle = baseAngle + spreadAngle;
+		const spd = (ph.speed || 1) * 7;
+
+		const proj = {
+			spell, phaseIdx, phase: ph,
+			x: originX + facing * 16,
+			y: originY,
+			vx: Math.cos(angle) * spd,
+			vy: Math.sin(angle) * spd,
+			facing,
+			age: 0,
+			maxAge: (ph.duration || 1) * FPS,
+			width: (ph.width || 1) * 10,
+			height: (ph.height || 1) * 10,
+			power: (ph.power || 1) * (1 + stats.magicPower * 0.08) * count / (count + 1) * powerMult,
+			color: ph.color || '#4488ff',
+			trail: ph.trail || 'none',
+			shape: ph.shape || 'missile',
+			behavior: ph.behavior || 'straight',
+			effects: ph.effects || [],
+			trailParts: [],
+			orbitAngle: i * (Math.PI * 2 / count),
+			orbitRadius: (ph.orbitRadius || 80),
+			orbitSpeed: (ph.orbitSpeed || 3),
+			orbitDur: (ph.orbitDuration || 1.5) * FPS,
+			orbitOriginX: originX,
+			orbitOriginY: originY,
+			startX: originX + facing * 16,
+			startY: originY,
+			beamLen: 0,
+			chainHits: 0,
+			chainMax: 3,
+			hasHit: false,
+			phaseTriggered: false,
+			hitDummies: new Set(),
+			timedReleaseDelay: (ph.timedReleaseDelay || 0.5) * FPS,
+			timedReleaseTriggered: false,
+			phaseForkDelay: (ph.phaseForkDelay || 1) * FPS,
+			phaseForkRepeats: ph.phaseForkRepeats || 1,
+			phaseForkCount: 0,
+			phaseForkNextAge: (ph.phaseForkDelay || 1) * FPS,
+			isSolidPlatform: false,
+		};
+
+		// solidify shapes act as instant platforms
+		if (ph.shape === 'solidify') {
+			proj.isSolidPlatform = true;
+			proj.vx = 0; proj.vy = 0;
+		}
+
+		if (ph.behavior === 'rain') {
+			const spread2 = 200 * (ph.width || 1);
+			proj.x = originX + (i - (count-1)/2) * (spread2 / Math.max(count-1,1));
+			proj.y = originY - 500;
+			proj.vx = 0;
+			proj.vy = spd * 0.8;
+		}
+		if (ph.behavior === 'stationary') { proj.vx = 0; proj.vy = 0; }
+		if (ph.behavior === 'groundSurge') { proj.vy = 0; proj.vx = facing * spd; }
+		if (ph.behavior === 'selfCast') {
+			proj.x = player.x + player.w / 2;
+			proj.y = player.y + player.h - 4;
+			proj.vx = 0; proj.vy = 0;
+		}
+
+		projectiles.push(proj);
+	}
+}
+
+/* =============================================================
+   COLLISION HELPERS
+   ============================================================= */
+function rectRect(a, b) {
+	return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+function circRect(cx, cy, cr, rx, ry, rw, rh) {
+	const nx = Math.max(rx, Math.min(cx, rx+rw));
+	const ny = Math.max(ry, Math.min(cy, ry+rh));
+	return (cx-nx)**2 + (cy-ny)**2 <= cr*cr;
+}
+function dist(x1,y1,x2,y2){ return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+
+/* =============================================================
+   UPDATE PROJECTILES
+   ============================================================= */
+function updateProjectiles() {
+	for (let i = projectiles.length - 1; i >= 0; i--) {
+		const p = projectiles[i];
+		p.age++;
+
+		// trail history
+		p.trailParts.push({ x:p.x, y:p.y, age:0 });
+		if (p.trailParts.length > 14) p.trailParts.shift();
+		for (const tp of p.trailParts) tp.age++;
+
+		/* ---- BEHAVIOR MOVEMENT ---- */
+		switch (p.behavior) {
+			case 'straight': break; // velocity already set
+
+			case 'lob':
+				p.vy += 0.25;
+				break;
+
+			case 'homing': {
+				let closest = null, closestD = Infinity;
+				for (const d of dummies) {
+					if (d.hp <= 0) continue;
+					const dd = dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);
+					if (dd < closestD) { closestD = dd; closest = d; }
+				}
+				if (closest) {
+					const desired = Math.atan2(closest.y+closest.h/2-p.y, closest.x+closest.w/2-p.x);
+					const current = Math.atan2(p.vy, p.vx);
+					let diff = desired - current;
+					while(diff > Math.PI) diff -= Math.PI*2;
+					while(diff < -Math.PI) diff += Math.PI*2;
+					const turn = Math.min(0.08, Math.abs(diff)) * Math.sign(diff);
+					const newAng = current + turn;
+					const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+					p.vx = Math.cos(newAng)*spd;
+					p.vy = Math.sin(newAng)*spd;
+				}
+				break;
+			}
+
+			case 'boomerang': {
+				const progress = p.age / p.maxAge;
+				if (progress > 0.45) {
+					const dx = p.startX-p.x, dy = p.startY-p.y;
+					const d2 = Math.sqrt(dx*dx+dy*dy)||1;
+					const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+					p.vx = (dx/d2)*spd*1.02;
+					p.vy = (dy/d2)*spd*1.02;
+				}
+				break;
+			}
+
+			case 'groundSurge':
+				p.vy += 0.6;
+				for (const plat of platforms) {
+					if (p.x >= plat.x && p.x <= plat.x+plat.w &&
+						p.y >= plat.y - 8 && p.y <= plat.y + 12) {
+						p.y = plat.y - 4;
+						p.vy = -1.5;
+					}
+				}
+				break;
+
+			case 'orbit': {
+				if (p.age < p.orbitDur) {
+					p.orbitAngle += p.orbitSpeed * 0.05;
+					p.orbitOriginX += (player.x+player.w/2 - p.orbitOriginX) * 0.15;
+					p.orbitOriginY += (player.y+player.h/2-6 - p.orbitOriginY) * 0.15;
+					p.x = p.orbitOriginX + Math.cos(p.orbitAngle) * p.orbitRadius;
+					p.y = p.orbitOriginY + Math.sin(p.orbitAngle) * p.orbitRadius * 0.6;
+					p.vx = 0; p.vy = 0;
+				} else if (p.age === Math.ceil(p.orbitDur)) {
+					let target = null, closestD = Infinity;
+					for (const d of dummies) {
+						if (d.hp <= 0) continue;
+						const dd = dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);
+						if (dd < closestD) { closestD = dd; target = d; }
+					}
+					const spd = (p.phase.speed||1)*9;
+					if (target) {
+						const ang = Math.atan2(target.y+target.h/2-p.y, target.x+target.w/2-p.x);
+						p.vx = Math.cos(ang)*spd; p.vy = Math.sin(ang)*spd;
+					} else {
+						p.vx = p.facing*spd; p.vy = 0;
+					}
+				}
+				break;
+			}
+
+			case 'spiral': {
+				const ang = p.age * 0.12;
+				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || (p.phase.speed||1)*7;
+				const baseAng = p.facing===1 ? 0 : Math.PI;
+				p.vx = Math.cos(baseAng + ang*0.8)*spd;
+				p.vy = Math.sin(ang)*spd*0.5;
+				break;
+			}
+
+			case 'rain': break;
+			case 'stationary': break;
+			case 'selfCast': break;
+		}
+
+		// apply velocity (unless orbiting)
+		if (!(p.behavior==='orbit' && p.age < p.orbitDur)) {
+			p.x += p.vx;
+			p.y += p.vy;
+		}
+
+		// beam extends forward from origin
+		if (p.shape === 'beam') {
+			p.beamLen = Math.min(p.beamLen + 12, 400 * (p.phase.width||1));
+			p.x = p.startX; p.y = p.startY;
+		}
+
+		/* ---- HIT DETECTION vs dummies ---- */
+		const hitR = Math.max(p.width, p.height) * 0.7;
+		for (const d of dummies) {
+			if (d.hp <= 0) continue;
+			if (p.hitDummies.has(d)) continue; // already hit this one (pierce shapes)
+
+			let hit = false;
+			if (p.shape === 'beam') {
+				const bx = p.x, by = p.y - p.height/2;
+				const bLen = p.beamLen * p.facing;
+				const rx = p.facing===1 ? bx : bx+bLen;
+				hit = rectRect({x:rx,y:by,w:Math.abs(bLen),h:p.height}, d);
+			} else if (p.shape === 'nova' || p.shape === 'ring') {
+				hit = circRect(p.x, p.y, (p.age/p.maxAge)*p.width*8, d.x,d.y,d.w,d.h);
+			} else if (p.shape === 'cone') {
+				const coneLen = (p.age/p.maxAge)*200*(p.phase.width||1);
+				const coneHalf = coneLen*0.4*(p.phase.width||1);
+				const dx = d.x+d.w/2-p.startX, dy = d.y+d.h/2-p.startY;
+				const along = p.facing===1?dx:-dx;
+				hit = along > 0 && along < coneLen && Math.abs(dy) < coneHalf*(along/coneLen);
+			} else if (p.shape === 'wall') {
+				hit = rectRect({x:p.x-p.width,y:p.y-p.height*3,w:p.width*2,h:p.height*6}, d);
+			} else if (p.shape === 'solidify') {
+				const sw = p.width * 3, sh = p.height * 1.5;
+				hit = rectRect({x:p.x-sw/2,y:p.y-sh/2,w:sw,h:sh}, d);
+			} else {
+				hit = circRect(p.x, p.y, hitR, d.x, d.y, d.w, d.h);
+			}
+
+			if (hit) {
+				const baseDmg = p.power * 8;
+				d.hp -= baseDmg;
+				d.flash = 8;
+				dmgNumbers.push({ x:d.x+d.w/2, y:d.y-10, text:Math.round(baseDmg)+'', age:0, color:p.color });
+				applyEffects(p, d);
+
+				// chain: jump to next target
+				if (p.shape === 'chain' && p.chainHits < p.chainMax) {
+					p.chainHits++;
+					p.hitDummies.add(d);
+					let next = null, nextD = Infinity;
+					for (const d2 of dummies) {
+						if (d2 === d || d2.hp <= 0 || p.hitDummies.has(d2)) continue;
+						const dd = dist(p.x,p.y,d2.x+d2.w/2,d2.y+d2.h/2);
+						if (dd < nextD && dd < 500) { nextD = dd; next = d2; }
+					}
+					if (next) {
+						const ang = Math.atan2(next.y+next.h/2-p.y, next.x+next.w/2-p.x);
+						const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;
+						p.vx = Math.cos(ang)*spd; p.vy = Math.sin(ang)*spd;
+						spawnImpact(p.x, p.y, p.color);
+						continue;
+					}
+				}
+
+				// pierce shapes: mark dummy hit, don't destroy projectile
+				if (['nova','ring','beam','cone','wall','solidify'].includes(p.shape)) {
+					p.hitDummies.add(d);
+					continue;
+				}
+
+				p.hasHit = true;
+				spawnImpact(p.x, p.y, p.color);
+
+				// trigger next phase ON HIT
+				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
+					p.phaseTriggered = true;
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+				}
+				break;
+			}
+		}
+
+		/* ---- PLATFORM COLLISION ---- */
+		const pierceShapes = ['beam','cone','nova','ring','wall','solidify'];
+		const skipPlatformCollision = pierceShapes.includes(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' ||
+			(p.behavior==='orbit' && p.age < p.orbitDur);
+
+		if (!skipPlatformCollision && !p.hasHit) {
+			let wallHit = false;
+			for (const plat of platforms) {
+				if (p.behavior==='groundSurge' && plat.y===WORLD_H-GROUND_THICK) continue;
+				if (circRect(p.x, p.y, hitR*0.4, plat.x, plat.y, plat.w, plat.h)) {
+					wallHit = true; break;
+				}
+			}
+			if (!wallHit) {
+				for (const sw of spellWalls) {
+					if (circRect(p.x, p.y, hitR*0.4, sw.x, sw.y, sw.w, sw.h)) {
+						wallHit = true; break;
+					}
+				}
+			}
+			if (!wallHit) {
+				for (const sp of projectiles) {
+					if (sp === p || !sp.isSolidPlatform) continue;
+					const sw = sp.width * 3, sh = sp.height * 1.5;
+					if (circRect(p.x, p.y, hitR*0.4, sp.x-sw/2, sp.y-sh/2, sw, sh)) {
+						wallHit = true; break;
+					}
+				}
+			}
+			if (wallHit) {
+				spawnImpact(p.x, p.y, p.color);
+				p.hasHit = true;
+				if (!p.phaseTriggered && p.phase.nextTrigger==='onHit' && p.phaseIdx+1<p.spell.phases.length) {
+					p.phaseTriggered = true;
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+				}
+			}
+		}
+
+		/* ---- AFTER DELAY trigger ---- */
+		if (!p.phaseTriggered && p.phase.nextTrigger==='afterDelay' && p.age > p.maxAge*0.6) {
+			p.phaseTriggered = true;
+			if (p.phaseIdx+1<p.spell.phases.length)
+				spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+		}
+
+		/* ---- TIMED RELEASE auto-trigger effects ---- */
+		if (!p.timedReleaseTriggered && p.effects.includes('timedRelease') && p.age >= p.timedReleaseDelay) {
+			p.timedReleaseTriggered = true;
+			applyEffects(p, null);
+			spawnImpact(p.x, p.y, p.color);
+			dmgNumbers.push({ x:p.x, y:p.y-10, text:'\u23f1\ufe0f Triggered!', age:0, color:p.color });
+		}
+
+		/* ---- PHASE FORK: trigger next phase without ending current ---- */
+		if (p.effects.includes('phaseFork') && p.phaseIdx+1 < p.spell.phases.length) {
+			if (p.phaseForkCount < p.phaseForkRepeats && p.age >= p.phaseForkNextAge) {
+				p.phaseForkCount++;
+				p.phaseForkNextAge = p.age + p.phaseForkDelay;
+				const dmgMult = 1 / (1 + p.phaseForkCount * 0.3);
+				const extraCost = calcSpellCost(p.spell) * 0.15;
+				if (mana >= extraCost) {
+					mana -= extraCost;
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, dmgMult);
+					spawnImpact(p.x, p.y, p.color);
+					dmgNumbers.push({ x:p.x, y:p.y-14, text:'\ud83d\udd00 Fork!', age:0, color:p.color });
+				} else {
+					dmgNumbers.push({ x:p.x, y:p.y-14, text:'No Mana!', age:0, color:'#ff4444' });
+				}
+			}
+		}
+
+		/* ---- EXPIRE ---- */
+		const shouldRemove = p.age >= p.maxAge || (p.hasHit && !pierceShapes.includes(p.shape));
+		if (shouldRemove) {
+			if (!p.phaseTriggered && p.phase.nextTrigger==='onExpire' && p.phaseIdx+1<p.spell.phases.length) {
+				p.phaseTriggered = true;
+				spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+			}
+			projectiles.splice(i,1);
+			continue;
+		}
+
+		// out of world
+		if (p.x<-100||p.x>WORLD_W+100||p.y<-600||p.y>WORLD_H+100) {
+			projectiles.splice(i,1);
+		}
+	}
+}
+
+/* =============================================================
+   APPLY EFFECTS
+   ============================================================= */
+function applyEffects(proj, dummy) {
+	for (const fx of proj.effects) {
+		switch (fx) {
+			case 'burn':
+				if(dummy) dummy.dots.push({ type:'burn', dmg:proj.power*1.5, ticks:5, interval:20, timer:0, color:'#ff6a00' });
+				break;
+			case 'poison':
+				if(dummy) dummy.dots.push({ type:'poison', dmg:proj.power*1.2, ticks:6, interval:25, timer:0, color:'#44dd44' });
+				break;
+			case 'freeze':
+				if(dummy){ dummy.slowTimer = (dummy.slowTimer||0)+90; dummy.flash = 15; }
+				break;
+			case 'knockback':
+				if(dummy){ dummy.x += proj.facing * 40; dummy.x = Math.max(20, Math.min(WORLD_W-20-dummy.w, dummy.x)); }
+				break;
+			case 'pull': {
+				if(dummy){
+					const dx = player.x+player.w/2-(dummy.x+dummy.w/2);
+					const dy = player.y+player.h/2-(dummy.y+dummy.h/2);
+					const d2 = Math.sqrt(dx*dx+dy*dy)||1;
+					dummy.x += (dx/d2)*50;
+					dummy.y += (dy/d2)*30;
+				}
+				break;
+			}
+			case 'stun':
+				if(dummy) dummy.stunTimer = (dummy.stunTimer||0)+60;
+				break;
+			case 'healSelf':
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+Math.round(proj.power*5), age:0, color:'#44ff88' });
+				break;
+			case 'shield':
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-20, text:'🛡️ Shield', age:0, color:'#88bbff' });
+				break;
+			case 'lifesteal':
+				mana = Math.min(maxMana, mana + proj.power*3);
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+Math.round(proj.power*3)+'💧', age:0, color:'#bb44ff' });
+				break;
+			case 'speedBoost':
+				playerBuffs.speedTimer = 300; playerBuffs.speedMult = 1.8;
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'🏃 Speed!', age:0, color:'#ffcc00' });
+				break;
+			case 'jumpBoost':
+				playerBuffs.jumpTimer = 300; playerBuffs.jumpMult = 1.5;
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-20, text:'⬆️ Jump!', age:0, color:'#66ff66' });
+				break;
+			case 'manaRegen':
+				playerBuffs.manaRegenTimer = 300; playerBuffs.manaRegenMult = 3;
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'💧 Regen!', age:0, color:'#66ccff' });
+				break;
+		}
+	}
+}
+
+/* =============================================================
+   PARTICLES & IMPACT
+   ============================================================= */
+function spawnImpact(x, y, color) {
+	const rgb = hexToRgb(color);
+	for (let i = 0; i < 14; i++) {
+		const ang = Math.random()*Math.PI*2;
+		const spd = 1.5+Math.random()*3.5;
+		particles.push({
+			x, y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+			life:20+Math.random()*15|0, maxLife:35,
+			r:2+Math.random()*3, color:rgb,
+		});
+	}
+}
+
+function hexToRgb(hex) {
+	return {
+		r: parseInt(hex.slice(1,3),16)||100,
+		g: parseInt(hex.slice(3,5),16)||150,
+		b: parseInt(hex.slice(5,7),16)||255
+	};
+}
+
+/* =============================================================
+   UPDATE
+   ============================================================= */
+let castPressed = false;
+let hotbarDirty = false;
+
+function update() {
+	/* player movement */
+	let moveX = 0;
+	if (keys['a']||keys['arrowleft'])  moveX -= 1;
+	if (keys['d']||keys['arrowright']) moveX += 1;
+	if (moveX !== 0) player.facing = moveX;
+	const currentSpeed = player.speed * (playerBuffs.speedTimer > 0 ? playerBuffs.speedMult : 1);
+	player.vx = moveX * currentSpeed;
+
+	if ((keys['w']||keys['arrowup']||keys[' ']) && player.onGround) {
+		const currentJump = player.jumpPow * (playerBuffs.jumpTimer > 0 ? playerBuffs.jumpMult : 1);
+		player.vy = currentJump;
+		player.onGround = false;
+	}
+
+	player.vy += GRAVITY;
+	if (player.vy > 18) player.vy = 18;
+
+	player.x += player.vx;
+	for (const p of platforms) {
+		if (rectRect(player, p)) {
+			if (player.vx > 0) player.x = p.x - player.w;
+			else if (player.vx < 0) player.x = p.x + p.w;
+			player.vx = 0;
+		}
+	}
+	for (const sw of spellWalls) {
+		if (rectRect(player, sw)) {
+			if (player.vx > 0) player.x = sw.x - player.w;
+			else if (player.vx < 0) player.x = sw.x + sw.w;
+			player.vx = 0;
+		}
+	}
+	// solidify projectiles as platforms (horizontal)
+	for (const p of projectiles) {
+		if (!p.isSolidPlatform) continue;
+		const sw = p.width * 3, sh = p.height * 1.5;
+		const platBox = { x:p.x-sw/2, y:p.y-sh/2, w:sw, h:sh };
+		if (rectRect(player, platBox)) {
+			if (player.vx > 0) player.x = platBox.x - player.w;
+			else if (player.vx < 0) player.x = platBox.x + platBox.w;
+			player.vx = 0;
+		}
+	}
+	player.y += player.vy;
+	player.onGround = false;
+	for (const p of platforms) {
+		if (rectRect(player, p)) {
+			if (player.vy > 0) { player.y = p.y - player.h; player.onGround = true; }
+			else if (player.vy < 0) { player.y = p.y + p.h; }
+			player.vy = 0;
+		}
+	}
+	for (const sw of spellWalls) {
+		if (rectRect(player, sw)) {
+			if (player.vy > 0) { player.y = sw.y - player.h; player.onGround = true; }
+			else if (player.vy < 0) { player.y = sw.y + sw.h; }
+			player.vy = 0;
+		}
+	}
+	// solidify projectiles as platforms (vertical)
+	for (const p of projectiles) {
+		if (!p.isSolidPlatform) continue;
+		const sw = p.width * 3, sh = p.height * 1.5;
+		const platBox = { x:p.x-sw/2, y:p.y-sh/2, w:sw, h:sh };
+		if (rectRect(player, platBox)) {
+			if (player.vy > 0) { player.y = platBox.y - player.h; player.onGround = true; }
+			else if (player.vy < 0) { player.y = platBox.y + platBox.h; }
+			player.vy = 0;
+		}
+	}
+	if (player.y < 0) { player.y = 0; player.vy = 0; }
+
+	/* casting */
+	const wantCast = keys['x'] || mouseDown;
+	if (wantCast && !castPressed) { castPressed = true; castSpell(); }
+	if (!wantCast) castPressed = false;
+	if (player.castTimer > 0) player.castTimer--;
+
+	/* cooldowns */
+	for (let i = 0; i < 10; i++) {
+		if (spellCooldowns[i] > 0) { spellCooldowns[i]--; hotbarDirty = true; }
+	}
+	if (hotbarDirty) { renderHotbar(); hotbarDirty = false; }
+
+	/* mana regen */
+	const currentRegen = baseManaRegen * (playerBuffs.manaRegenTimer > 0 ? playerBuffs.manaRegenMult : 1);
+	mana = Math.min(maxMana, mana + currentRegen);
+	updateManaHUD();
+
+	/* projectiles */
+	updateProjectiles();
+
+	/* dummies */
+	for (let di = 0; di < dummies.length; di++) {
+		const d = dummies[di];
+		if (d.flash > 0) d.flash--;
+		if (d.stunTimer > 0) d.stunTimer--;
+		if (d.slowTimer > 0) d.slowTimer--;
+
+		if (d.hp <= 0) {
+			d.hp = d.maxHp;
+			d.x = dummySpawns[di].x;
+			d.y = dummySpawns[di].y;
+			d.flash = 0; d.dots = []; d.stunTimer = 0; d.slowTimer = 0;
+			dmgNumbers.push({ x:d.x+d.w/2, y:d.y-10, text:'Respawned', age:0, color:'#888' });
+		}
+
+		for (let doti = d.dots.length-1; doti >= 0; doti--) {
+			const dot = d.dots[doti];
+			dot.timer++;
+			if (dot.timer >= dot.interval) {
+				dot.timer = 0;
+				d.hp -= dot.dmg;
+				d.flash = 4;
+				dmgNumbers.push({ x:d.x+d.w/2+(Math.random()-0.5)*10, y:d.y-6, text:Math.round(dot.dmg)+'', age:0, color:dot.color });
+				dot.ticks--;
+				if (dot.ticks <= 0) d.dots.splice(doti, 1);
+			}
+		}
+	}
+
+	/* spell walls */
+	for (let i = spellWalls.length - 1; i >= 0; i--) {
+		spellWalls[i].timer--;
+		if (spellWalls[i].timer <= 0) spellWalls.splice(i, 1);
+	}
+
+	/* player buffs */
+	if (playerBuffs.speedTimer > 0) playerBuffs.speedTimer--;
+	if (playerBuffs.jumpTimer > 0) playerBuffs.jumpTimer--;
+	if (playerBuffs.manaRegenTimer > 0) playerBuffs.manaRegenTimer--;
+
+	/* particles */
+	for (let i = particles.length-1; i >= 0; i--) {
+		const p = particles[i];
+		p.x += p.vx; p.y += p.vy;
+		p.vy += 0.06; p.vx *= 0.97;
+		p.life--;
+		if (p.life <= 0) particles.splice(i,1);
+	}
+
+	/* dmg numbers */
+	for (let i = dmgNumbers.length-1; i >= 0; i--) {
+		dmgNumbers[i].age++;
+		dmgNumbers[i].y -= 0.8;
+		if (dmgNumbers[i].age > 60) dmgNumbers.splice(i,1);
+	}
+
+	updateCamera();
+}
+
+/* =============================================================
+   RENDER
+   ============================================================= */
+function render() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	/* sky */
+	const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+	grad.addColorStop(0,'#1a1a2e'); grad.addColorStop(1,'#16213e');
+	ctx.fillStyle = grad;
+	ctx.fillRect(0,0,canvas.width,canvas.height);
+
+	/* grid parallax */
+	ctx.save(); ctx.globalAlpha = 0.06; ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+	const gs = 80, oX = -(camera.x*0.3)%gs, oY = -(camera.y*0.3)%gs;
+	for (let gx=oX;gx<canvas.width;gx+=gs){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,canvas.height);ctx.stroke();}
+	for (let gy=oY;gy<canvas.height;gy+=gs){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);ctx.stroke();}
+	ctx.restore();
+
+	/* platforms */
+	for (const p of platforms) {
+		const sx=p.x-camera.x, sy=p.y-camera.y;
+		if(sx+p.w<0||sx>canvas.width||sy+p.h<0||sy>canvas.height) continue;
+		if(p.h>30){ctx.fillStyle='#2a2a3d';ctx.fillRect(sx,sy,p.w,p.h);ctx.fillStyle='#3d3d56';ctx.fillRect(sx,sy,p.w,4);}
+		else{ctx.fillStyle='#3b3b55';ctx.fillRect(sx,sy,p.w,p.h);ctx.fillStyle='#55557a';ctx.fillRect(sx,sy,p.w,4);}
+	}
+
+	/* spell walls */
+	for (const sw of spellWalls) {
+		const sx = sw.x - camera.x, sy = sw.y - camera.y;
+		if (sx+sw.w<0||sx>canvas.width||sy+sw.h<0||sy>canvas.height) continue;
+		const alpha = Math.min(1, sw.timer / 60);
+		ctx.save();
+		ctx.globalAlpha = 0.5 * alpha;
+		ctx.fillStyle = sw.color;
+		ctx.fillRect(sx, sy, sw.w, sw.h);
+		ctx.globalAlpha = 0.8 * alpha;
+		ctx.strokeStyle = sw.color;
+		ctx.lineWidth = 2;
+		ctx.strokeRect(sx, sy, sw.w, sw.h);
+		ctx.globalAlpha = 0.15 * alpha;
+		ctx.fillStyle = '#fff';
+		ctx.fillRect(sx + 2, sy + 2, sw.w - 4, 4);
+		ctx.restore();
+	}
+
+	/* dummies */
+	for (const d of dummies) {
+		const dx=d.x-camera.x, dy=d.y-camera.y;
+		if(dx+d.w<-50||dx>canvas.width+50||dy+d.h<-50||dy>canvas.height+50) continue;
+		ctx.fillStyle = d.flash>0?'#ff6666':(d.stunTimer>0?'#8888cc':(d.slowTimer>0?'#66ccff':'#8b4444'));
+		ctx.fillRect(dx,dy,d.w,d.h);
+		ctx.fillStyle='#666'; ctx.fillRect(dx-6,dy+12,d.w+12,4);
+		ctx.fillStyle = d.flash>0?'#ff8888':'#a05050';
+		ctx.fillRect(dx+4,dy-10,d.w-8,12);
+		const hpPct=Math.max(0,d.hp/d.maxHp);
+		ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(dx-4,dy-18,d.w+8,5);
+		ctx.fillStyle = hpPct>0.5?'#2ecc71':(hpPct>0.25?'#f39c12':'#e74c3c');
+		ctx.fillRect(dx-4,dy-18,(d.w+8)*hpPct,5);
+		ctx.font='9px Arial';ctx.fillStyle='#888';ctx.textAlign='center';
+		ctx.fillText('Dummy',dx+d.w/2,dy+d.h+12);
+	}
+
+	/* projectiles */
+	for (const p of projectiles) {
+		const px=p.x-camera.x, py=p.y-camera.y;
+		const progress = p.age/p.maxAge;
+
+		drawTrail(p);
+
+		// glow
+		ctx.save();
+		ctx.globalAlpha = 0.25+0.2*(1-progress);
+		const glow = ctx.createRadialGradient(px,py,0,px,py,p.width*3);
+		glow.addColorStop(0,p.color); glow.addColorStop(1,'transparent');
+		ctx.fillStyle=glow;
+		ctx.beginPath();ctx.arc(px,py,p.width*3,0,Math.PI*2);ctx.fill();
+		ctx.restore();
+
+		ctx.fillStyle=p.color; ctx.strokeStyle=p.color; ctx.globalAlpha=0.9;
+
+		switch(p.shape){
+			case 'missile':case 'orb':{
+				const r=p.shape==='orb'?p.width*1.3:p.width*0.7;
+				ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle='#fff';ctx.globalAlpha=0.6;
+				ctx.beginPath();ctx.arc(px,py,r*0.4,0,Math.PI*2);ctx.fill();
+				break;
+			}
+			case 'blade':{
+				ctx.save();ctx.translate(px,py);ctx.rotate(p.age*0.3);
+				ctx.fillRect(-p.width*1.8,-p.height*0.3,p.width*3.6,p.height*0.6);
+				ctx.restore();break;
+			}
+			case 'beam':{
+				const bx=p.startX-camera.x,by=p.startY-camera.y;
+				const bLen=p.beamLen*p.facing;
+				ctx.globalAlpha=0.7;
+				ctx.fillRect(p.facing===1?bx:bx+bLen,by-p.height/2,Math.abs(bLen),p.height);
+				ctx.fillStyle='#fff';ctx.globalAlpha=0.5;
+				ctx.fillRect(p.facing===1?bx:bx+bLen,by-p.height*0.15,Math.abs(bLen),p.height*0.3);
+				break;
+			}
+			case 'ring':{
+				const eR=progress*p.width*8;
+				ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);
+				ctx.lineWidth=3;ctx.globalAlpha=0.7*(1-progress);ctx.stroke();
+				break;
+			}
+			case 'cone':{
+				const cL=progress*200*(p.phase.width||1), cH=cL*0.4*(p.phase.width||1);
+				const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
+				ctx.beginPath();ctx.moveTo(cx2,cy2);
+				ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);
+				ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
+				ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
+				break;
+			}
+			case 'nova':{
+				const eR=progress*p.width*8;
+				ctx.globalAlpha=0.25*(1-progress);
+				ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.fill();
+				ctx.lineWidth=3;ctx.globalAlpha=0.6*(1-progress);
+				ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.stroke();
+				break;
+			}
+			case 'chain':{
+				ctx.beginPath();ctx.arc(px,py,p.width*0.7,0,Math.PI*2);ctx.fill();
+				if(p.trailParts.length>1){
+					ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.globalAlpha=0.7;
+					ctx.beginPath();
+					ctx.moveTo(p.trailParts[0].x-camera.x,p.trailParts[0].y-camera.y);
+					for(let t=1;t<p.trailParts.length;t++){
+						const tp=p.trailParts[t];
+						ctx.lineTo(tp.x-camera.x+(Math.random()-0.5)*6,tp.y-camera.y+(Math.random()-0.5)*6);
+					}
+					ctx.lineTo(px,py);ctx.stroke();
+				}
+				break;
+			}
+			case 'wall':{
+				const ww=p.width*2,wh=p.height*6;
+				ctx.globalAlpha=0.45;ctx.fillRect(px-ww/2,py-wh/2,ww,wh);
+				ctx.globalAlpha=0.7;ctx.strokeStyle=p.color;ctx.lineWidth=2;
+				ctx.strokeRect(px-ww/2,py-wh/2,ww,wh);
+				break;
+			}
+			case 'solidify':{
+				const sw2=p.width*3,sh2=p.height*1.5;
+				ctx.globalAlpha=0.7;ctx.fillRect(px-sw2/2,py-sh2/2,sw2,sh2);
+				ctx.globalAlpha=0.9;ctx.strokeStyle=p.color;ctx.lineWidth=2;
+				ctx.strokeRect(px-sw2/2,py-sh2/2,sw2,sh2);
+				ctx.globalAlpha=0.2;ctx.fillStyle='#fff';
+				ctx.fillRect(px-sw2/2+2,py-sh2/2+2,sw2-4,3);
+				break;
+			}
+		}
+		ctx.globalAlpha=1;
+	}
+
+	/* particles */
+	for(const p of particles){
+		const alpha=p.life/p.maxLife;
+		ctx.beginPath();ctx.arc(p.x-camera.x,p.y-camera.y,p.r*alpha,0,Math.PI*2);
+		ctx.fillStyle=`rgba(${p.color.r},${p.color.g},${p.color.b},${alpha*0.8})`;
+		ctx.fill();
+	}
+
+	/* dmg numbers */
+	for(const dn of dmgNumbers){
+		ctx.font='bold 14px Arial';ctx.fillStyle=dn.color;
+		ctx.globalAlpha=1-dn.age/60;ctx.textAlign='center';
+		ctx.fillText(dn.text,dn.x-camera.x,dn.y-camera.y);
+	}
+	ctx.globalAlpha=1;
+
+	/* player */
+	const ppx=player.x-camera.x, ppy=player.y-camera.y;
+	ctx.fillStyle='#5b7fbf';ctx.fillRect(ppx,ppy,player.w,player.h);
+	ctx.fillStyle='#3a5a9e';ctx.fillRect(ppx,ppy+player.h-10,player.w,10);
+	ctx.fillStyle='#c8a882';ctx.fillRect(ppx+6,ppy+2,20,16);
+	ctx.fillStyle='#fff';
+	const eyeX=player.facing===1?ppx+18:ppx+10;
+	ctx.fillRect(eyeX,ppy+7,5,5);
+	ctx.fillStyle='#222';ctx.fillRect(player.facing===1?eyeX+2:eyeX,ppy+8,3,3);
+	ctx.fillStyle='#2e3a6e';ctx.beginPath();
+	ctx.moveTo(ppx+4,ppy+4);ctx.lineTo(ppx+player.w/2,ppy-18);ctx.lineTo(ppx+player.w-4,ppy+4);
+	ctx.closePath();ctx.fill();
+	const armY=ppy+18, armX=player.facing===1?ppx+player.w:ppx;
+	ctx.fillStyle='#5b7fbf';ctx.fillRect(player.facing===1?armX:armX-10,armY,10,6);
+	if(player.castTimer>0){
+		ctx.save();ctx.globalAlpha=0.6*(player.castTimer/12);
+		ctx.beginPath();ctx.arc(player.facing===1?armX+10:armX-10,armY+3,12,0,Math.PI*2);
+		ctx.fillStyle=player.castColor;ctx.fill();ctx.restore();
+	}
+}
+
+/* =============================================================
+   DRAW TRAIL
+   ============================================================= */
+function drawTrail(proj){
+	if(proj.trail==='none'||proj.trailParts.length<2) return;
+	const trailColors={
+		sparkle:{r:200,g:220,b:255},flame:{r:255,g:140,b:50},
+		smoke:{r:100,g:100,b:100},ice:{r:150,g:220,b:255},
+		lightning:{r:180,g:180,b:255},
+	};
+	const rgb=trailColors[proj.trail]||hexToRgb(proj.color);
+	for(let t=0;t<proj.trailParts.length;t++){
+		const tp=proj.trailParts[t];
+		const alpha=((t+1)/proj.trailParts.length)*0.5;
+		const r=proj.width*0.5*((t+1)/proj.trailParts.length);
+		ctx.beginPath();ctx.arc(tp.x-camera.x,tp.y-camera.y,r,0,Math.PI*2);
+		ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;ctx.fill();
+	}
+	if(['sparkle','flame','lightning'].includes(proj.trail)){
+		const last=proj.trailParts[proj.trailParts.length-1];
+		if(last&&Math.random()<0.4){
+			particles.push({
+				x:last.x+(Math.random()-0.5)*8,y:last.y+(Math.random()-0.5)*8,
+				vx:(Math.random()-0.5)*1.5,vy:(Math.random()-0.5)*1.5-0.5,
+				life:10+Math.random()*8|0,maxLife:18,
+				r:1.5+Math.random()*1.5,color:rgb,
+			});
+		}
+	}
+}
+
+/* =============================================================
+   LOOP
+   ============================================================= */
+function loop(){update();render();requestAnimationFrame(loop);}
+loop();
+</script>
+</body>
+</html>

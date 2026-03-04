@@ -1,0 +1,1513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Magic Battle — Inventory</title>
+<style>
+/* ============================================================
+   ROOT & RESET
+   ============================================================ */
+:root{
+	--bg:#12101e;--panel:rgba(255,255,255,.05);--panel2:rgba(255,255,255,.08);
+	--border:rgba(255,255,255,.15);--text:#e8eaff;--muted:#9ea4c4;
+	--accent:#6c5ce7;--accent2:#a29bfe;--green:#28a745;--red:#e74c3c;
+	--blue:#3498db;--gold:#f1c40f;--orange:#e67e22;--purple:#9b59b6;
+	--slot-bg:rgba(255,255,255,.04);--slot-hover:rgba(255,255,255,.1);
+	--rarity-common:#aaa;--rarity-uncommon:#2ecc71;--rarity-rare:#3498db;
+	--rarity-epic:#9b59b6;--rarity-legendary:#f39c12;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+
+/* ============================================================
+   LAYOUT – three-column with top bar
+   ============================================================ */
+#topBar{
+	display:flex;align-items:center;justify-content:space-between;
+	padding:10px 18px;background:rgba(0,0,0,.35);border-bottom:1px solid var(--border);
+	height:52px;
+}
+#topBar h1{font-size:20px;letter-spacing:1px}
+#backBtn{
+	padding:6px 16px;font-size:13px;background:rgba(255,255,255,.1);color:#ccc;
+	border:1px solid var(--border);border-radius:5px;transition:background .2s;
+}
+#backBtn:hover{background:rgba(255,255,255,.2)}
+
+/* stats bar */
+.stats-bar{display:flex;gap:16px;align-items:center}
+.stat-chip{
+	display:flex;align-items:center;gap:5px;padding:4px 10px;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;
+	font-size:12px;
+}
+.stat-chip .stat-icon{font-size:15px}
+.stat-chip .stat-val{font-weight:700;color:#fff}
+
+/* columns */
+#mainWrap{display:flex;height:calc(100vh - 52px);overflow:hidden}
+#leftCol{width:240px;min-width:200px;border-right:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+#centerCol{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+#rightCol{width:280px;min-width:240px;border-left:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+
+/* ============================================================
+   PANEL GENERIC
+   ============================================================ */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px}
+.panel h3{font-size:14px;margin-bottom:10px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px}
+
+/* ============================================================
+   EQUIPMENT SLOTS (left col)
+   ============================================================ */
+.equip-slot{
+	display:flex;align-items:center;gap:10px;padding:8px 10px;
+	background:var(--slot-bg);border:2px dashed var(--border);border-radius:8px;
+	min-height:56px;cursor:pointer;transition:background .2s,border-color .2s;
+	position:relative;
+}
+.equip-slot:hover{background:var(--slot-hover);border-color:rgba(255,255,255,.3)}
+.equip-slot.filled{border-style:solid}
+.equip-slot .eq-icon{font-size:26px;width:36px;text-align:center;flex-shrink:0}
+.equip-slot .eq-info{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.equip-slot .eq-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.equip-slot .eq-sub{font-size:11px;color:var(--muted)}
+.equip-slot .eq-label{font-size:11px;color:var(--muted);font-style:italic}
+.equip-slot .unequip-btn{
+	position:absolute;top:4px;right:6px;background:none;border:none;color:var(--red);
+	font-size:14px;opacity:.6;transition:opacity .2s;
+}
+.equip-slot .unequip-btn:hover{opacity:1}
+
+/* ============================================================
+   INVENTORY GRID (center col)
+   ============================================================ */
+.inv-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.inv-toolbar input[type=text]{
+	flex:1;min-width:160px;padding:7px 12px;font-size:13px;
+	background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:6px;
+	color:#fff;outline:none;transition:border-color .2s;
+}
+.inv-toolbar input:focus{border-color:var(--accent)}
+.inv-page-info{font-size:12px;color:var(--muted);white-space:nowrap}
+.inv-page-btn{
+	padding:4px 10px;font-size:13px;background:rgba(255,255,255,.08);
+	color:#ccc;border:1px solid var(--border);border-radius:5px;transition:background .2s;
+}
+.inv-page-btn:hover:not(:disabled){background:rgba(255,255,255,.16)}
+.inv-page-btn:disabled{opacity:.35;cursor:default}
+
+.inv-grid{
+	display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;
+}
+.inv-cell{
+	aspect-ratio:1;background:var(--slot-bg);border:2px solid transparent;
+	border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+	position:relative;cursor:pointer;transition:background .15s,border-color .15s,transform .15s;
+	overflow:hidden;
+}
+.inv-cell:hover{background:var(--slot-hover);transform:scale(1.04)}
+.inv-cell.selected{border-color:var(--accent);background:rgba(108,92,231,.15)}
+.inv-cell .cell-icon{font-size:28px;pointer-events:none}
+.inv-cell .cell-name{font-size:10px;text-align:center;margin-top:2px;opacity:.85;pointer-events:none;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.inv-cell .cell-qty{
+	position:absolute;bottom:3px;right:5px;font-size:10px;font-weight:700;
+	color:var(--gold);pointer-events:none;
+}
+.inv-cell[data-rarity=common]{border-color:var(--rarity-common)}
+.inv-cell[data-rarity=uncommon]{border-color:var(--rarity-uncommon)}
+.inv-cell[data-rarity=rare]{border-color:var(--rarity-rare)}
+.inv-cell[data-rarity=epic]{border-color:var(--rarity-epic)}
+.inv-cell[data-rarity=legendary]{border-color:var(--rarity-legendary)}
+
+/* item tooltip */
+.tooltip{
+	position:fixed;z-index:1000;max-width:240px;padding:10px 14px;
+	background:#1c1a30;border:1px solid var(--border);border-radius:8px;
+	pointer-events:none;font-size:12px;line-height:1.45;
+	box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;
+}
+.tooltip .tt-name{font-size:14px;font-weight:700;margin-bottom:3px}
+.tooltip .tt-type{font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:capitalize}
+.tooltip .tt-stat{color:var(--green)}
+.tooltip .tt-desc{color:var(--muted);margin-top:4px;font-style:italic}
+
+/* ============================================================
+   SPELL SLOTS (right col)
+   ============================================================ */
+.spell-slot{
+	display:flex;align-items:center;gap:10px;padding:8px 10px;
+	background:var(--slot-bg);border:1px solid var(--border);border-radius:8px;
+	min-height:48px;cursor:pointer;transition:background .2s,border-color .2s;
+}
+.spell-slot:hover{background:var(--slot-hover);border-color:rgba(255,255,255,.3)}
+.spell-slot .sp-num{font-size:11px;color:var(--muted);min-width:14px}
+.spell-slot .sp-color{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.spell-slot .sp-name{font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spell-slot .sp-mana{font-size:11px;color:var(--blue)}
+.spell-slot .sp-empty{font-size:12px;color:var(--muted);font-style:italic}
+
+/* ============================================================
+   SPELL BUILDER MODAL
+   ============================================================ */
+.modal-overlay{
+	position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;
+	display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal{
+	width:min(96vw,1100px);max-height:92vh;background:#181630;
+	border:1px solid var(--border);border-radius:12px;overflow:hidden;
+	display:flex;flex-direction:column;
+}
+.modal-head{
+	display:flex;align-items:center;justify-content:space-between;
+	padding:12px 18px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);
+}
+.modal-head h2{font-size:17px}
+.modal-head .close-btn{
+	background:none;border:none;color:var(--red);font-size:22px;
+	line-height:1;transition:opacity .2s;opacity:.7;
+}
+.modal-head .close-btn:hover{opacity:1}
+
+.modal-body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+
+/* spell meta row */
+.spell-meta{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.spell-meta label{font-size:12px;color:var(--muted)}
+.spell-meta input[type=text]{
+	padding:5px 10px;font-size:14px;background:rgba(255,255,255,.07);
+	border:1px solid var(--border);border-radius:5px;color:#fff;width:200px;
+}
+.spell-meta .meta-chip{
+	padding:4px 10px;border-radius:5px;font-size:12px;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);
+}
+.spell-meta .meta-chip b{color:#fff}
+
+/* spell description (auto-generated) */
+.spell-desc{
+	padding:8px 12px;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.2);
+	border-radius:6px;font-size:12px;color:var(--muted);line-height:1.5;
+	font-style:italic;min-height:36px;
+}
+
+/* phases container */
+.phases-wrap{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+.phase-card{
+	min-width:260px;max-width:280px;flex-shrink:0;background:var(--panel2);
+	border:1px solid var(--border);border-radius:8px;padding:12px;
+	display:flex;flex-direction:column;gap:8px;position:relative;
+}
+.phase-card h4{font-size:13px;color:var(--accent2);display:flex;align-items:center;justify-content:space-between}
+.phase-card h4 .remove-phase{
+	background:none;border:none;color:var(--red);font-size:14px;opacity:.6;cursor:pointer;
+}
+.phase-card h4 .remove-phase:hover{opacity:1}
+
+.phase-card .arrow-between{
+	position:absolute;top:50%;right:-20px;color:var(--accent);font-size:20px;
+	transform:translateY(-50%);pointer-events:none;
+}
+
+/* form rows inside phase card */
+.prow{display:flex;flex-direction:column;gap:3px}
+.prow label{font-size:11px;color:var(--muted)}
+.prow select,.prow input[type=range],.prow input[type=number],.prow input[type=color]{
+	width:100%;font-size:12px;padding:4px 6px;
+	background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:4px;
+	color:#fff;
+}
+.prow input[type=range]{padding:2px 0;cursor:pointer}
+.prow input[type=color]{height:28px;padding:2px;cursor:pointer}
+.prow select option{background:#1c1a30;color:#e8eaff;padding:6px 8px}
+.prow select:focus{border-color:var(--accent);outline:none}
+.prow select{cursor:pointer}
+.prow .range-row{display:flex;align-items:center;gap:6px}
+.prow .range-val{font-size:11px;min-width:28px;text-align:right;color:#fff}
+
+/* effects checkboxes */
+.fx-grid{display:flex;flex-wrap:wrap;gap:4px}
+.fx-chip{
+	padding:3px 8px;font-size:11px;border-radius:4px;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);
+	cursor:pointer;transition:background .15s,border-color .15s;user-select:none;
+}
+.fx-chip.active{background:rgba(108,92,231,.25);border-color:var(--accent)}
+
+/* add phase button */
+.add-phase-btn{
+	min-width:80px;align-self:center;padding:10px 16px;font-size:13px;
+	background:rgba(108,92,231,.15);border:2px dashed var(--accent);border-radius:8px;
+	color:var(--accent2);transition:background .2s;flex-shrink:0;
+}
+.add-phase-btn:hover{background:rgba(108,92,231,.3)}
+
+/* preview canvas */
+#spellPreview{
+	width:100%;height:180px;background:#0e0c1a;border:1px solid var(--border);
+	border-radius:8px;
+}
+
+/* modal footer */
+.modal-foot{
+	display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;
+	border-top:1px solid var(--border);background:rgba(0,0,0,.2);
+}
+.btn{padding:8px 20px;font-size:13px;border:none;border-radius:6px;transition:background .2s,transform .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#7c6cf0}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#c0392b}
+.btn-ghost{background:rgba(255,255,255,.08);color:#ccc;border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.15)}
+
+/* context menu for inventory (equip / use) */
+.ctx-menu{
+	position:fixed;z-index:600;background:#1c1a30;border:1px solid var(--border);
+	border-radius:6px;overflow:hidden;min-width:140px;box-shadow:0 4px 16px rgba(0,0,0,.6);
+	display:none;
+}
+.ctx-menu.open{display:block}
+.ctx-item{
+	padding:8px 14px;font-size:13px;cursor:pointer;transition:background .15s;
+}
+.ctx-item:hover{background:rgba(108,92,231,.2)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+</style>
+</head>
+<body>
+
+<!-- ==================== TOP BAR ==================== -->
+<div id="topBar">
+	<button id="backBtn" onclick="location.href='index.html'">← Menu</button>
+	<h1>Inventory</h1>
+	<div class="stats-bar" id="statsBar"></div>
+</div>
+
+<!-- ==================== MAIN LAYOUT ==================== -->
+<div id="mainWrap">
+
+	<!-- LEFT: Equipment -->
+	<div id="leftCol">
+		<div class="panel">
+			<h3>Equipment</h3>
+			<div id="equipSlots" style="display:flex;flex-direction:column;gap:8px"></div>
+		</div>
+		<div class="panel">
+			<h3>Base Stats</h3>
+			<div id="baseStatsPanel" style="font-size:12px;line-height:1.8;color:var(--muted)"></div>
+		</div>
+	</div>
+
+	<!-- CENTER: Inventory Grid -->
+	<div id="centerCol">
+		<div class="panel" style="flex:1;display:flex;flex-direction:column">
+			<h3>Inventory</h3>
+			<div class="inv-toolbar">
+				<input type="text" id="searchBox" placeholder="Search items..." autocomplete="off"/>
+				<button class="inv-page-btn" id="prevPage">◀</button>
+				<span class="inv-page-info" id="pageInfo">1 / 1</span>
+				<button class="inv-page-btn" id="nextPage">▶</button>
+			</div>
+			<div class="inv-grid" id="invGrid"></div>
+		</div>
+	</div>
+
+	<!-- RIGHT: Spell Slots -->
+	<div id="rightCol">
+		<div class="panel" style="flex:1;display:flex;flex-direction:column;gap:8px">
+			<h3>Spell Loadout <span style="font-size:11px;color:var(--muted);text-transform:none">(click to edit)</span></h3>
+			<div id="spellSlots" style="display:flex;flex-direction:column;gap:6px"></div>
+		</div>
+	</div>
+</div>
+
+<!-- ==================== TOOLTIP ==================== -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- ==================== CONTEXT MENU ==================== -->
+<div class="ctx-menu" id="ctxMenu"></div>
+
+<!-- ==================== SPELL BUILDER MODAL ==================== -->
+<div class="modal-overlay" id="spellModal">
+<div class="modal">
+	<div class="modal-head">
+		<h2 id="modalTitle">Spell Builder — Slot 1</h2>
+		<button class="close-btn" id="modalClose">✕</button>
+	</div>
+	<div class="modal-body">
+		<div class="spell-meta" id="spellMeta"></div>
+		<div class="spell-desc" id="spellDesc">Configure your spell by adding phases below.</div>
+		<div style="display:flex;align-items:flex-start;gap:12px;overflow-x:auto">
+			<div class="phases-wrap" id="phasesWrap"></div>
+			<button class="add-phase-btn" id="addPhaseBtn">+ Phase</button>
+		</div>
+		<canvas id="spellPreview"></canvas>
+	</div>
+	<div class="modal-foot">
+		<button class="btn btn-danger" id="clearSpellBtn">Clear Spell</button>
+		<button class="btn btn-ghost" id="cancelSpellBtn">Cancel</button>
+		<button class="btn btn-primary" id="saveSpellBtn">Save Spell</button>
+	</div>
+</div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* =============================================================
+   DATA DEFINITIONS
+   ============================================================= */
+
+/* -- Shape catalogue -- */
+const SHAPES = {
+	missile:  { label:'Missile',  icon:'💠', controlReq:0,  manaCost:5,  desc:'Small fast projectile' },
+	orb:      { label:'Orb',      icon:'🔮', controlReq:1,  manaCost:8,  desc:'Larger slower energy ball' },
+	blade:    { label:'Blade',    icon:'🗡️', controlReq:2,  manaCost:7,  desc:'Slashing blade projectile' },
+	beam:     { label:'Beam',     icon:'⚡', controlReq:4,  manaCost:10, desc:'Continuous energy beam' },
+	ring:     { label:'Ring',     icon:'⭕', controlReq:5,  manaCost:12, desc:'Expanding energy ring' },
+	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast' },
+	nova:     { label:'Nova',     icon:'💥', controlReq:7,  manaCost:15, desc:'Expanding explosion from a point' },
+	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets' },
+	wall:     { label:'Wall',     icon:'🧱', controlReq:6,  manaCost:12, desc:'Stationary barrier' },
+	solidify: { label:'Platform', icon:'🟩', controlReq:4,  manaCost:10, desc:'Solid platform you can stand on' },
+};
+
+/* -- Behavior catalogue -- */
+const BEHAVIORS = {
+	straight:     { label:'Straight',     controlReq:0,  manaCost:0,  desc:'Fires in a straight line' },
+	lob:          { label:'Lob / Arc',    controlReq:1,  manaCost:2,  desc:'Arcs through the air' },
+	homing:       { label:'Homing',       controlReq:3,  manaCost:5,  desc:'Tracks nearest target' },
+	boomerang:    { label:'Boomerang',    controlReq:3,  manaCost:4,  desc:'Goes out then returns' },
+	groundSurge:  { label:'Ground Surge', controlReq:4,  manaCost:5,  desc:'Travels along the ground' },
+	orbit:        { label:'Orbit Caster', controlReq:6,  manaCost:8,  desc:'Circles around you, then launches' },
+	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Spirals outward' },
+	rain:         { label:'Rain Down',    controlReq:7,  manaCost:8,  desc:'Falls from the sky in an area' },
+	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place' },
+	selfCast:     { label:'Self Cast',    controlReq:2,  manaCost:3,  desc:'Spawns at your feet' },
+};
+
+/* -- Effects catalogue -- */
+const EFFECTS = {
+	burn:      { label:'Burn',      icon:'🔥', controlReq:2, manaCost:5, desc:'+fire DoT' },
+	freeze:    { label:'Freeze',    icon:'❄️', controlReq:2, manaCost:5, desc:'Slows target' },
+	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:3, desc:'Pushes target away' },
+	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you' },
+	poison:    { label:'Poison',    icon:'☠️', controlReq:3, manaCost:5, desc:'+poison DoT' },
+	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target' },
+	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit' },
+	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost' },
+	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:8, desc:'Drains life on hit' },
+	speedBoost: { label:'Speed Boost', icon:'🏃', controlReq:3, manaCost:4, desc:'Temp. speed boost on hit' },
+	jumpBoost:  { label:'Jump Boost',  icon:'⬆️', controlReq:3, manaCost:4, desc:'Temp. jump boost on hit' },
+	manaRegen:  { label:'Mana Regen',  icon:'💧', controlReq:4, manaCost:5, desc:'Temp. mana regen boost' },
+	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay' },
+	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current' },
+};
+
+/* -- Trail styles -- */
+const TRAILS = ['none','sparkle','smoke','flame','ice','lightning'];
+
+/* -- Phase trigger (what starts NEXT phase) -- */
+const TRIGGERS = {
+	onHit:     { label:'On Hit',      desc:'Next phase starts when this one hits' },
+	afterDelay:{ label:'After Delay', desc:'Next phase starts after duration' },
+	onExpire:  { label:'On Expire',   desc:'Next phase starts when this one ends' },
+};
+
+/* =============================================================
+   ITEM DATABASE
+   ============================================================= */
+const ITEM_DB = {
+	/* -- staves -- */
+	oak_staff:       { name:'Oak Staff',       type:'staff', icon:'🪄', rarity:'common',    stats:{magicPower:3},              desc:'A simple wooden staff.' },
+	crystal_staff:   { name:'Crystal Staff',   type:'staff', icon:'🔮', rarity:'uncommon',  stats:{magicPower:5,magicControl:2},desc:'Resonates with arcane energy.' },
+	void_staff:      { name:'Void Staff',      type:'staff', icon:'🌑', rarity:'epic',      stats:{magicPower:12,magicControl:5},desc:'Channels the emptiness between stars.' },
+	elder_staff:     { name:'Elder Staff',      type:'staff', icon:'✨', rarity:'legendary', stats:{magicPower:18,magicControl:8,magicCapacity:20},desc:'Carved from the First Tree.' },
+
+	/* -- robes -- */
+	linen_robe:      { name:'Linen Robe',      type:'robe',  icon:'👘', rarity:'common',    stats:{magicDefence:2},             desc:'Basic apprentice robe.' },
+	silk_robe:       { name:'Silk Robe',        type:'robe',  icon:'🥋', rarity:'uncommon',  stats:{magicDefence:4,magicCapacity:10},desc:'Woven with minor wards.' },
+	arcane_robe:     { name:'Arcane Vestment',  type:'robe',  icon:'🧥', rarity:'rare',      stats:{magicDefence:7,magicCapacity:25,magicControl:3},desc:'Glimmers with protective runes.' },
+	shadow_robe:     { name:'Shadowweave Robe', type:'robe',  icon:'🖤', rarity:'epic',      stats:{magicDefence:12,magicPower:5},desc:'Absorbs incoming magic.' },
+
+	/* -- relics -- */
+	mana_gem:        { name:'Mana Gem',         type:'relic', icon:'💎', rarity:'uncommon',  stats:{magicCapacity:15},           desc:'A crystallised pool of mana.' },
+	fire_ring:       { name:'Ring of Embers',   type:'relic', icon:'💍', rarity:'rare',      stats:{magicPower:6},               desc:'Warm to the touch, always.' },
+	frost_amulet:    { name:'Frost Amulet',     type:'relic', icon:'❄️', rarity:'rare',      stats:{magicDefence:5,magicControl:3},desc:'Chills hostile spells.' },
+	chaos_orb:       { name:'Chaos Orb',        type:'relic', icon:'🌀', rarity:'epic',      stats:{magicPower:8,magicControl:6},desc:'Unpredictable but potent.' },
+	phoenix_feather: { name:'Phoenix Feather',  type:'relic', icon:'🪶', rarity:'legendary', stats:{magicPower:10,magicCapacity:30,magicDefence:5},desc:'Reborn in flame.' },
+
+	/* -- crafting ingredients -- */
+	arcane_dust:     { name:'Arcane Dust',      type:'ingredient', icon:'✨', rarity:'common',   stats:{}, desc:'Glittering residue of spent spells.' },
+	ember_shard:     { name:'Ember Shard',      type:'ingredient', icon:'🔥', rarity:'common',   stats:{}, desc:'A fragment still warm with fire.' },
+	ice_crystal:     { name:'Ice Crystal',      type:'ingredient', icon:'🧊', rarity:'uncommon', stats:{}, desc:'Never melts, even in sunlight.' },
+	shadow_essence:  { name:'Shadow Essence',   type:'ingredient', icon:'🖤', rarity:'rare',     stats:{}, desc:'Bottled darkness.' },
+	dragon_scale:    { name:'Dragon Scale',     type:'ingredient', icon:'🐉', rarity:'epic',     stats:{}, desc:'Nearly indestructible.' },
+	starlight_dew:   { name:'Starlight Dew',    type:'ingredient', icon:'🌟', rarity:'legendary',stats:{}, desc:'Collected under a cloudless new moon.' },
+	mana_herb:       { name:'Mana Herb',        type:'ingredient', icon:'🌿', rarity:'common',   stats:{}, desc:'Brewed into mana potions.' },
+	void_shard:      { name:'Void Shard',       type:'ingredient', icon:'🌑', rarity:'rare',     stats:{}, desc:'Hums with anti-energy.' },
+};
+
+/* =============================================================
+   DEFAULT PLAYER STATE  (will be overridden by localStorage)
+   ============================================================= */
+function defaultPlayerState(){
+	return {
+		baseStats: { magicPower:10, magicControl:5, magicCapacity:100, magicDefence:8 },
+		equipment: { staff:null, robe:null, relic1:null, relic2:null },
+		/* inventory: array of { itemId, qty } */
+		inventory: [
+			{ itemId:'oak_staff',    qty:1 },
+			{ itemId:'linen_robe',   qty:1 },
+			{ itemId:'mana_gem',     qty:1 },
+			{ itemId:'fire_ring',    qty:1 },
+			{ itemId:'arcane_dust',  qty:12 },
+			{ itemId:'ember_shard',  qty:7 },
+			{ itemId:'ice_crystal',  qty:3 },
+			{ itemId:'mana_herb',    qty:9 },
+			{ itemId:'shadow_essence',qty:2 },
+			{ itemId:'crystal_staff',qty:1 },
+			{ itemId:'silk_robe',    qty:1 },
+			{ itemId:'frost_amulet', qty:1 },
+			{ itemId:'void_shard',   qty:4 },
+			{ itemId:'dragon_scale', qty:1 },
+		],
+		spells: new Array(10).fill(null),  // each slot: null or spell object
+	};
+}
+
+function makeDefaultSpell(){
+	return {
+		name:'Magic Missile',
+		phases:[{
+			shape:'missile', behavior:'straight', width:1, height:1, speed:1.5,
+			duration:1, power:1, count:1, spread:0, effects:[],
+			color:'#4488ff', trail:'sparkle',
+			nextTrigger:'onHit',
+			orbitRadius:80, orbitSpeed:3, orbitDuration:1.5,
+			timedReleaseDelay:0.5,
+			phaseForkDelay:1, phaseForkRepeats:1,
+		}]
+	};
+}
+
+/* =============================================================
+   STATE
+   ============================================================= */
+let STATE = loadState();
+let invPage = 0;
+const INV_PAGE_SIZE = 25;
+let searchTerm = '';
+let editingSlot = -1;  // which spell slot is open in builder
+let builderSpell = null; // temp spell being edited
+
+/* =============================================================
+   PERSISTENCE
+   ============================================================= */
+function loadState(){
+	try {
+		const raw = localStorage.getItem('magicBattle_playerData');
+		if(raw){
+			const s = JSON.parse(raw);
+			// ensure arrays are correct length
+			if(!s.spells || s.spells.length < 10) s.spells = (s.spells||[]).concat(new Array(10).fill(null)).slice(0,10);
+			return s;
+		}
+	} catch(e){}
+	const s = defaultPlayerState();
+	s.spells[0] = makeDefaultSpell();
+	return s;
+}
+function saveState(){
+	localStorage.setItem('magicBattle_playerData', JSON.stringify(STATE));
+}
+
+/* =============================================================
+   COMPUTED STATS (base + equipment)
+   ============================================================= */
+function computeStats(){
+	const s = {...STATE.baseStats};
+	for(const slotKey of ['staff','robe','relic1','relic2']){
+		const id = STATE.equipment[slotKey];
+		if(!id) continue;
+		const item = ITEM_DB[id];
+		if(!item) continue;
+		for(const k in item.stats) s[k] = (s[k]||0) + item.stats[k];
+	}
+	return s;
+}
+
+/* =============================================================
+   SPELL COST / CONTROL REQUIREMENT CALCULATORS
+   ============================================================= */
+function calcSpellManaCost(spell){
+	if(!spell || !spell.phases.length) return 0;
+	let cost = 5;
+	for(const ph of spell.phases){
+		cost += (SHAPES[ph.shape]?.manaCost||0);
+		cost += (BEHAVIORS[ph.behavior]?.manaCost||0);
+		cost += ph.power * 3;
+		cost += (ph.count - 1) * 4;
+		cost += (ph.width - 1) * 2;
+		cost += (ph.height - 1) * 2;
+		for(const fx of ph.effects) cost += (EFFECTS[fx]?.manaCost||0);
+	}
+	cost *= (0.6 + spell.phases.length * 0.4);
+	return Math.round(cost);
+}
+
+function calcSpellControlReq(spell){
+	if(!spell || !spell.phases.length) return 0;
+	let req = 0;
+	for(const ph of spell.phases){
+		req = Math.max(req, SHAPES[ph.shape]?.controlReq||0);
+		req = Math.max(req, BEHAVIORS[ph.behavior]?.controlReq||0);
+		for(const fx of ph.effects) req = Math.max(req, EFFECTS[fx]?.controlReq||0);
+	}
+	req += (spell.phases.length - 1) * 3;
+	return req;
+}
+
+/* =============================================================
+   RENDER: STATS BAR (top)
+   ============================================================= */
+function renderStats(){
+	const s = computeStats();
+	const defs = [
+		{ key:'magicPower',    label:'Power',    icon:'⚔️',  color:'#e74c3c' },
+		{ key:'magicControl',  label:'Control',  icon:'🎯',  color:'#9b59b6' },
+		{ key:'magicCapacity', label:'Capacity', icon:'💧',  color:'#3498db' },
+		{ key:'magicDefence',  label:'Defence',  icon:'🛡️',  color:'#2ecc71' },
+	];
+	document.getElementById('statsBar').innerHTML = defs.map(d =>
+		`<div class="stat-chip"><span class="stat-icon">${d.icon}</span>${d.label}: <span class="stat-val" style="color:${d.color}">${s[d.key]}</span></div>`
+	).join('');
+
+	// base stats panel (left col)
+	const base = STATE.baseStats;
+	document.getElementById('baseStatsPanel').innerHTML = defs.map(d => {
+		const bonus = s[d.key] - base[d.key];
+		return `${d.icon} ${d.label}: <b style="color:#fff">${base[d.key]}</b>` +
+			(bonus > 0 ? ` <span style="color:var(--green)">+${bonus}</span>` : '') +
+			` = <b style="color:${d.color}">${s[d.key]}</b>`;
+	}).join('<br>');
+}
+
+/* =============================================================
+   RENDER: EQUIPMENT SLOTS (left col)
+   ============================================================= */
+const EQUIP_LABELS = {
+	staff: { label:'Staff', icon:'🪄' },
+	robe:  { label:'Robe',  icon:'👘' },
+	relic1:{ label:'Relic 1',icon:'💎' },
+	relic2:{ label:'Relic 2',icon:'💎' },
+};
+
+function renderEquipment(){
+	const wrap = document.getElementById('equipSlots');
+	wrap.innerHTML = '';
+	for(const slotKey of ['staff','robe','relic1','relic2']){
+		const id = STATE.equipment[slotKey];
+		const item = id ? ITEM_DB[id] : null;
+		const el = document.createElement('div');
+		el.className = 'equip-slot' + (item ? ' filled' : '');
+		if(item){
+			const statStr = Object.entries(item.stats).map(([k,v])=>{
+				const nice = k.replace('magic','').replace(/([A-Z])/,' $1');
+				return `+${v} ${nice}`;
+			}).join(', ');
+			el.innerHTML = `
+				<div class="eq-icon">${item.icon}</div>
+				<div class="eq-info">
+					<div class="eq-name" style="color:var(--rarity-${item.rarity})">${item.name}</div>
+					<div class="eq-sub">${statStr}</div>
+				</div>
+				<button class="unequip-btn" data-slot="${slotKey}" title="Unequip">✕</button>
+			`;
+			el.querySelector('.unequip-btn').addEventListener('click', e => {
+				e.stopPropagation();
+				unequipItem(slotKey);
+			});
+		} else {
+			el.innerHTML = `
+				<div class="eq-icon" style="opacity:.3">${EQUIP_LABELS[slotKey].icon}</div>
+				<div class="eq-label">${EQUIP_LABELS[slotKey].label} — empty</div>
+			`;
+		}
+		wrap.appendChild(el);
+	}
+}
+
+function unequipItem(slotKey){
+	const id = STATE.equipment[slotKey];
+	if(!id) return;
+	STATE.equipment[slotKey] = null;
+	addToInventory(id, 1);
+	saveState(); renderAll();
+}
+
+/* =============================================================
+   RENDER: INVENTORY GRID (center)
+   ============================================================= */
+function getFilteredInventory(){
+	if(!searchTerm) return STATE.inventory;
+	const q = searchTerm.toLowerCase();
+	return STATE.inventory.filter(entry => {
+		const item = ITEM_DB[entry.itemId];
+		return item && (item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q));
+	});
+}
+
+function renderInventory(){
+	const filtered = getFilteredInventory();
+	const totalPages = Math.max(1, Math.ceil(filtered.length / INV_PAGE_SIZE));
+	if(invPage >= totalPages) invPage = totalPages - 1;
+	if(invPage < 0) invPage = 0;
+
+	document.getElementById('pageInfo').textContent = `${invPage+1} / ${totalPages}`;
+	document.getElementById('prevPage').disabled = invPage === 0;
+	document.getElementById('nextPage').disabled = invPage >= totalPages - 1;
+
+	const start = invPage * INV_PAGE_SIZE;
+	const pageItems = filtered.slice(start, start + INV_PAGE_SIZE);
+
+	const grid = document.getElementById('invGrid');
+	grid.innerHTML = '';
+	for(let i = 0; i < INV_PAGE_SIZE; i++){
+		const cell = document.createElement('div');
+		cell.className = 'inv-cell';
+		if(pageItems[i]){
+			const entry = pageItems[i];
+			const item = ITEM_DB[entry.itemId];
+			if(item){
+				cell.setAttribute('data-rarity', item.rarity);
+				cell.setAttribute('data-item-id', entry.itemId);
+				cell.innerHTML = `
+					<span class="cell-icon">${item.icon}</span>
+					<span class="cell-name">${item.name}</span>
+					${entry.qty > 1 ? `<span class="cell-qty">x${entry.qty}</span>` : ''}
+				`;
+				cell.addEventListener('mouseenter', e => showTooltip(e, item, entry.qty));
+				cell.addEventListener('mousemove', e => moveTooltip(e));
+				cell.addEventListener('mouseleave', hideTooltip);
+				cell.addEventListener('contextmenu', e => { e.preventDefault(); openCtxMenu(e, entry); });
+				cell.addEventListener('click', e => openCtxMenu(e, entry));
+			}
+		}
+		grid.appendChild(cell);
+	}
+}
+
+/* =============================================================
+   TOOLTIP
+   ============================================================= */
+const tooltipEl = document.getElementById('tooltip');
+function showTooltip(e, item, qty){
+	const statLines = Object.entries(item.stats).map(([k,v])=>{
+		const nice = k.replace('magic','Magic ');
+		return `<div class="tt-stat">+${v} ${nice}</div>`;
+	}).join('');
+	tooltipEl.innerHTML = `
+		<div class="tt-name" style="color:var(--rarity-${item.rarity})">${item.name}${qty>1?' x'+qty:''}</div>
+		<div class="tt-type">${item.type} · ${item.rarity}</div>
+		${statLines}
+		<div class="tt-desc">${item.desc}</div>
+	`;
+	tooltipEl.style.display = 'block';
+	moveTooltip(e);
+}
+function moveTooltip(e){
+	let x = e.clientX + 14, y = e.clientY + 14;
+	const r = tooltipEl.getBoundingClientRect();
+	if(x + r.width > window.innerWidth) x = e.clientX - r.width - 8;
+	if(y + r.height > window.innerHeight) y = e.clientY - r.height - 8;
+	tooltipEl.style.left = x+'px'; tooltipEl.style.top = y+'px';
+}
+function hideTooltip(){ tooltipEl.style.display = 'none'; }
+
+/* =============================================================
+   CONTEXT MENU (right-click or click on item)
+   ============================================================= */
+const ctxMenu = document.getElementById('ctxMenu');
+let ctxEntry = null;
+
+function openCtxMenu(e, entry){
+	ctxEntry = entry;
+	const item = ITEM_DB[entry.itemId];
+	if(!item) return;
+	ctxMenu.innerHTML = '';
+	const equipTypes = { staff:['staff'], robe:['robe'], relic:['relic1','relic2'] };
+	const slots = equipTypes[item.type];
+	if(slots){
+		for(const sl of slots){
+			const opt = document.createElement('div');
+			opt.className = 'ctx-item';
+			opt.textContent = `Equip → ${EQUIP_LABELS[sl].label}`;
+			opt.addEventListener('click', () => { equipItem(entry, sl); closeCtxMenu(); });
+			ctxMenu.appendChild(opt);
+		}
+	}
+	// always show cancel
+	const cancel = document.createElement('div');
+	cancel.className = 'ctx-item';
+	cancel.textContent = 'Cancel';
+	cancel.addEventListener('click', closeCtxMenu);
+	ctxMenu.appendChild(cancel);
+
+	ctxMenu.classList.add('open');
+	let x = e.clientX, y = e.clientY;
+	ctxMenu.style.left = x+'px'; ctxMenu.style.top = y+'px';
+	setTimeout(()=>{
+		const r = ctxMenu.getBoundingClientRect();
+		if(r.right > window.innerWidth) ctxMenu.style.left = (x - r.width)+'px';
+		if(r.bottom > window.innerHeight) ctxMenu.style.top = (y - r.height)+'px';
+	},0);
+}
+function closeCtxMenu(){ ctxMenu.classList.remove('open'); ctxEntry = null; }
+document.addEventListener('click', e => { if(!ctxMenu.contains(e.target)) closeCtxMenu(); });
+
+/* =============================================================
+   EQUIP / INVENTORY HELPERS
+   ============================================================= */
+function equipItem(entry, slotKey){
+	const prevId = STATE.equipment[slotKey];
+	// put old item back
+	if(prevId) addToInventory(prevId, 1);
+	STATE.equipment[slotKey] = entry.itemId;
+	removeFromInventory(entry.itemId, 1);
+	saveState(); renderAll();
+}
+
+function addToInventory(itemId, qty){
+	const existing = STATE.inventory.find(e => e.itemId === itemId);
+	if(existing) existing.qty += qty;
+	else STATE.inventory.push({ itemId, qty });
+}
+
+function removeFromInventory(itemId, qty){
+	const idx = STATE.inventory.findIndex(e => e.itemId === itemId);
+	if(idx === -1) return;
+	STATE.inventory[idx].qty -= qty;
+	if(STATE.inventory[idx].qty <= 0) STATE.inventory.splice(idx, 1);
+}
+
+/* =============================================================
+   RENDER: SPELL SLOTS (right col)
+   ============================================================= */
+function renderSpellSlots(){
+	const wrap = document.getElementById('spellSlots');
+	wrap.innerHTML = '';
+	const stats = computeStats();
+	for(let i = 0; i < 10; i++){
+		const sp = STATE.spells[i];
+		const el = document.createElement('div');
+		el.className = 'spell-slot';
+		if(sp){
+			const cost = calcSpellManaCost(sp);
+			const req  = calcSpellControlReq(sp);
+			const canUse = stats.magicControl >= req;
+			el.innerHTML = `
+				<span class="sp-num">${i+1}</span>
+				<span class="sp-color" style="background:${sp.phases[0]?.color||'#888'}"></span>
+				<span class="sp-name" style="${canUse?'':'color:var(--red);text-decoration:line-through'}">${sp.name}</span>
+				<span class="sp-mana">${cost} 💧</span>
+			`;
+			if(!canUse) el.title = `Requires ${req} Control (you have ${stats.magicControl})`;
+		} else {
+			el.innerHTML = `<span class="sp-num">${i+1}</span><span class="sp-empty">Empty — click to create</span>`;
+		}
+		el.addEventListener('click', () => openSpellBuilder(i));
+		wrap.appendChild(el);
+	}
+}
+
+/* =============================================================
+   SPELL BUILDER
+   ============================================================= */
+function newPhase(){
+	return {
+		shape:'missile', behavior:'straight', width:1, height:1, speed:1,
+		duration:1, power:1, count:1, spread:0, effects:[], color:'#4488ff',
+		trail:'sparkle', nextTrigger:'onHit',
+		orbitRadius:80, orbitSpeed:3, orbitDuration:1.5,
+		timedReleaseDelay:0.5,
+		phaseForkDelay:1, phaseForkRepeats:1,
+	};
+}
+
+function openSpellBuilder(slotIdx){
+	editingSlot = slotIdx;
+	const existing = STATE.spells[slotIdx];
+	builderSpell = existing ? JSON.parse(JSON.stringify(existing)) : { name:'New Spell', phases:[newPhase()] };
+	document.getElementById('modalTitle').textContent = `Spell Builder — Slot ${slotIdx+1}`;
+	document.getElementById('spellModal').classList.add('open');
+	renderBuilder();
+	startPreview();
+}
+
+function closeSpellBuilder(){
+	document.getElementById('spellModal').classList.remove('open');
+	editingSlot = -1;
+	builderSpell = null;
+	stopPreview();
+}
+
+document.getElementById('modalClose').addEventListener('click', closeSpellBuilder);
+document.getElementById('cancelSpellBtn').addEventListener('click', closeSpellBuilder);
+document.getElementById('saveSpellBtn').addEventListener('click', () => {
+	STATE.spells[editingSlot] = JSON.parse(JSON.stringify(builderSpell));
+	saveState();
+	closeSpellBuilder();
+	renderSpellSlots();
+});
+document.getElementById('clearSpellBtn').addEventListener('click', () => {
+	STATE.spells[editingSlot] = null;
+	saveState();
+	closeSpellBuilder();
+	renderSpellSlots();
+});
+document.getElementById('addPhaseBtn').addEventListener('click', () => {
+	if(builderSpell.phases.length >= 5) return; // max 5 phases
+	builderSpell.phases.push(newPhase());
+	renderBuilder();
+});
+
+function renderBuilder(){
+	const stats = computeStats();
+	const cost = calcSpellManaCost(builderSpell);
+	const req  = calcSpellControlReq(builderSpell);
+	const canUse = stats.magicControl >= req;
+
+	// meta
+	document.getElementById('spellMeta').innerHTML = `
+		<div class="prow">
+			<label>Spell Name</label>
+			<input type="text" id="spellNameInput" value="${escHtml(builderSpell.name)}" maxlength="30"/>
+		</div>
+		<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b></div>
+		<div class="meta-chip">Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}</div>
+		<div class="meta-chip">Phases: <b>${builderSpell.phases.length}</b>/5</div>
+	`;
+	document.getElementById('spellNameInput').addEventListener('input', e => {
+		builderSpell.name = e.target.value || 'Unnamed';
+	});
+
+	// description
+	document.getElementById('spellDesc').textContent = generateSpellDescription(builderSpell);
+
+	// phases
+	const wrap = document.getElementById('phasesWrap');
+	wrap.innerHTML = '';
+	builderSpell.phases.forEach((ph, idx) => {
+		const card = document.createElement('div');
+		card.className = 'phase-card';
+		const isLast = idx === builderSpell.phases.length - 1;
+
+		let html = `<h4>Phase ${idx+1}`;
+		if(builderSpell.phases.length > 1){
+			html += ` <button class="remove-phase" data-idx="${idx}" title="Remove phase">✕</button>`;
+		}
+		html += `</h4>`;
+
+		// Shape
+		html += `<div class="prow"><label>Shape</label><select data-idx="${idx}" data-prop="shape">`;
+		for(const [k,v] of Object.entries(SHAPES)){
+			html += `<option value="${k}" ${ph.shape===k?'selected':''}>${v.icon} ${v.label} (ctrl ${v.controlReq}+)</option>`;
+		}
+		html += `</select></div>`;
+
+		// Behavior
+		html += `<div class="prow"><label>Behavior</label><select data-idx="${idx}" data-prop="behavior">`;
+		for(const [k,v] of Object.entries(BEHAVIORS)){
+			html += `<option value="${k}" ${ph.behavior===k?'selected':''}>${v.label} (ctrl ${v.controlReq}+)</option>`;
+		}
+		html += `</select></div>`;
+
+		// sliders: width, height, speed, duration, power
+		const sliders = [
+			{ prop:'width',    label:'Width',    min:0.3, max:3, step:0.1 },
+			{ prop:'height',   label:'Height',   min:0.3, max:3, step:0.1 },
+			{ prop:'speed',    label:'Speed',    min:0.3, max:3, step:0.1 },
+			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'?30:5), step:0.1 },
+			{ prop:'power',    label:'Power',    min:0.5, max:5, step:0.1 },
+		];
+		for(const sl of sliders){
+			html += `<div class="prow"><label>${sl.label}: ${ph[sl.prop].toFixed(1)}</label>
+				<div class="range-row">
+					<input type="range" min="${sl.min}" max="${sl.max}" step="${sl.step}" value="${ph[sl.prop]}" data-idx="${idx}" data-prop="${sl.prop}"/>
+					<span class="range-val">${ph[sl.prop].toFixed(1)}</span>
+				</div></div>`;
+		}
+
+		// count
+		html += `<div class="prow"><label>Projectile Count</label>
+			<input type="number" min="1" max="12" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
+
+		// spread (if count > 1)
+		if(ph.count > 1){
+			html += `<div class="prow"><label>Spread Angle: ${ph.spread}°</label>
+				<input type="range" min="0" max="360" step="5" value="${ph.spread}" data-idx="${idx}" data-prop="spread"/>
+			</div>`;
+		}
+
+		// orbit-specific settings
+		if(ph.behavior === 'orbit'){
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Orbit Settings</label></div>`;
+			html += `<div class="prow"><label>Orbit Radius: ${ph.orbitRadius}</label>
+				<input type="range" min="30" max="200" step="5" value="${ph.orbitRadius}" data-idx="${idx}" data-prop="orbitRadius"/></div>`;
+			html += `<div class="prow"><label>Orbit Speed: ${ph.orbitSpeed.toFixed(1)}</label>
+				<input type="range" min="0.5" max="8" step="0.5" value="${ph.orbitSpeed}" data-idx="${idx}" data-prop="orbitSpeed"/></div>`;
+			html += `<div class="prow"><label>Orbit Duration: ${ph.orbitDuration.toFixed(1)}s</label>
+				<input type="range" min="0.5" max="5" step="0.1" value="${ph.orbitDuration}" data-idx="${idx}" data-prop="orbitDuration"/></div>`;
+		}
+
+		// effects
+		html += `<div class="prow"><label>Effects</label><div class="fx-grid">`;
+		for(const [k,v] of Object.entries(EFFECTS)){
+			const active = ph.effects.includes(k);
+			html += `<div class="fx-chip ${active?'active':''}" data-idx="${idx}" data-fx="${k}" title="${v.desc} (ctrl ${v.controlReq}+)">${v.icon} ${v.label}</div>`;
+		}
+		html += `</div></div>`;
+
+		// timed release settings (if timedRelease effect is active)
+		if(ph.effects.includes('timedRelease')){
+			const trd = ph.timedReleaseDelay != null ? ph.timedReleaseDelay : 0.5;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Timed Release Settings</label></div>`;
+			html += `<div class="prow"><label>Trigger Delay: ${trd.toFixed(1)}s</label>
+				<div class="range-row">
+					<input type="range" min="0" max="4" step="0.1" value="${trd}" data-idx="${idx}" data-prop="timedReleaseDelay"/>
+					<span class="range-val">${trd.toFixed(1)}</span>
+				</div></div>`;
+		}
+
+		// phase fork settings (if phaseFork effect is active)
+		if(ph.effects.includes('phaseFork')){
+			const pfd = ph.phaseForkDelay != null ? ph.phaseForkDelay : 1;
+			const pfr = ph.phaseForkRepeats != null ? ph.phaseForkRepeats : 1;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Phase Fork Settings</label></div>`;
+			html += `<div class="prow"><label>Fork Delay: ${pfd.toFixed(1)}s</label>
+				<div class="range-row">
+					<input type="range" min="0" max="5" step="0.1" value="${pfd}" data-idx="${idx}" data-prop="phaseForkDelay"/>
+					<span class="range-val">${pfd.toFixed(1)}</span>
+				</div></div>`;
+			html += `<div class="prow"><label>Repeat Casts: ${pfr}</label>
+				<div class="range-row">
+					<input type="range" min="1" max="5" step="1" value="${pfr}" data-idx="${idx}" data-prop="phaseForkRepeats"/>
+					<span class="range-val">${pfr}</span>
+				</div></div>`;
+		}
+
+		// color
+		html += `<div class="prow"><label>Color</label>
+			<input type="color" value="${ph.color}" data-idx="${idx}" data-prop="color"/></div>`;
+
+		// trail
+		html += `<div class="prow"><label>Trail</label><select data-idx="${idx}" data-prop="trail">`;
+		for(const t of TRAILS){
+			html += `<option value="${t}" ${ph.trail===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`;
+		}
+		html += `</select></div>`;
+
+		// next trigger (not for last phase)
+		if(!isLast){
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label>Trigger Next Phase</label><select data-idx="${idx}" data-prop="nextTrigger">`;
+			for(const [k,v] of Object.entries(TRIGGERS)){
+				html += `<option value="${k}" ${ph.nextTrigger===k?'selected':''}>${v.label}</option>`;
+			}
+			html += `</select></div>`;
+			// arrow between phases
+			html += `<div class="arrow-between">→</div>`;
+		}
+
+		card.innerHTML = html;
+		wrap.appendChild(card);
+	});
+
+	// wire up events in phase cards
+	wrap.querySelectorAll('.remove-phase').forEach(btn => {
+		btn.addEventListener('click', () => {
+			builderSpell.phases.splice(+btn.dataset.idx, 1);
+			renderBuilder();
+		});
+	});
+	wrap.querySelectorAll('select[data-prop], input[type=color][data-prop]').forEach(el => {
+		el.addEventListener('change', () => {
+			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = el.value;
+			renderBuilder();
+		});
+	});
+	wrap.querySelectorAll('input[type=range][data-prop]').forEach(el => {
+		el.addEventListener('input', () => {
+			const val = parseFloat(el.value);
+			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = val;
+			// update label & val span
+			const row = el.closest('.prow');
+			const valSpan = row.querySelector('.range-val');
+			if(valSpan) valSpan.textContent = val.toFixed ? val.toFixed(1) : val;
+			const lbl = row.querySelector('label');
+			if(lbl){
+				const prop = el.dataset.prop;
+				const niceLabel = prop.charAt(0).toUpperCase() + prop.slice(1).replace(/([A-Z])/g,' $1');
+				lbl.textContent = `${niceLabel}: ${typeof val==='number'&&val%1!==0?val.toFixed(1):val}${prop.includes('uration')?'s':prop==='spread'?'°':''}`;
+			}
+			// lazy re-render meta only
+			updateBuilderMeta();
+		});
+	});
+	wrap.querySelectorAll('input[type=number][data-prop]').forEach(el => {
+		el.addEventListener('change', () => {
+			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(12,+el.value));
+			renderBuilder();
+		});
+	});
+	wrap.querySelectorAll('.fx-chip').forEach(el => {
+		el.addEventListener('click', () => {
+			const ph = builderSpell.phases[+el.dataset.idx];
+			const fx = el.dataset.fx;
+			const i = ph.effects.indexOf(fx);
+			if(i >= 0) ph.effects.splice(i,1); else ph.effects.push(fx);
+			renderBuilder();
+		});
+	});
+}
+
+function updateBuilderMeta(){
+	const stats = computeStats();
+	const cost = calcSpellManaCost(builderSpell);
+	const req  = calcSpellControlReq(builderSpell);
+	const canUse = stats.magicControl >= req;
+	const meta = document.getElementById('spellMeta');
+	const chips = meta.querySelectorAll('.meta-chip');
+	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>`;
+	if(chips[1]) chips[1].innerHTML = `Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}`;
+	document.getElementById('spellDesc').textContent = generateSpellDescription(builderSpell);
+}
+
+/* =============================================================
+   SPELL DESCRIPTION GENERATOR
+   ============================================================= */
+function generateSpellDescription(spell){
+	if(!spell || !spell.phases.length) return 'Empty spell.';
+	const parts = [];
+	spell.phases.forEach((ph, i) => {
+		const shape = SHAPES[ph.shape]?.label || ph.shape;
+		const beh   = BEHAVIORS[ph.behavior]?.label || ph.behavior;
+		let s = '';
+		if(i === 0) s += 'Cast '; else s += 'Then ';
+		if(ph.count > 1) s += `${ph.count} `;
+		s += `${shape.toLowerCase()}${ph.count>1?'s':''} `;
+
+		// behavior description
+		switch(ph.behavior){
+			case 'straight':    s += 'flying forward'; break;
+			case 'lob':         s += 'arcing through the air'; break;
+			case 'homing':      s += 'homing toward the target'; break;
+			case 'boomerang':   s += 'that returns to you'; break;
+			case 'groundSurge': s += 'surging along the ground'; break;
+			case 'orbit':       s += `orbiting you for ${ph.orbitDuration.toFixed(1)}s then launching`; break;
+			case 'spiral':      s += 'spiraling outward'; break;
+			case 'rain':        s += 'raining from above'; break;
+			case 'stationary':  s += 'placed at your position'; break;
+			case 'selfCast':    s += 'conjured at your feet'; break;
+		}
+
+		if(ph.power > 1.5) s += ' with great force';
+		else if(ph.power < 0.7) s += ' gently';
+
+		if(ph.effects.length){
+			s += ', applying ' + ph.effects.map(fx => EFFECTS[fx]?.label?.toLowerCase()||fx).join(' & ');
+		}
+
+		s += '.';
+
+		if(i < spell.phases.length - 1){
+			const trig = ph.nextTrigger;
+			if(trig === 'onHit') s += ' On hit:';
+			else if(trig === 'afterDelay') s += ' After a moment:';
+			else if(trig === 'onExpire') s += ' When it fades:';
+		}
+
+		if(ph.effects.includes('phaseFork')){
+			const pfd = ph.phaseForkDelay||1;
+			const pfr = ph.phaseForkRepeats||1;
+			s += ` Also forks to next phase after ${pfd.toFixed(1)}s`;
+			if(pfr > 1) s += ` (${pfr}× repeats)`;
+			s += '.';
+		}
+
+		parts.push(s);
+	});
+	return parts.join(' ');
+}
+
+/* =============================================================
+   SPELL PREVIEW (canvas animation)
+   ============================================================= */
+let previewRAF = null;
+const previewCanvas = document.getElementById('spellPreview');
+const pctx = previewCanvas.getContext('2d');
+
+function startPreview(){
+	stopPreview();
+	resizePreview();
+	previewRAF = requestAnimationFrame(previewLoop);
+}
+function stopPreview(){ if(previewRAF){ cancelAnimationFrame(previewRAF); previewRAF = null; } }
+function resizePreview(){
+	const rect = previewCanvas.getBoundingClientRect();
+	previewCanvas.width = rect.width;
+	previewCanvas.height = rect.height;
+}
+
+let previewTime = 0;
+function previewLoop(){
+	previewTime += 0.016;
+	drawPreview();
+	previewRAF = requestAnimationFrame(previewLoop);
+}
+
+function drawPreview(){
+	const W = previewCanvas.width, H = previewCanvas.height;
+	if(W === 0 || H === 0){ resizePreview(); return; }
+	pctx.clearRect(0,0,W,H);
+
+	// background
+	pctx.fillStyle = '#0e0c1a';
+	pctx.fillRect(0,0,W,H);
+
+	// ground line
+	const groundY = H - 20;
+	pctx.fillStyle = '#2a2a3d';
+	pctx.fillRect(0, groundY, W, 20);
+	pctx.fillStyle = '#3d3d56';
+	pctx.fillRect(0, groundY, W, 3);
+
+	// caster
+	const cx = 80, cy = groundY - 24;
+	pctx.fillStyle = '#5b7fbf';
+	pctx.fillRect(cx - 8, cy - 24, 16, 24);
+	// hat
+	pctx.fillStyle = '#2e3a6e';
+	pctx.beginPath();
+	pctx.moveTo(cx - 8, cy - 22);
+	pctx.lineTo(cx, cy - 42);
+	pctx.lineTo(cx + 8, cy - 22);
+	pctx.closePath();
+	pctx.fill();
+
+	// target dummy
+	const tx = W - 100, ty = groundY - 24;
+	pctx.fillStyle = '#8b4040';
+	pctx.fillRect(tx - 8, ty - 24, 16, 24);
+	pctx.fillStyle = '#555';
+	pctx.fillRect(tx - 12, ty - 8, 24, 3); // arms
+	pctx.font = '10px Arial';
+	pctx.fillStyle = '#aaa';
+	pctx.textAlign = 'center';
+	pctx.fillText('Target', tx, ty + 14);
+
+	if(!builderSpell || !builderSpell.phases.length) return;
+
+	// animate phases
+	const totalCycle = builderSpell.phases.reduce((s,ph) => s + ph.duration + 0.3, 0) + 0.5;
+	const t = previewTime % totalCycle;
+
+	let elapsed = 0;
+	for(let pi = 0; pi < builderSpell.phases.length; pi++){
+		const ph = builderSpell.phases[pi];
+		const phStart = elapsed;
+		const phEnd = phStart + ph.duration;
+		elapsed = phEnd + 0.3;
+
+		if(t < phStart || t > phEnd + 0.5) continue;
+
+		const localT = Math.min((t - phStart) / ph.duration, 1);
+		const color = ph.color || '#4488ff';
+
+		// draw projectile(s) for this phase
+		for(let ci = 0; ci < ph.count; ci++){
+			const spreadAngle = ph.count > 1 ? ((ci / (ph.count-1)) - 0.5) * (ph.spread * Math.PI / 180) : 0;
+
+			let px, py, size;
+			size = 4 * ph.width;
+
+			switch(ph.behavior){
+				case 'straight': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const originY = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
+					px = originX + (tx - originX) * localT;
+					py = originY + Math.sin(spreadAngle) * 40 + (ty - 12 - originY) * localT;
+					break;
+				}
+				case 'lob': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					px = originX + (tx - originX) * localT;
+					py = cy - 12 - Math.sin(localT * Math.PI) * 80 * ph.height + spreadAngle * 20;
+					break;
+				}
+				case 'homing': {
+					const originX = pi === 0 ? cx + 16 : cx + 60;
+					const startY = cy - 30 + ci * 20;
+					const curve = Math.sin(localT * Math.PI * 0.7) * 30;
+					px = originX + (tx - originX) * localT;
+					py = startY + (ty - 12 - startY) * localT + curve;
+					break;
+				}
+				case 'boomerang': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const dist = (tx - originX) * 0.7;
+					px = originX + Math.sin(localT * Math.PI) * dist;
+					py = cy - 12 - Math.sin(localT * Math.PI * 2) * 20 + spreadAngle * 30;
+					break;
+				}
+				case 'orbit': {
+					const angle = localT * Math.PI * 2 * ph.orbitSpeed + ci * (Math.PI * 2 / ph.count);
+					const r = ph.orbitRadius * 0.4;
+					if(localT < 0.7){
+						px = cx + Math.cos(angle) * r;
+						py = cy - 12 + Math.sin(angle) * r * 0.5;
+					} else {
+						const launchT = (localT - 0.7) / 0.3;
+						const startX = cx + Math.cos(angle) * r;
+						const startY = cy - 12 + Math.sin(angle) * r * 0.5;
+						px = startX + (tx - startX) * launchT;
+						py = startY + (ty - 12 - startY) * launchT;
+					}
+					break;
+				}
+				case 'spiral': {
+					const angle = localT * Math.PI * 4 + ci * (Math.PI * 2 / ph.count);
+					const r = localT * 120;
+					px = cx + Math.cos(angle) * r + (tx - cx) * localT * 0.3;
+					py = cy - 12 + Math.sin(angle) * r * 0.3;
+					break;
+				}
+				case 'rain': {
+					const spread2 = (tx - cx) * 0.6;
+					const startX = cx + spread2 * 0.3 + ci * (spread2 / Math.max(ph.count-1,1));
+					px = startX;
+					py = -10 + (groundY + 10) * localT;
+					break;
+				}
+				case 'groundSurge': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					px = originX + (tx - originX) * localT;
+					py = groundY - 6 + Math.sin(localT * 20) * 3;
+					size *= 0.8;
+					break;
+				}
+				case 'selfCast': {
+					px = cx;
+					py = groundY - 6;
+					const pulse2 = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
+					size *= pulse2;
+					break;
+				}
+				case 'stationary':
+				default: {
+					px = pi === 0 ? cx + 40 : (cx + tx) / 2;
+					py = cy - 12;
+					const pulse = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
+					size *= pulse;
+					break;
+				}
+			}
+
+			// glow
+			pctx.save();
+			pctx.globalAlpha = 0.3 + 0.3 * (1 - localT);
+			const glow = pctx.createRadialGradient(px, py, 0, px, py, size * 3);
+			glow.addColorStop(0, color);
+			glow.addColorStop(1, 'transparent');
+			pctx.fillStyle = glow;
+			pctx.beginPath();
+			pctx.arc(px, py, size * 3, 0, Math.PI * 2);
+			pctx.fill();
+			pctx.restore();
+
+			// shape body
+			pctx.fillStyle = color;
+			pctx.globalAlpha = 0.9;
+			switch(ph.shape){
+				case 'blade': {
+					pctx.save();
+					pctx.translate(px, py);
+					pctx.rotate(localT * Math.PI * 2);
+					pctx.fillRect(-size*1.5, -size*0.3, size*3, size*0.6);
+					pctx.restore();
+					break;
+				}
+				case 'beam': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					pctx.fillRect(originX, py - size*0.5, (tx - originX) * localT, size);
+					break;
+				}
+				case 'ring': {
+					pctx.beginPath();
+					pctx.arc(px, py, size * (1 + localT * 4), 0, Math.PI * 2);
+					pctx.strokeStyle = color;
+					pctx.lineWidth = 2;
+					pctx.stroke();
+					break;
+				}
+				case 'cone': {
+					pctx.save();
+					pctx.translate(pi===0?cx+16:(cx+tx)/2, py);
+					pctx.beginPath();
+					pctx.moveTo(0, 0);
+					const coneLen = (tx - cx) * localT * 0.7;
+					pctx.lineTo(coneLen, -coneLen*0.4*ph.width);
+					pctx.lineTo(coneLen, coneLen*0.4*ph.width);
+					pctx.closePath();
+					pctx.globalAlpha = 0.35;
+					pctx.fill();
+					pctx.restore();
+					break;
+				}
+				case 'nova': {
+					pctx.beginPath();
+					pctx.arc(px, py, localT * 60 * ph.width, 0, Math.PI * 2);
+					pctx.globalAlpha = 0.3 * (1 - localT);
+					pctx.fill();
+					pctx.beginPath();
+					pctx.arc(px, py, localT * 60 * ph.width, 0, Math.PI * 2);
+					pctx.strokeStyle = color;
+					pctx.lineWidth = 2;
+					pctx.globalAlpha = 0.6 * (1 - localT);
+					pctx.stroke();
+					break;
+				}
+				case 'wall': {
+					const ww = size * 2 * ph.width;
+					const wh = size * 6 * ph.height;
+					pctx.globalAlpha = 0.5;
+					pctx.fillRect(px - ww/2, py - wh/2, ww, wh);
+					break;
+				}
+				case 'solidify': {
+					const sw = size * 3 * ph.width;
+					const sht = size * 1.5 * ph.height;
+					pctx.globalAlpha = 0.7;
+					pctx.fillRect(px - sw/2, py - sht/2, sw, sht);
+					pctx.strokeStyle = color;
+					pctx.lineWidth = 2;
+					pctx.strokeRect(px - sw/2, py - sht/2, sw, sht);
+					pctx.globalAlpha = 0.25;
+					pctx.fillStyle = '#fff';
+					pctx.fillRect(px - sw/2 + 2, py - sht/2 + 2, sw - 4, 3);
+					break;
+				}
+				case 'chain': {
+					// draw multiple jump points
+					const jumps = 3;
+					for(let j = 0; j <= Math.floor(localT * jumps); j++){
+						const jx = px + j * 40;
+						const jy = py + (j%2?-1:1)*15;
+						pctx.beginPath();
+						pctx.arc(jx, jy, size, 0, Math.PI*2);
+						pctx.fill();
+						if(j > 0){
+							pctx.strokeStyle = color;
+							pctx.lineWidth = 1;
+							pctx.globalAlpha = 0.4;
+							pctx.beginPath();
+							pctx.moveTo(jx - 40, jy + (j%2?1:-1)*30);
+							pctx.lineTo(jx, jy);
+							pctx.stroke();
+						}
+					}
+					break;
+				}
+				default: {
+					pctx.beginPath();
+					pctx.arc(px, py, size, 0, Math.PI * 2);
+					pctx.fill();
+				}
+			}
+			pctx.globalAlpha = 1;
+
+			// trail particles
+			if(ph.trail !== 'none'){
+				const trailColors = {
+					sparkle:'rgba(200,220,255,',flame:'rgba(255,140,50,',
+					smoke:'rgba(100,100,100,',ice:'rgba(150,220,255,',
+					lightning:'rgba(180,180,255,'
+				};
+				const tc = trailColors[ph.trail] || 'rgba(200,200,200,';
+				for(let tp = 0; tp < 4; tp++){
+					const tpx = px - (ph.behavior==='stationary'?0:6+tp*4) + (Math.random()-0.5)*6;
+					const tpy = py + (Math.random()-0.5)*8;
+					const ta = 0.6 - tp*0.15;
+					pctx.fillStyle = tc + ta +')';
+					pctx.beginPath();
+					pctx.arc(tpx, tpy, 1.5+Math.random()*1.5, 0, Math.PI*2);
+					pctx.fill();
+				}
+			}
+		}
+	}
+
+	// label
+	pctx.font = '10px Arial';
+	pctx.fillStyle = '#666';
+	pctx.textAlign = 'left';
+	pctx.fillText('Preview (looping)', 6, 14);
+}
+
+/* =============================================================
+   UTILITY
+   ============================================================= */
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* =============================================================
+   RENDER ALL
+   ============================================================= */
+function renderAll(){
+	renderStats();
+	renderEquipment();
+	renderInventory();
+	renderSpellSlots();
+}
+
+/* =============================================================
+   EVENT WIRING
+   ============================================================= */
+document.getElementById('searchBox').addEventListener('input', e => {
+	searchTerm = e.target.value.trim();
+	invPage = 0;
+	renderInventory();
+});
+document.getElementById('prevPage').addEventListener('click', () => { invPage--; renderInventory(); });
+document.getElementById('nextPage').addEventListener('click', () => { invPage++; renderInventory(); });
+
+// close modal on overlay click
+document.getElementById('spellModal').addEventListener('click', e => {
+	if(e.target === document.getElementById('spellModal')) closeSpellBuilder();
+});
+
+// keyboard shortcut: Escape closes modal
+document.addEventListener('keydown', e => {
+	if(e.key === 'Escape'){
+		if(document.getElementById('spellModal').classList.contains('open')) closeSpellBuilder();
+	}
+});
+
+/* =============================================================
+   INIT
+   ============================================================= */
+renderAll();
+</script>
+</body>
+</html>
