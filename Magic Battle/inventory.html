@@ -318,6 +318,7 @@ input,select{font-family:inherit}
 				<button class="inv-page-btn" id="prevPage">◀</button>
 				<span class="inv-page-info" id="pageInfo">1 / 1</span>
 				<button class="inv-page-btn" id="nextPage">▶</button>
+				<button class="inv-page-btn" id="testBtn" style="margin-left:auto;padding:4px 12px;background:rgba(243,156,18,.25);border-color:var(--rarity-legendary);color:var(--rarity-legendary);font-size:11px;border-radius:5px" title="Clear inventory and give one of every item">🧪 Test All</button>
 			</div>
 			<div class="inv-grid" id="invGrid"></div>
 		</div>
@@ -414,6 +415,7 @@ const EFFECTS = {
 	manaRegen:  { label:'Mana Regen',  icon:'💧', controlReq:4, manaCost:5, desc:'Temp. mana regen boost' },
 	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay' },
 	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current' },
+	resetProjectiles:{ label:'Reset Projectiles',icon:'🔄', controlReq:0, manaCost:0, desc:'Next phase spawns fresh projectiles instead of continuing existing ones (free)' },
 };
 
 /* -- Trail styles -- */
@@ -448,6 +450,32 @@ const ITEM_DB = {
 	frost_amulet:    { name:'Frost Amulet',     type:'relic', icon:'❄️', rarity:'rare',      stats:{magicDefence:5,magicControl:3},desc:'Chills hostile spells.' },
 	chaos_orb:       { name:'Chaos Orb',        type:'relic', icon:'🌀', rarity:'epic',      stats:{magicPower:8,magicControl:6},desc:'Unpredictable but potent.' },
 	phoenix_feather: { name:'Phoenix Feather',  type:'relic', icon:'🪶', rarity:'legendary', stats:{magicPower:10,magicCapacity:30,magicDefence:5},desc:'Reborn in flame.' },
+
+	/* -- new staves -- */
+	storm_staff:     { name:'Storm Staff',       type:'staff', icon:'🌩️', rarity:'rare',      stats:{magicPower:8,magicControl:4},  desc:'Crackles with living lightning.' },
+	blood_staff:     { name:'Blood Staff',       type:'staff', icon:'🩸', rarity:'epic',      stats:{magicPower:14,magicCapacity:15},desc:'Feeds on the wielder\'s vitality.' },
+	stardust_staff:  { name:'Stardust Staff',    type:'staff', icon:'🌠', rarity:'legendary', stats:{magicPower:22,magicControl:10,magicCapacity:25},desc:'Forged from a dying star.' },
+	bone_staff:      { name:'Bone Staff',        type:'staff', icon:'🦴', rarity:'uncommon',  stats:{magicPower:4,magicDefence:2},  desc:'Carved from an ancient beast.' },
+	prism_staff:     { name:'Prism Staff',       type:'staff', icon:'🔷', rarity:'rare',      stats:{magicPower:7,magicControl:5},  desc:'Refracts magic into pure colour.' },
+
+	/* -- new robes -- */
+	ember_robe:      { name:'Ember Robe',        type:'robe',  icon:'🔥', rarity:'rare',      stats:{magicDefence:6,magicPower:4},  desc:'Smolders with perpetual heat.' },
+	void_robe:       { name:'Void Robe',         type:'robe',  icon:'🌑', rarity:'epic',      stats:{magicDefence:10,magicCapacity:20,magicControl:4},desc:'Woven from nothingness.' },
+	celestial_robe:  { name:'Celestial Robe',    type:'robe',  icon:'✨', rarity:'legendary', stats:{magicDefence:18,magicCapacity:40,magicControl:6,magicPower:8},desc:'Threaded with starlight.' },
+	hunter_cloak:    { name:'Hunter\'s Cloak',   type:'robe',  icon:'🧣', rarity:'uncommon',  stats:{magicDefence:3,magicControl:2},desc:'Light and agile.' },
+	tide_robe:       { name:'Tide Robe',         type:'robe',  icon:'🌊', rarity:'rare',      stats:{magicDefence:5,magicCapacity:20},desc:'Flows like living water.' },
+
+	/* -- new relics -- */
+	sun_medallion:   { name:'Sun Medallion',     type:'relic', icon:'☀️', rarity:'epic',      stats:{magicPower:10,magicDefence:4}, desc:'Radiates blinding warmth.' },
+	moon_pendant:    { name:'Moon Pendant',      type:'relic', icon:'🌙', rarity:'epic',      stats:{magicCapacity:25,magicControl:5},desc:'Waxes and wanes with power.' },
+	dragon_heart:    { name:'Dragon Heart',      type:'relic', icon:'❤️‍🔥', rarity:'legendary', stats:{magicPower:15,magicCapacity:35,magicDefence:8},desc:'Still beating after millennia.' },
+	world_seed:      { name:'World Seed',        type:'relic', icon:'🌱', rarity:'legendary', stats:{magicCapacity:50,magicDefence:10,magicControl:8},desc:'Contains a universe waiting to bloom.' },
+	thunder_tooth:   { name:'Thunder Tooth',     type:'relic', icon:'⚡', rarity:'rare',      stats:{magicPower:7,magicControl:3},  desc:'A fang from the storm serpent.' },
+	ghost_lantern:   { name:'Ghost Lantern',     type:'relic', icon:'🏮', rarity:'uncommon',  stats:{magicCapacity:12,magicDefence:3},desc:'Illuminated by trapped spirits.' },
+	bloodstone:      { name:'Bloodstone',        type:'relic', icon:'🔴', rarity:'rare',      stats:{magicPower:8,magicDefence:4},  desc:'Pulses with a crimson glow.' },
+	wind_charm:      { name:'Wind Charm',        type:'relic', icon:'🍃', rarity:'uncommon',  stats:{magicControl:4,magicCapacity:8},desc:'Whispers secrets of the gale.' },
+	eye_of_eternity: { name:'Eye of Eternity',   type:'relic', icon:'👁️', rarity:'legendary', stats:{magicPower:12,magicControl:12,magicCapacity:30,magicDefence:6},desc:'Sees all timelines at once.' },
+	crystal_crown:   { name:'Crystal Crown',     type:'relic', icon:'👑', rarity:'epic',      stats:{magicControl:8,magicPower:6,magicDefence:3},desc:'Worn by the Archmage of old.' },
 
 	/* -- crafting ingredients -- */
 	arcane_dust:     { name:'Arcane Dust',      type:'ingredient', icon:'✨', rarity:'common',   stats:{}, desc:'Glittering residue of spent spells.' },
@@ -558,7 +586,9 @@ function calcSpellManaCost(spell){
 	for(const ph of spell.phases){
 		cost += (SHAPES[ph.shape]?.manaCost||0);
 		cost += (BEHAVIORS[ph.behavior]?.manaCost||0);
-		cost += ph.power * 3;
+		// power costs scale exponentially when near max
+		const powerCost = ph.power * 50;
+		cost += powerCost;
 		cost += (ph.count - 1) * 4;
 		cost += (ph.width - 1) * 2;
 		cost += (ph.height - 1) * 2;
@@ -1491,6 +1521,17 @@ document.getElementById('searchBox').addEventListener('input', e => {
 });
 document.getElementById('prevPage').addEventListener('click', () => { invPage--; renderInventory(); });
 document.getElementById('nextPage').addEventListener('click', () => { invPage++; renderInventory(); });
+document.getElementById('testBtn').addEventListener('click', () => {
+	// Clear inventory (not spells)
+	STATE.inventory = [];
+	STATE.equipment = { staff:null, robe:null, relic1:null, relic2:null };
+	// Give one of every item in ITEM_DB
+	for (const id of Object.keys(ITEM_DB)) {
+		STATE.inventory.push({ itemId: id, qty: 1 });
+	}
+	saveState();
+	renderAll();
+});
 
 // close modal on overlay click
 document.getElementById('spellModal').addEventListener('click', e => {

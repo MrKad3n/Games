@@ -126,6 +126,19 @@ const ITEM_DB={
 	arcane_robe:{stats:{magicDefence:7,magicCapacity:25,magicControl:3}},shadow_robe:{stats:{magicDefence:12,magicPower:5}},
 	mana_gem:{stats:{magicCapacity:15}},fire_ring:{stats:{magicPower:6}},frost_amulet:{stats:{magicDefence:5,magicControl:3}},
 	chaos_orb:{stats:{magicPower:8,magicControl:6}},phoenix_feather:{stats:{magicPower:10,magicCapacity:30,magicDefence:5}},
+	storm_staff:{stats:{magicPower:8,magicControl:4}},blood_staff:{stats:{magicPower:14,magicCapacity:15}},
+	stardust_staff:{stats:{magicPower:22,magicControl:10,magicCapacity:25}},bone_staff:{stats:{magicPower:4,magicDefence:2}},
+	prism_staff:{stats:{magicPower:7,magicControl:5}},ember_robe:{stats:{magicDefence:6,magicPower:4}},
+	void_robe:{stats:{magicDefence:10,magicCapacity:20,magicControl:4}},
+	celestial_robe:{stats:{magicDefence:18,magicCapacity:40,magicControl:6,magicPower:8}},
+	hunter_cloak:{stats:{magicDefence:3,magicControl:2}},tide_robe:{stats:{magicDefence:5,magicCapacity:20}},
+	sun_medallion:{stats:{magicPower:10,magicDefence:4}},moon_pendant:{stats:{magicCapacity:25,magicControl:5}},
+	dragon_heart:{stats:{magicPower:15,magicCapacity:35,magicDefence:8}},
+	world_seed:{stats:{magicCapacity:50,magicDefence:10,magicControl:8}},
+	thunder_tooth:{stats:{magicPower:7,magicControl:3}},ghost_lantern:{stats:{magicCapacity:12,magicDefence:3}},
+	bloodstone:{stats:{magicPower:8,magicDefence:4}},wind_charm:{stats:{magicControl:4,magicCapacity:8}},
+	eye_of_eternity:{stats:{magicPower:12,magicControl:12,magicCapacity:30,magicDefence:6}},
+	crystal_crown:{stats:{magicControl:8,magicPower:6,magicDefence:3}},
 };
 
 function computeStats() {
@@ -145,15 +158,16 @@ const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chai
 const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4};
 const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,stationary:0,selfCast:3};
 const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,stationary:0,selfCast:2};
-const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6};
-const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5};
+const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0};
+const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0};
 
 function calcSpellCost(spell) {
 	if (!spell || !spell.phases.length) return 0;
 	let cost = 5;
 	for (const ph of spell.phases) {
 		cost += (SHAPE_MANA[ph.shape]||0) + (BEH_MANA[ph.behavior]||0);
-		cost += ph.power * 3 + (ph.count-1)*4 + (ph.width-1)*2 + (ph.height-1)*2;
+		const powerCost = ph.power * 50;
+		cost += powerCost + (ph.count-1)*4 + (ph.width-1)*2 + (ph.height-1)*2;
 		for (const fx of ph.effects) cost += (FX_MANA[fx]||0);
 	}
 	cost *= (0.6 + spell.phases.length * 0.4);
@@ -210,11 +224,11 @@ const platforms = [
    TRAINING DUMMIES
    ============================================================= */
 const dummies = [
-	{ x:1200, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
-	{ x:2000, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
-	{ x:1600, y:1600-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
-	{ x:2700, y:1650-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
-	{ x:3200, y:1900-48, w:28, h:48, hp:100, maxHp:100, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:1200, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:5000, maxHp:5000, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:2000, y:WORLD_H-GROUND_THICK-48, w:28, h:48, hp:5000, maxHp:5000, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:1600, y:1600-48, w:28, h:48, hp:5000, maxHp:5000, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:2700, y:1650-48, w:28, h:48, hp:5000, maxHp:5000, flash:0, dots:[], stunTimer:0, slowTimer:0 },
+	{ x:3200, y:1900-48, w:28, h:48, hp:5000, maxHp:5000, flash:0, dots:[], stunTimer:0, slowTimer:0 },
 ];
 // store original positions for respawn
 const dummySpawns = dummies.map(d => ({ x:d.x, y:d.y }));
@@ -317,6 +331,9 @@ const projectiles = [];
 const particles   = [];
 const dmgNumbers  = [];
 
+/* --- per-dummy damage accumulator (rolling window) --- */
+const dummyDmgAccum = dummies.map(() => ({ total:0, timer:0, x:0, y:0, color:'#fff' }));
+
 /* =============================================================
    CAST SPELL
    ============================================================= */
@@ -337,6 +354,16 @@ function castSpell() {
 	player.castColor = spell.phases[0]?.color || '#4488ff';
 
 	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing);
+}
+
+/* Compute cascading projectile count up to and including phaseIdx
+   (product of counts from phase 0 .. phaseIdx) */
+function calcCascadingCount(spell, phaseIdx) {
+	let product = 1;
+	for (let i = 0; i <= phaseIdx && i < spell.phases.length; i++) {
+		product *= (spell.phases[i].count || 1);
+	}
+	return product;
 }
 
 function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
@@ -366,7 +393,7 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 			maxAge: (ph.duration || 1) * FPS,
 			width: (ph.width || 1) * 10,
 			height: (ph.height || 1) * 10,
-			power: (ph.power || 1) * (1 + stats.magicPower * 0.08) * count / (count + 1) * powerMult,
+			power: ((ph.power || 1) / count + 0.1) * (1 + stats.magicPower * 0.08) * powerMult,
 			color: ph.color || '#4488ff',
 			trail: ph.trail || 'none',
 			shape: ph.shape || 'missile',
@@ -405,9 +432,12 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 		if (ph.behavior === 'rain') {
 			const spread2 = 200 * (ph.width || 1);
 			proj.x = originX + (i - (count-1)/2) * (spread2 / Math.max(count-1,1));
-			proj.y = originY - 500;
+			proj.y = originY - 150;
 			proj.vx = 0;
 			proj.vy = spd * 0.8;
+			proj.startX = proj.x;
+			proj.startY = proj.y;
+			proj.facing = 1;
 		}
 		if (ph.behavior === 'stationary') { proj.vx = 0; proj.vy = 0; }
 		if (ph.behavior === 'groundSurge') { proj.vy = 0; proj.vx = facing * spd; }
@@ -418,6 +448,98 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 		}
 
 		projectiles.push(proj);
+	}
+}
+
+/* -- Morph existing projectile into next phase (phase continuation) --
+   If next phase has count > 1, the original proj becomes one of them
+   and (count-1) additional projectiles are spawned at the same spot. */
+function morphProjectile(proj, phaseIdx, dmgMult) {
+	const spell = proj.spell;
+	if (phaseIdx >= spell.phases.length) return;
+	const ph = spell.phases[phaseIdx];
+	const count = ph.count || 1;
+	const powerMult = dmgMult || 1;
+	const spd = (ph.speed || 1) * 7;
+	const origX = proj.x, origY = proj.y, origFacing = proj.facing;
+
+	// helper: apply phase properties to a projectile object
+	function applyPhaseToProj(p, spreadIdx) {
+		const baseAng = origFacing === 1 ? 0 : Math.PI;
+		let spreadAngle = 0;
+		if (count > 1) {
+			const spreadRad = (ph.spread || 0) * Math.PI / 180;
+			spreadAngle = ((spreadIdx / (count - 1)) - 0.5) * spreadRad;
+		}
+		const angle = baseAng + spreadAngle;
+
+		p.phaseIdx = phaseIdx;
+		p.phase = ph;
+		p.age = 0;
+		p.maxAge = (ph.duration || 1) * FPS;
+		p.width = (ph.width || 1) * 10;
+		p.height = (ph.height || 1) * 10;
+		p.power = ((ph.power || 1) / count + 0.1) * (1 + stats.magicPower * 0.08) * powerMult;
+		p.color = ph.color || '#4488ff';
+		p.trail = ph.trail || 'none';
+		p.shape = ph.shape || 'missile';
+		p.behavior = ph.behavior || 'straight';
+		p.effects = ph.effects || [];
+		p.trailParts = [];
+		p.hasHit = false;
+		p.phaseTriggered = false;
+		p.hitDummies = new Set();
+		p.startX = origX;
+		p.startY = origY;
+		p.beamLen = 0;
+		p.chainHits = 0;
+		p.chainMax = 3;
+		p.timedReleaseDelay = (ph.timedReleaseDelay || 0.5) * FPS;
+		p.timedReleaseTriggered = false;
+		p.phaseForkDelay = (ph.phaseForkDelay || 1) * FPS;
+		p.phaseForkRepeats = ph.phaseForkRepeats || 1;
+		p.phaseForkCount = 0;
+		p.phaseForkNextAge = (ph.phaseForkDelay || 1) * FPS;
+		p.isSolidPlatform = false;
+
+		p.vx = Math.cos(angle) * spd;
+		p.vy = Math.sin(angle) * spd;
+
+		if (ph.shape === 'solidify') { p.isSolidPlatform = true; p.vx = 0; p.vy = 0; }
+		if (ph.behavior === 'rain') {
+			p.vx = 0; p.vy = spd * 0.8;
+			p.startX = origX; p.startY = origY; p.facing = origFacing;
+		}
+		if (ph.behavior === 'stationary') { p.vx = 0; p.vy = 0; }
+		if (ph.behavior === 'groundSurge') { p.vy = 0; p.vx = origFacing * spd; }
+		if (ph.behavior === 'selfCast') {
+			p.x = player.x + player.w / 2;
+			p.y = player.y + player.h - 4;
+			p.vx = 0; p.vy = 0;
+		}
+		if (ph.behavior === 'orbit') {
+			p.orbitOriginX = origX; p.orbitOriginY = origY;
+			p.orbitAngle = spreadIdx * (Math.PI * 2 / count);
+			p.orbitRadius = ph.orbitRadius || 80;
+			p.orbitSpeed = ph.orbitSpeed || 3;
+			p.orbitDur = (ph.orbitDuration || 1.5) * FPS;
+		}
+	}
+
+	// morph the existing projectile as index 0
+	applyPhaseToProj(proj, 0);
+
+	// spawn additional (count-1) projectiles at the same position
+	for (let i = 1; i < count; i++) {
+		const clone = {
+			spell, phaseIdx, phase: ph,
+			x: origX, y: origY, facing: origFacing,
+			orbitAngle: 0, orbitRadius: 80, orbitSpeed: 3, orbitDur: 90,
+			orbitOriginX: origX, orbitOriginY: origY,
+			trailParts: [],
+		};
+		applyPhaseToProj(clone, i);
+		projectiles.push(clone);
 	}
 }
 
@@ -535,7 +657,10 @@ function updateProjectiles() {
 				break;
 			}
 
-			case 'rain': break;
+			case 'rain':
+				// cone shape stays anchored at spawn point
+				if (p.shape === 'cone') { p.vx = 0; p.vy = 0; p.x = p.startX; p.y = p.startY; }
+				break;
 			case 'stationary': break;
 			case 'selfCast': break;
 		}
@@ -569,9 +694,15 @@ function updateProjectiles() {
 			} else if (p.shape === 'cone') {
 				const coneLen = (p.age/p.maxAge)*200*(p.phase.width||1);
 				const coneHalf = coneLen*0.4*(p.phase.width||1);
-				const dx = d.x+d.w/2-p.startX, dy = d.y+d.h/2-p.startY;
-				const along = p.facing===1?dx:-dx;
-				hit = along > 0 && along < coneLen && Math.abs(dy) < coneHalf*(along/coneLen);
+				if (p.behavior === 'rain') {
+					// rain cone points downward
+					const dx = d.x+d.w/2-p.x, dy = d.y+d.h/2-p.y;
+					hit = dy > 0 && dy < coneLen && Math.abs(dx) < coneHalf*(dy/coneLen);
+				} else {
+					const dx = d.x+d.w/2-p.startX, dy = d.y+d.h/2-p.startY;
+					const along = p.facing===1?dx:-dx;
+					hit = along > 0 && along < coneLen && Math.abs(dy) < coneHalf*(along/coneLen);
+				}
 			} else if (p.shape === 'wall') {
 				hit = rectRect({x:p.x-p.width,y:p.y-p.height*3,w:p.width*2,h:p.height*6}, d);
 			} else if (p.shape === 'solidify') {
@@ -585,7 +716,16 @@ function updateProjectiles() {
 				const baseDmg = p.power * 8;
 				d.hp -= baseDmg;
 				d.flash = 8;
-				dmgNumbers.push({ x:d.x+d.w/2, y:d.y-10, text:Math.round(baseDmg)+'', age:0, color:p.color });
+				// accumulate damage per dummy
+				const di = dummies.indexOf(d);
+				if (di >= 0) {
+					const acc = dummyDmgAccum[di];
+					acc.total += baseDmg;
+					acc.timer = 180; // 3 seconds at 60fps
+					acc.x = d.x + d.w/2;
+					acc.y = d.y - 24;
+					acc.color = p.color;
+				}
 				applyEffects(p, d);
 
 				// chain: jump to next target
@@ -616,10 +756,14 @@ function updateProjectiles() {
 				p.hasHit = true;
 				spawnImpact(p.x, p.y, p.color);
 
-				// trigger next phase ON HIT
+				// trigger next phase ON HIT (carry projectile forward by default)
 				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
 					p.phaseTriggered = true;
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					if (p.effects.includes('resetProjectiles')) {
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					} else {
+						morphProjectile(p, p.phaseIdx+1);
+					}
 				}
 				break;
 			}
@@ -659,7 +803,11 @@ function updateProjectiles() {
 				p.hasHit = true;
 				if (!p.phaseTriggered && p.phase.nextTrigger==='onHit' && p.phaseIdx+1<p.spell.phases.length) {
 					p.phaseTriggered = true;
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					if (p.effects.includes('resetProjectiles')) {
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					} else {
+						morphProjectile(p, p.phaseIdx+1);
+					}
 				}
 			}
 		}
@@ -667,8 +815,13 @@ function updateProjectiles() {
 		/* ---- AFTER DELAY trigger ---- */
 		if (!p.phaseTriggered && p.phase.nextTrigger==='afterDelay' && p.age > p.maxAge*0.6) {
 			p.phaseTriggered = true;
-			if (p.phaseIdx+1<p.spell.phases.length)
-				spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+			if (p.phaseIdx+1<p.spell.phases.length) {
+				if (p.effects.includes('resetProjectiles')) {
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+				} else {
+					morphProjectile(p, p.phaseIdx+1);
+				}
+			}
 		}
 
 		/* ---- TIMED RELEASE auto-trigger effects ---- */
@@ -702,7 +855,14 @@ function updateProjectiles() {
 		if (shouldRemove) {
 			if (!p.phaseTriggered && p.phase.nextTrigger==='onExpire' && p.phaseIdx+1<p.spell.phases.length) {
 				p.phaseTriggered = true;
-				spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+				if (p.effects.includes('resetProjectiles')) {
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					projectiles.splice(i,1);
+				} else {
+					morphProjectile(p, p.phaseIdx+1);
+					// don't remove — projectile continues as next phase
+				}
+				continue;
 			}
 			projectiles.splice(i,1);
 			continue;
@@ -908,6 +1068,7 @@ function update() {
 			d.y = dummySpawns[di].y;
 			d.flash = 0; d.dots = []; d.stunTimer = 0; d.slowTimer = 0;
 			dmgNumbers.push({ x:d.x+d.w/2, y:d.y-10, text:'Respawned', age:0, color:'#888' });
+			dummyDmgAccum[di].total = 0; dummyDmgAccum[di].timer = 0;
 		}
 
 		for (let doti = d.dots.length-1; doti >= 0; doti--) {
@@ -917,7 +1078,13 @@ function update() {
 				dot.timer = 0;
 				d.hp -= dot.dmg;
 				d.flash = 4;
-				dmgNumbers.push({ x:d.x+d.w/2+(Math.random()-0.5)*10, y:d.y-6, text:Math.round(dot.dmg)+'', age:0, color:dot.color });
+				// DoT damage into accumulator too
+				const acc = dummyDmgAccum[di];
+				acc.total += dot.dmg;
+				acc.timer = 180;
+				acc.x = d.x + d.w/2;
+				acc.y = d.y - 24;
+				acc.color = dot.color;
 				dot.ticks--;
 				if (dot.ticks <= 0) d.dots.splice(doti, 1);
 			}
@@ -949,6 +1116,12 @@ function update() {
 		dmgNumbers[i].age++;
 		dmgNumbers[i].y -= 0.8;
 		if (dmgNumbers[i].age > 60) dmgNumbers.splice(i,1);
+	}
+
+	/* damage accumulators — tick down, clear when timer runs out */
+	for (const acc of dummyDmgAccum) {
+		if (acc.timer > 0) acc.timer--;
+		if (acc.timer <= 0 && acc.total > 0) acc.total = 0;
 	}
 
 	updateCamera();
@@ -1065,11 +1238,20 @@ function render() {
 			}
 			case 'cone':{
 				const cL=progress*200*(p.phase.width||1), cH=cL*0.4*(p.phase.width||1);
-				const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
-				ctx.beginPath();ctx.moveTo(cx2,cy2);
-				ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);
-				ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
-				ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
+				if(p.behavior==='rain'){
+					// rain cone points downward and stays at spawn pos
+					const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
+					ctx.beginPath();ctx.moveTo(cx2,cy2);
+					ctx.lineTo(cx2-cH,cy2+cL);ctx.lineTo(cx2+cH,cy2+cL);
+					ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
+					ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
+				} else {
+					const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
+					ctx.beginPath();ctx.moveTo(cx2,cy2);
+					ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);
+					ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
+					ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
+				}
 				break;
 			}
 			case 'nova':{
@@ -1122,13 +1304,35 @@ function render() {
 		ctx.fill();
 	}
 
-	/* dmg numbers */
+	/* dmg numbers (individual small hits) */
 	for(const dn of dmgNumbers){
 		ctx.font='bold 14px Arial';ctx.fillStyle=dn.color;
 		ctx.globalAlpha=1-dn.age/60;ctx.textAlign='center';
 		ctx.fillText(dn.text,dn.x-camera.x,dn.y-camera.y);
 	}
 	ctx.globalAlpha=1;
+
+	/* damage accumulator per dummy — big number above dummy */
+	for (let di = 0; di < dummies.length; di++) {
+		const acc = dummyDmgAccum[di];
+		if (acc.total <= 0) continue;
+		const d = dummies[di];
+		const sx = (d.x + d.w/2) - camera.x;
+		const sy = d.y - 32 - camera.y;
+		const alpha = Math.min(1, acc.timer / 30); // fade in last 0.5s
+		ctx.save();
+		ctx.globalAlpha = alpha;
+		ctx.font = 'bold 18px Arial';
+		ctx.textAlign = 'center';
+		ctx.fillStyle = '#000';
+		ctx.fillText(Math.round(acc.total), sx+1, sy+1);
+		ctx.fillStyle = '#ffdd44';
+		ctx.fillText(Math.round(acc.total), sx, sy);
+		ctx.font = '10px Arial';
+		ctx.fillStyle = '#ccc';
+		ctx.fillText('Total Dmg', sx, sy - 16);
+		ctx.restore();
+	}
 
 	/* player */
 	const ppx=player.x-camera.x, ppy=player.y-camera.y;
