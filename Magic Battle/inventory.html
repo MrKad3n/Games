@@ -396,7 +396,9 @@ const BEHAVIORS = {
 	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Spirals outward' },
 	rain:         { label:'Rain Down',    controlReq:7,  manaCost:8,  desc:'Falls from the sky in an area' },
 	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place' },
-	selfCast:     { label:'Self Cast',    controlReq:2,  manaCost:3,  desc:'Spawns at your feet' },
+	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet' },
+	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position' },
+	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'4 projectiles spawn in each cardinal direction (overrides count)' },
 };
 
 /* -- Effects catalogue -- */

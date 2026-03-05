@@ -156,8 +156,8 @@ const stats = computeStats();
 /* --- spell cost / control helpers (mirrored from inventory) --- */
 const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10};
 const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4};
-const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,stationary:0,selfCast:3};
-const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,stationary:0,selfCast:2};
+const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5};
+const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3};
 const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0};
 const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0};
 
@@ -369,7 +369,7 @@ function calcCascadingCount(spell, phaseIdx) {
 function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 	if (phaseIdx >= spell.phases.length) return;
 	const ph = spell.phases[phaseIdx];
-	const count = ph.count || 1;
+	const count = ph.behavior === 'aroundSelf' ? 4 : (ph.count || 1);
 	const baseAngle = facing === 1 ? 0 : Math.PI;
 	const powerMult = dmgMult || 1;
 
@@ -441,9 +441,22 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 		}
 		if (ph.behavior === 'stationary') { proj.vx = 0; proj.vy = 0; }
 		if (ph.behavior === 'groundSurge') { proj.vy = 0; proj.vx = facing * spd; }
+		if (ph.behavior === 'underfoot') {
+			proj.x = player.x + player.w / 2;
+			proj.y = player.y + player.h + 4;
+			proj.vx = 0; proj.vy = 0;
+		}
 		if (ph.behavior === 'selfCast') {
 			proj.x = player.x + player.w / 2;
-			proj.y = player.y + player.h - 4;
+			proj.y = player.y + player.h / 2;
+			proj.vx = 0; proj.vy = 0;
+		}
+		if (ph.behavior === 'aroundSelf') {
+			// 4 cardinal directions, ignore user count
+			const offsets = [{dx:-40,dy:0},{dx:40,dy:0},{dx:0,dy:-40},{dx:0,dy:40}];
+			const off = offsets[i % 4] || offsets[0];
+			proj.x = player.x + player.w/2 + off.dx;
+			proj.y = player.y + player.h/2 + off.dy;
 			proj.vx = 0; proj.vy = 0;
 		}
 
@@ -458,7 +471,7 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 	const spell = proj.spell;
 	if (phaseIdx >= spell.phases.length) return;
 	const ph = spell.phases[phaseIdx];
-	const count = ph.count || 1;
+	const count = ph.behavior === 'aroundSelf' ? 4 : (ph.count || 1);
 	const powerMult = dmgMult || 1;
 	const spd = (ph.speed || 1) * 7;
 	const origX = proj.x, origY = proj.y, origFacing = proj.facing;
@@ -512,9 +525,22 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		}
 		if (ph.behavior === 'stationary') { p.vx = 0; p.vy = 0; }
 		if (ph.behavior === 'groundSurge') { p.vy = 0; p.vx = origFacing * spd; }
+		if (ph.behavior === 'underfoot') {
+			// later phases: spawn at projectile's last position (origX/origY), not player
+			p.x = origX;
+			p.y = origY + 4;
+			p.vx = 0; p.vy = 0;
+		}
 		if (ph.behavior === 'selfCast') {
-			p.x = player.x + player.w / 2;
-			p.y = player.y + player.h - 4;
+			p.x = origX;
+			p.y = origY;
+			p.vx = 0; p.vy = 0;
+		}
+		if (ph.behavior === 'aroundSelf') {
+			const offsets = [{dx:-40,dy:0},{dx:40,dy:0},{dx:0,dy:-40},{dx:0,dy:40}];
+			const off = offsets[spreadIdx % 4] || offsets[0];
+			p.x = origX + off.dx;
+			p.y = origY + off.dy;
 			p.vx = 0; p.vy = 0;
 		}
 		if (ph.behavior === 'orbit') {
@@ -662,7 +688,9 @@ function updateProjectiles() {
 				if (p.shape === 'cone') { p.vx = 0; p.vy = 0; p.x = p.startX; p.y = p.startY; }
 				break;
 			case 'stationary': break;
+			case 'underfoot': break;
 			case 'selfCast': break;
+			case 'aroundSelf': break;
 		}
 
 		// apply velocity (unless orbiting)
@@ -771,7 +799,7 @@ function updateProjectiles() {
 
 		/* ---- PLATFORM COLLISION ---- */
 		const pierceShapes = ['beam','cone','nova','ring','wall','solidify'];
-		const skipPlatformCollision = pierceShapes.includes(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' ||
+		const skipPlatformCollision = pierceShapes.includes(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' || p.behavior==='underfoot' || p.behavior==='aroundSelf' ||
 			(p.behavior==='orbit' && p.age < p.orbitDur);
 
 		if (!skipPlatformCollision && !p.hasHit) {
