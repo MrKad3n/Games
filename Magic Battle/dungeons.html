@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Magic Battle — Dungeons</title>
+	<style>
+		:root {
+			--bg-top: #1a1633;
+			--bg-bottom: #0f1024;
+			--panel: rgba(255,255,255,0.05);
+			--text: #f5f7ff;
+			--muted: #c2c8e8;
+			--border: rgba(255,255,255,0.2);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+		body {
+			min-height: 100vh; color: var(--text);
+			background: radial-gradient(70% 50% at 10% 10%, rgba(94,60,180,0.35), transparent 60%),
+				radial-gradient(60% 50% at 85% 20%, rgba(46,112,206,0.28), transparent 65%),
+				linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+			overflow: hidden;
+		}
+		.page { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:30px 20px; }
+		h1 { text-align:center; font-size:clamp(28px,5vw,48px); margin-bottom:8px; text-shadow:2px 2px 4px #000; }
+		.subtitle { color:var(--muted); text-align:center; margin-bottom:30px; text-shadow:1px 1px 3px rgba(0,0,0,0.5); }
+		#backBtn {
+			position:fixed; top:12px; left:14px; z-index:10;
+			padding:8px 18px; font:14px Arial,sans-serif;
+			background:rgba(255,255,255,0.12); color:#ddd;
+			border:1px solid rgba(255,255,255,0.25); border-radius:6px;
+			cursor:pointer; transition:background .2s; text-decoration:none;
+		}
+		#backBtn:hover { background:rgba(255,255,255,0.22); }
+
+		.dungeon-grid {
+			width:min(1100px,94vw); display:grid;
+			grid-template-columns:repeat(3,1fr); gap:24px;
+		}
+		.dungeon-card {
+			background:var(--panel); border:3px solid var(--border); border-radius:14px;
+			min-height:58vh; max-height:640px; padding:24px; text-align:center;
+			position:relative; overflow:hidden; display:flex; flex-direction:column;
+			justify-content:center; align-items:center;
+			box-shadow:0 8px 18px rgba(0,0,0,0.3);
+			transition:transform .25s,box-shadow .25s,border-color .25s;
+		}
+		.dungeon-card:hover {
+			transform:translateY(-6px);
+			box-shadow:0 12px 24px rgba(0,0,0,0.45),0 0 18px rgba(255,255,255,0.15);
+		}
+		.dungeon-card h2 { font-size:clamp(22px,2vw,30px); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; text-shadow:2px 2px 4px #000; }
+		.dungeon-card p { color:#e8e8ff; margin-bottom:20px; line-height:1.4; font-size:15px; text-shadow:1px 1px 2px #000; }
+		.dungeon-card .enemies-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+		.dungeon-card .enemy-list { font-size:13px; color:#ccc; margin-bottom:18px; line-height:1.6; }
+		.dungeon-card button {
+			padding:12px 28px; min-width:160px; font-size:16px; font-weight:bold;
+			border:none; border-radius:8px; color:#fff; cursor:pointer;
+			box-shadow:0 3px 8px rgba(0,0,0,0.3); transition:background .2s,transform .2s;
+		}
+		.dungeon-card button:hover { transform:translateY(-2px); }
+
+		/* Fire */
+		#fire-card { border-color:#ff6b35; background:linear-gradient(180deg,rgba(180,60,20,0.35),rgba(60,10,0,0.6)); }
+		#fire-card h2 { color:#ff9955; }
+		#fire-card button { background:linear-gradient(135deg,#d44000,#ff6b35); }
+		#fire-card button:hover { background:linear-gradient(135deg,#ff6b35,#ff9955); }
+
+		/* Ice */
+		#ice-card { border-color:#5bcefa; background:linear-gradient(180deg,rgba(40,100,180,0.35),rgba(10,30,60,0.6)); }
+		#ice-card h2 { color:#88ddff; }
+		#ice-card button { background:linear-gradient(135deg,#2277bb,#5bcefa); }
+		#ice-card button:hover { background:linear-gradient(135deg,#5bcefa,#88ddff); }
+
+		/* Earth */
+		#earth-card { border-color:#7cb342; background:linear-gradient(180deg,rgba(60,100,30,0.35),rgba(20,30,10,0.6)); }
+		#earth-card h2 { color:#a5d66a; }
+		#earth-card button { background:linear-gradient(135deg,#558b2f,#7cb342); }
+		#earth-card button:hover { background:linear-gradient(135deg,#7cb342,#a5d66a); }
+
+		.icon-big { font-size:48px; margin-bottom:10px; }
+
+		@media (max-width:900px) {
+			.dungeon-grid { grid-template-columns:1fr; max-width:420px; }
+			.dungeon-card { min-height:auto; padding:20px; }
+		}
+	</style>
+</head>
+<body>
+	<a href="index.html" id="backBtn">← Back to Menu</a>
+	<main class="page">
+		<h1>Choose a Dungeon</h1>
+		<p class="subtitle">Each dungeon holds unique enemies and challenges. Prepare your spells!</p>
+
+		<section class="dungeon-grid">
+			<article class="dungeon-card" id="fire-card">
+				<div class="icon-big">🔥</div>
+				<h2>The Inferno Depths</h2>
+				<p>Descend into the scorching volcanic corridors. Lava flows and flame-wielding creatures guard every turn.</p>
+				<div class="enemies-label">Enemies</div>
+				<div class="enemy-list">Imp · Flame Serpent · Ember Mage<br>Magma Golem · Fire Sprite</div>
+				<button onclick="location.href='dungeon.html?type=fire'">Enter Dungeon</button>
+			</article>
+
+			<article class="dungeon-card" id="ice-card">
+				<div class="icon-big">❄️</div>
+				<h2>The Frozen Caverns</h2>
+				<p>Navigate the icy depths where frost bites and ancient cold creatures lurk in every shadow.</p>
+				<div class="enemies-label">Enemies</div>
+				<div class="enemy-list">Frost Wraith · Ice Archer · Snow Beast<br>Cryo Mage · Glacier Sentinel</div>
+				<button onclick="location.href='dungeon.html?type=ice'">Enter Dungeon</button>
+			</article>
+
+			<article class="dungeon-card" id="earth-card">
+				<div class="icon-big">🌿</div>
+				<h2>The Stone Warrens</h2>
+				<p>Dig through sprawling underground tunnels filled with living stone, vines, and crystal magic.</p>
+				<div class="enemies-label">Enemies</div>
+				<div class="enemy-list">Rock Golem · Vine Crawler · Cave Spider<br>Crystal Mage · Mud Elemental</div>
+				<button onclick="location.href='dungeon.html?type=earth'">Enter Dungeon</button>
+			</article>
+		</section>
+	</main>
+</body>
+</html>

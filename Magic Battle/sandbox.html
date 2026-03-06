@@ -65,6 +65,24 @@
 			text-align: center; font-size: 11px; color: #5dade2;
 			text-shadow: 1px 1px 2px #000; margin-top: 2px;
 		}
+		#totalManaWrap {
+			position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+			width: 220px; z-index: 10; pointer-events: none;
+		}
+		#totalManaBarBg {
+			width: 100%; height: 10px; background: rgba(0,0,0,0.5);
+			border: 1px solid rgba(255,170,0,0.4); border-radius: 5px; overflow: hidden;
+		}
+		#totalManaBarFill {
+			height: 100%; background: linear-gradient(90deg, #cc8800, #ffaa00);
+			border-radius: 5px; transition: width .15s;
+		}
+		#totalManaText {
+			text-align: center; font-size: 10px; color: #ffcc44;
+			text-shadow: 1px 1px 2px #000; margin-top: 1px;
+		}
+		.hb-ult { border-color: rgba(255,170,0,.5) !important; background: rgba(255,170,0,.15) !important; }
+		.hb-ult.active { border-color: #ffaa00 !important; background: rgba(255,170,0,.3) !important; }
 	</style>
 </head>
 <body>
@@ -79,6 +97,10 @@
 	<div id="manaWrap">
 		<div id="manaBarBg"><div id="manaBarFill" style="width:100%"></div></div>
 		<div id="manaText">100 / 100</div>
+	</div>
+	<div id="totalManaWrap">
+		<div id="totalManaBarBg"><div id="totalManaBarFill" style="width:0%"></div></div>
+		<div id="totalManaText">⚡ Total Mana: 0</div>
 	</div>
 	<div id="hotbar"></div>
 
@@ -105,7 +127,7 @@ try {
 
 if (!playerData) {
 	playerData = {
-		baseStats: { magicPower:10, magicControl:5, magicCapacity:100, magicDefence:8 },
+		baseStats: { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 },
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		inventory: [],
 		spells: new Array(10).fill(null),
@@ -121,23 +143,23 @@ if (!playerData) {
 /* --- item DB (stat lookup for equipped items) --- */
 const ITEM_DB={
 	oak_staff:{stats:{magicPower:3}},crystal_staff:{stats:{magicPower:5,magicControl:2}},
-	void_staff:{stats:{magicPower:12,magicControl:5}},elder_staff:{stats:{magicPower:18,magicControl:8,magicCapacity:20}},
-	linen_robe:{stats:{magicDefence:2}},silk_robe:{stats:{magicDefence:4,magicCapacity:10}},
-	arcane_robe:{stats:{magicDefence:7,magicCapacity:25,magicControl:3}},shadow_robe:{stats:{magicDefence:12,magicPower:5}},
-	mana_gem:{stats:{magicCapacity:15}},fire_ring:{stats:{magicPower:6}},frost_amulet:{stats:{magicDefence:5,magicControl:3}},
-	chaos_orb:{stats:{magicPower:8,magicControl:6}},phoenix_feather:{stats:{magicPower:10,magicCapacity:30,magicDefence:5}},
-	storm_staff:{stats:{magicPower:8,magicControl:4}},blood_staff:{stats:{magicPower:14,magicCapacity:15}},
-	stardust_staff:{stats:{magicPower:22,magicControl:10,magicCapacity:25}},bone_staff:{stats:{magicPower:4,magicDefence:2}},
+	void_staff:{stats:{magicPower:12,magicControl:5}},elder_staff:{stats:{magicPower:18,magicControl:8,manaRegen:20}},
+	linen_robe:{stats:{magicDefence:2}},silk_robe:{stats:{magicDefence:4,manaRegen:10}},
+	arcane_robe:{stats:{magicDefence:7,manaRegen:25,magicControl:3}},shadow_robe:{stats:{magicDefence:12,magicPower:5}},
+	mana_gem:{stats:{manaRegen:15}},fire_ring:{stats:{magicPower:6}},frost_amulet:{stats:{magicDefence:5,magicControl:3}},
+	chaos_orb:{stats:{magicPower:8,magicControl:6}},phoenix_feather:{stats:{magicPower:10,manaRegen:30,magicDefence:5}},
+	storm_staff:{stats:{magicPower:8,magicControl:4}},blood_staff:{stats:{magicPower:14,manaRegen:15}},
+	stardust_staff:{stats:{magicPower:22,magicControl:10,manaRegen:25}},bone_staff:{stats:{magicPower:4,magicDefence:2}},
 	prism_staff:{stats:{magicPower:7,magicControl:5}},ember_robe:{stats:{magicDefence:6,magicPower:4}},
-	void_robe:{stats:{magicDefence:10,magicCapacity:20,magicControl:4}},
-	celestial_robe:{stats:{magicDefence:18,magicCapacity:40,magicControl:6,magicPower:8}},
-	hunter_cloak:{stats:{magicDefence:3,magicControl:2}},tide_robe:{stats:{magicDefence:5,magicCapacity:20}},
-	sun_medallion:{stats:{magicPower:10,magicDefence:4}},moon_pendant:{stats:{magicCapacity:25,magicControl:5}},
-	dragon_heart:{stats:{magicPower:15,magicCapacity:35,magicDefence:8}},
-	world_seed:{stats:{magicCapacity:50,magicDefence:10,magicControl:8}},
-	thunder_tooth:{stats:{magicPower:7,magicControl:3}},ghost_lantern:{stats:{magicCapacity:12,magicDefence:3}},
-	bloodstone:{stats:{magicPower:8,magicDefence:4}},wind_charm:{stats:{magicControl:4,magicCapacity:8}},
-	eye_of_eternity:{stats:{magicPower:12,magicControl:12,magicCapacity:30,magicDefence:6}},
+	void_robe:{stats:{magicDefence:10,manaRegen:20,magicControl:4}},
+	celestial_robe:{stats:{magicDefence:18,manaRegen:40,magicControl:6,magicPower:8}},
+	hunter_cloak:{stats:{magicDefence:3,magicControl:2}},tide_robe:{stats:{magicDefence:5,manaRegen:20}},
+	sun_medallion:{stats:{magicPower:10,magicDefence:4}},moon_pendant:{stats:{manaRegen:25,magicControl:5}},
+	dragon_heart:{stats:{magicPower:15,manaRegen:35,magicDefence:8}},
+	world_seed:{stats:{manaRegen:50,magicDefence:10,magicControl:8}},
+	thunder_tooth:{stats:{magicPower:7,magicControl:3}},ghost_lantern:{stats:{manaRegen:12,magicDefence:3}},
+	bloodstone:{stats:{magicPower:8,magicDefence:4}},wind_charm:{stats:{magicControl:4,manaRegen:8}},
+	eye_of_eternity:{stats:{magicPower:12,magicControl:12,manaRegen:30,magicDefence:6}},
 	crystal_crown:{stats:{magicControl:8,magicPower:6,magicDefence:3}},
 };
 
@@ -154,12 +176,12 @@ function computeStats() {
 const stats = computeStats();
 
 /* --- spell cost / control helpers (mirrored from inventory) --- */
-const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10};
-const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4};
-const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5};
-const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3};
-const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0};
-const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0};
+const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10,allyOrb:6};
+const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,allyOrb:1};
+const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5};
+const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3};
+const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5};
+const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2};
 
 function calcSpellCost(spell) {
 	if (!spell || !spell.phases.length) return 0;
@@ -168,6 +190,7 @@ function calcSpellCost(spell) {
 		cost += (SHAPE_MANA[ph.shape]||0) + (BEH_MANA[ph.behavior]||0);
 		const powerCost = ph.power * 50;
 		cost += powerCost + (ph.count-1)*4 + (ph.width-1)*2 + (ph.height-1)*2;
+		if (ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
 		for (const fx of ph.effects) cost += (FX_MANA[fx]||0);
 	}
 	cost *= (0.6 + spell.phases.length * 0.4);
@@ -260,9 +283,9 @@ canvas.addEventListener('mouseup',   () => { mouseDown = false; });
 const player = {
 	x: 400, y: WORLD_H - GROUND_THICK - 48,
 	w: 32, h: 48,
-	vx: 0, vy: 0,
-	speed: 4.5,
-	jumpPow: -12,
+	vx: 0, vy: 0, launchVx: 0,
+	speed: 5.5,
+	jumpPow: -13.5,
 	onGround: false,
 	facing: 1,
 	castTimer: 0,
@@ -272,15 +295,22 @@ const player = {
 /* =============================================================
    MANA
    ============================================================= */
-const maxMana = stats.magicCapacity * 3;
-let mana = maxMana;
-const baseManaRegen = 0.05 + stats.magicCapacity * 0.001;
+const maxMana = Infinity;
+let mana = Infinity;
+const baseManaRegen = 0.05 + (stats.manaRegen||0) * 0.001;
 
 function updateManaHUD() {
-	const pct = Math.max(0, Math.min(100, (mana / maxMana) * 100));
-	document.getElementById('manaBarFill').style.width = pct + '%';
-	document.getElementById('manaText').textContent = `${Math.floor(mana)} / ${maxMana}`;
+	document.getElementById('manaBarFill').style.width = '100%';
+	document.getElementById('manaText').textContent = '∞';
 }
+
+/* Total Mana — accumulates from every spell cast, used for ultimate */
+let totalMana = Infinity;
+function updateTotalManaHUD(){
+	document.getElementById('totalManaBarFill').style.width = '100%';
+	document.getElementById('totalManaText').textContent = '⚡ Total Mana: ∞';
+}
+updateTotalManaHUD();
 
 /* =============================================================
    SPELL HOTBAR
@@ -296,9 +326,10 @@ function renderHotbar() {
 	bar.innerHTML = '';
 	for (let i = 0; i < 10; i++) {
 		const sp = playerData.spells[i];
+		const isUlt = (i === 9 && sp && sp.isUltimate);
 		const el = document.createElement('div');
-		el.className = 'hb-slot' + (i === activeSlot ? ' active' : '');
-		const keyLabel = i === 9 ? '0' : '' + (i + 1);
+		el.className = 'hb-slot' + (i === activeSlot ? ' active' : '') + (isUlt ? ' hb-ult' : '');
+		const keyLabel = isUlt ? '⚡0' : (i === 9 ? '0' : '' + (i + 1));
 		if (sp) {
 			const cost = calcSpellCost(sp);
 			const req  = calcSpellCtrl(sp);
@@ -309,11 +340,12 @@ function renderHotbar() {
 				const pct = (spellCooldowns[i] / spellMaxCooldowns[i]) * 100;
 				cdHtml = `<div class="hb-cd-overlay" style="height:${pct}%"></div>`;
 			}
+			const manaLabel = isUlt ? `${cost*10}⚡` : `${cost}💧`;
 			el.innerHTML = `
 				<span class="hb-key">${keyLabel}</span>
 				<div class="hb-dot" style="background:${usable ? color : '#555'}"></div>
 				<div class="hb-name" style="${usable?'':'color:#666;text-decoration:line-through'}">${sp.name}</div>
-				<div class="hb-mana">${cost}💧</div>
+				<div class="hb-mana">${manaLabel}</div>
 				${cdHtml}
 			`;
 		} else {
@@ -330,6 +362,13 @@ renderHotbar();
 const projectiles = [];
 const particles   = [];
 const dmgNumbers  = [];
+const MAX_PARTICLES = 300;
+const MAX_TRAIL = 8;
+const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','solidify']);
+
+/* --- diminishing returns: track hits per spell cast --- */
+let nextCastId = 0;
+const spellHitCounts = {};
 
 /* --- per-dummy damage accumulator (rolling window) --- */
 const dummyDmgAccum = dummies.map(() => ({ total:0, timer:0, x:0, y:0, color:'#fff' }));
@@ -340,20 +379,39 @@ const dummyDmgAccum = dummies.map(() => ({ total:0, timer:0, x:0, y:0, color:'#f
 function castSpell() {
 	const spell = playerData.spells[activeSlot];
 	if (!spell || !spell.phases.length) return;
-	const cost = calcSpellCost(spell);
+	let cost = calcSpellCost(spell);
+	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
+	cost = Math.round(cost * controlDiscount);
 	const req  = calcSpellCtrl(spell);
 	if (stats.magicControl < req) return;
-	if (mana < cost) return;
 	if (spellCooldowns[activeSlot] > 0) return;
 
-	mana -= cost;
-	const cd = 30 + spell.phases.length * 10;
-	spellCooldowns[activeSlot] = cd;
-	spellMaxCooldowns[activeSlot] = cd;
+	const isUlt = (activeSlot === 9 && spell.isUltimate);
+
+	if (isUlt) {
+		const ultCost = cost * 10;
+		if (totalMana < ultCost) return;
+		totalMana -= ultCost;
+		updateTotalManaHUD();
+		const cd = 60 + spell.phases.length * 15;
+		spellCooldowns[activeSlot] = cd;
+		spellMaxCooldowns[activeSlot] = cd;
+	} else {
+		if (mana < cost) return;
+		mana -= cost;
+		totalMana += cost;
+		updateTotalManaHUD();
+		const cd = 30 + spell.phases.length * 10;
+		spellCooldowns[activeSlot] = cd;
+		spellMaxCooldowns[activeSlot] = cd;
+	}
+
 	player.castTimer = 12;
 	player.castColor = spell.phases[0]?.color || '#4488ff';
 
-	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing);
+	const castId = nextCastId++;
+	spellHitCounts[castId] = 0;
+	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing, undefined, isUlt, castId);
 }
 
 /* Compute cascading projectile count up to and including phaseIdx
@@ -366,12 +424,20 @@ function calcCascadingCount(spell, phaseIdx) {
 	return product;
 }
 
-function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
+function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltimate, castId) {
 	if (phaseIdx >= spell.phases.length) return;
+	// enforce total projectile cap of 1000
+	let totalProj = 1;
+	for (const p of spell.phases) totalProj *= (p.behavior === 'aroundSelf' ? (p.aroundSelfCount || 4) : (p.count || 1));
+	if (totalProj > 1000) return;
 	const ph = spell.phases[phaseIdx];
-	const count = ph.behavior === 'aroundSelf' ? 4 : (ph.count || 1);
+	const count = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : (ph.count || 1);
 	const baseAngle = facing === 1 ? 0 : Math.PI;
 	const powerMult = dmgMult || 1;
+	const ultFlag = !!isUltimate;
+	// auto +1 power for self-targeted behaviors (no mana cost increase)
+	const selfBehaviors = ['underfoot','selfCast','aroundSelf','stationary'];
+	const selfPowerBonus = ph.behavior === 'stationary' ? 2.0 : selfBehaviors.includes(ph.behavior) ? 1.0 : 0;
 
 	for (let i = 0; i < count; i++) {
 		let spreadAngle = 0;
@@ -393,7 +459,7 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 			maxAge: (ph.duration || 1) * FPS,
 			width: (ph.width || 1) * 10,
 			height: (ph.height || 1) * 10,
-			power: ((ph.power || 1) / count + 0.1) * (1 + stats.magicPower * 0.08) * powerMult,
+			power: ((ph.power || 1) / count + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult,
 			color: ph.color || '#4488ff',
 			trail: ph.trail || 'none',
 			shape: ph.shape || 'missile',
@@ -409,6 +475,7 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 			startX: originX + facing * 16,
 			startY: originY,
 			beamLen: 0,
+			beamAngle: angle,
 			chainHits: 0,
 			chainMax: 3,
 			hasHit: false,
@@ -421,6 +488,8 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 			phaseForkCount: 0,
 			phaseForkNextAge: (ph.phaseForkDelay || 1) * FPS,
 			isSolidPlatform: false,
+			isUltimate: ultFlag,
+			castId: castId != null ? castId : -1,
 		};
 
 		// solidify shapes act as instant platforms
@@ -432,12 +501,23 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 		if (ph.behavior === 'rain') {
 			const spread2 = 200 * (ph.width || 1);
 			proj.x = originX + (i - (count-1)/2) * (spread2 / Math.max(count-1,1));
-			proj.y = originY - 150;
+			proj.y = originY - (ph.rainHeight || 150);
 			proj.vx = 0;
 			proj.vy = spd * 0.8;
 			proj.startX = proj.x;
 			proj.startY = proj.y;
 			proj.facing = 1;
+			proj.beamAngle = Math.PI / 2; // beams point downward
+		}
+		if (ph.behavior === 'barrage') {
+			const spread2 = 200 * (ph.height || 1);
+			proj.x = originX + facing * 120;
+			proj.y = originY + (i - (count-1)/2) * (spread2 / Math.max(count-1,1));
+			proj.vx = facing * spd * 0.8;
+			proj.vy = 0;
+			proj.startX = proj.x;
+			proj.startY = proj.y;
+			proj.beamAngle = facing === 1 ? 0 : Math.PI;
 		}
 		if (ph.behavior === 'stationary') { proj.vx = 0; proj.vy = 0; }
 		if (ph.behavior === 'groundSurge') { proj.vy = 0; proj.vx = facing * spd; }
@@ -452,11 +532,10 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult) {
 			proj.vx = 0; proj.vy = 0;
 		}
 		if (ph.behavior === 'aroundSelf') {
-			// 4 cardinal directions, ignore user count
-			const offsets = [{dx:-40,dy:0},{dx:40,dy:0},{dx:0,dy:-40},{dx:0,dy:40}];
-			const off = offsets[i % 4] || offsets[0];
-			proj.x = player.x + player.w/2 + off.dx;
-			proj.y = player.y + player.h/2 + off.dy;
+			const radius = ph.aroundSelfRadius || 50;
+			const selfAngle = (i / count) * Math.PI * 2;
+			proj.x = player.x + player.w/2 + Math.cos(selfAngle) * radius;
+			proj.y = player.y + player.h/2 + Math.sin(selfAngle) * radius;
 			proj.vx = 0; proj.vy = 0;
 		}
 
@@ -471,10 +550,13 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 	const spell = proj.spell;
 	if (phaseIdx >= spell.phases.length) return;
 	const ph = spell.phases[phaseIdx];
-	const count = ph.behavior === 'aroundSelf' ? 4 : (ph.count || 1);
+	const count = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : (ph.count || 1);
 	const powerMult = dmgMult || 1;
+	const selfBehaviors = ['underfoot','selfCast','aroundSelf','stationary'];
+	const selfPowerBonus = ph.behavior === 'stationary' ? 2.0 : selfBehaviors.includes(ph.behavior) ? 1.0 : 0;
 	const spd = (ph.speed || 1) * 7;
 	const origX = proj.x, origY = proj.y, origFacing = proj.facing;
+	const ultFlag = !!proj.isUltimate;
 
 	// helper: apply phase properties to a projectile object
 	function applyPhaseToProj(p, spreadIdx) {
@@ -492,7 +574,7 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		p.maxAge = (ph.duration || 1) * FPS;
 		p.width = (ph.width || 1) * 10;
 		p.height = (ph.height || 1) * 10;
-		p.power = ((ph.power || 1) / count + 0.1) * (1 + stats.magicPower * 0.08) * powerMult;
+		p.power = ((ph.power || 1) / count + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult;
 		p.color = ph.color || '#4488ff';
 		p.trail = ph.trail || 'none';
 		p.shape = ph.shape || 'missile';
@@ -505,6 +587,7 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		p.startX = origX;
 		p.startY = origY;
 		p.beamLen = 0;
+		p.beamAngle = angle;
 		p.chainHits = 0;
 		p.chainMax = 3;
 		p.timedReleaseDelay = (ph.timedReleaseDelay || 0.5) * FPS;
@@ -514,6 +597,7 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		p.phaseForkCount = 0;
 		p.phaseForkNextAge = (ph.phaseForkDelay || 1) * FPS;
 		p.isSolidPlatform = false;
+		p.isUltimate = ultFlag;
 
 		p.vx = Math.cos(angle) * spd;
 		p.vy = Math.sin(angle) * spd;
@@ -522,6 +606,16 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		if (ph.behavior === 'rain') {
 			p.vx = 0; p.vy = spd * 0.8;
 			p.startX = origX; p.startY = origY; p.facing = origFacing;
+			p.beamAngle = Math.PI / 2;
+		}
+		if (ph.behavior === 'barrage') {
+			const spread2 = 200 * (ph.height || 1);
+			p.x = origX + origFacing * 120;
+			p.y = origY + (spreadIdx - (count-1)/2) * (spread2 / Math.max(count-1,1));
+			p.vx = origFacing * spd * 0.8;
+			p.vy = 0;
+			p.startX = p.x; p.startY = p.y;
+			p.beamAngle = origFacing === 1 ? 0 : Math.PI;
 		}
 		if (ph.behavior === 'stationary') { p.vx = 0; p.vy = 0; }
 		if (ph.behavior === 'groundSurge') { p.vy = 0; p.vx = origFacing * spd; }
@@ -537,10 +631,10 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 			p.vx = 0; p.vy = 0;
 		}
 		if (ph.behavior === 'aroundSelf') {
-			const offsets = [{dx:-40,dy:0},{dx:40,dy:0},{dx:0,dy:-40},{dx:0,dy:40}];
-			const off = offsets[spreadIdx % 4] || offsets[0];
-			p.x = origX + off.dx;
-			p.y = origY + off.dy;
+			const radius = ph.aroundSelfRadius || 50;
+			const selfAngle = (spreadIdx / count) * Math.PI * 2;
+			p.x = origX + Math.cos(selfAngle) * radius;
+			p.y = origY + Math.sin(selfAngle) * radius;
 			p.vx = 0; p.vy = 0;
 		}
 		if (ph.behavior === 'orbit') {
@@ -563,6 +657,7 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 			orbitAngle: 0, orbitRadius: 80, orbitSpeed: 3, orbitDur: 90,
 			orbitOriginX: origX, orbitOriginY: origY,
 			trailParts: [],
+			castId: proj.castId != null ? proj.castId : -1,
 		};
 		applyPhaseToProj(clone, i);
 		projectiles.push(clone);
@@ -592,7 +687,7 @@ function updateProjectiles() {
 
 		// trail history
 		p.trailParts.push({ x:p.x, y:p.y, age:0 });
-		if (p.trailParts.length > 14) p.trailParts.shift();
+		if (p.trailParts.length > MAX_TRAIL) p.trailParts.shift();
 		for (const tp of p.trailParts) tp.age++;
 
 		/* ---- BEHAVIOR MOVEMENT ---- */
@@ -611,16 +706,26 @@ function updateProjectiles() {
 					if (dd < closestD) { closestD = dd; closest = d; }
 				}
 				if (closest) {
-					const desired = Math.atan2(closest.y+closest.h/2-p.y, closest.x+closest.w/2-p.x);
-					const current = Math.atan2(p.vy, p.vx);
-					let diff = desired - current;
-					while(diff > Math.PI) diff -= Math.PI*2;
-					while(diff < -Math.PI) diff += Math.PI*2;
-					const turn = Math.min(0.08, Math.abs(diff)) * Math.sign(diff);
-					const newAng = current + turn;
-					const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
-					p.vx = Math.cos(newAng)*spd;
-					p.vy = Math.sin(newAng)*spd;
+					if (p.shape === 'beam') {
+						// rotate beam angle toward enemy
+						const desired = Math.atan2(closest.y+closest.h/2-p.startY, closest.x+closest.w/2-p.startX);
+						let diff = desired - p.beamAngle;
+						while(diff > Math.PI) diff -= Math.PI*2;
+						while(diff < -Math.PI) diff += Math.PI*2;
+						const turn = Math.min(0.08, Math.abs(diff)) * Math.sign(diff);
+						p.beamAngle += turn;
+					} else {
+						const desired = Math.atan2(closest.y+closest.h/2-p.y, closest.x+closest.w/2-p.x);
+						const current = Math.atan2(p.vy, p.vx);
+						let diff = desired - current;
+						while(diff > Math.PI) diff -= Math.PI*2;
+						while(diff < -Math.PI) diff += Math.PI*2;
+						const turn = Math.min(0.08, Math.abs(diff)) * Math.sign(diff);
+						const newAng = current + turn;
+						const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+						p.vx = Math.cos(newAng)*spd;
+						p.vy = Math.sin(newAng)*spd;
+					}
 				}
 				break;
 			}
@@ -675,15 +780,20 @@ function updateProjectiles() {
 			}
 
 			case 'spiral': {
-				const ang = p.age * 0.12;
 				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || (p.phase.speed||1)*7;
 				const baseAng = p.facing===1 ? 0 : Math.PI;
-				p.vx = Math.cos(baseAng + ang*0.8)*spd;
-				p.vy = Math.sin(ang)*spd*0.5;
+				const spiralAngle = baseAng + p.age * 0.06;
+				const outward = 0.3 + p.age * 0.008;
+				p.vx = Math.cos(spiralAngle) * spd * outward;
+				p.vy = Math.sin(spiralAngle) * spd * outward;
 				break;
 			}
 
 			case 'rain':
+				// cone shape stays anchored at spawn point
+				if (p.shape === 'cone') { p.vx = 0; p.vy = 0; p.x = p.startX; p.y = p.startY; }
+				break;
+			case 'barrage':
 				// cone shape stays anchored at spawn point
 				if (p.shape === 'cone') { p.vx = 0; p.vy = 0; p.x = p.startX; p.y = p.startY; }
 				break;
@@ -699,24 +809,57 @@ function updateProjectiles() {
 			p.y += p.vy;
 		}
 
-		// beam extends forward from origin
+		// beam extends forward from origin along beamAngle
 		if (p.shape === 'beam') {
 			p.beamLen = Math.min(p.beamLen + 12, 400 * (p.phase.width||1));
 			p.x = p.startX; p.y = p.startY;
 		}
+		// allow all pierce shapes to re-hit targets every 60 frames (1 second)
+		if (PIERCE_SET.has(p.shape) && p.age > 0 && p.age % 60 === 0) p.hitDummies.clear();
 
 		/* ---- HIT DETECTION vs dummies ---- */
 		const hitR = Math.max(p.width, p.height) * 0.7;
+
+		// allyOrb: hits player instead of dummies
+		if ((p.shape === 'allyOrb' || p.behavior === 'selfCast') && !p.hasHit) {
+			if (circRect(p.x, p.y, hitR, player.x, player.y, player.w, player.h)) {
+				applyEffects(p, null); // null dummy = apply to player
+				spawnImpact(p.x, p.y, p.color);
+				p.hasHit = true;
+				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
+					p.phaseTriggered = true;
+					if (p.effects.includes('resetProjectiles')) {
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+					} else {
+						morphProjectile(p, p.phaseIdx+1);
+					}
+				}
+			}
+		}
+
+		// allyOrb and selfCast skip dummy hit detection (they target the player)
+		if (p.shape !== 'allyOrb' && p.behavior !== 'selfCast')
 		for (const d of dummies) {
 			if (d.hp <= 0) continue;
 			if (p.hitDummies.has(d)) continue; // already hit this one (pierce shapes)
 
 			let hit = false;
 			if (p.shape === 'beam') {
-				const bx = p.x, by = p.y - p.height/2;
-				const bLen = p.beamLen * p.facing;
-				const rx = p.facing===1 ? bx : bx+bLen;
-				hit = rectRect({x:rx,y:by,w:Math.abs(bLen),h:p.height}, d);
+				// angle-based beam hit detection: check points along beam line
+				const bx0 = p.startX, by0 = p.startY;
+				const endX = bx0 + Math.cos(p.beamAngle) * p.beamLen;
+				const endY = by0 + Math.sin(p.beamAngle) * p.beamLen;
+				const halfH = p.height / 2;
+				const steps = Math.max(3, Math.floor(p.beamLen / 40));
+				for (let s = 0; s <= steps; s++) {
+					const t = s / steps;
+					const sx = bx0 + (endX - bx0) * t;
+					const sy = by0 + (endY - by0) * t;
+					if (sx + halfH > d.x && sx - halfH < d.x + d.w &&
+						sy + halfH > d.y && sy - halfH < d.y + d.h) {
+						hit = true; break;
+					}
+				}
 			} else if (p.shape === 'nova' || p.shape === 'ring') {
 				hit = circRect(p.x, p.y, (p.age/p.maxAge)*p.width*8, d.x,d.y,d.w,d.h);
 			} else if (p.shape === 'cone') {
@@ -726,6 +869,11 @@ function updateProjectiles() {
 					// rain cone points downward
 					const dx = d.x+d.w/2-p.x, dy = d.y+d.h/2-p.y;
 					hit = dy > 0 && dy < coneLen && Math.abs(dx) < coneHalf*(dy/coneLen);
+				} else if (p.behavior === 'barrage') {
+					// barrage cone points in facing direction from spawn
+					const dx = d.x+d.w/2-p.startX, dy = d.y+d.h/2-p.startY;
+					const along = p.facing===1?dx:-dx;
+					hit = along > 0 && along < coneLen && Math.abs(dy) < coneHalf*(along/coneLen);
 				} else {
 					const dx = d.x+d.w/2-p.startX, dy = d.y+d.h/2-p.startY;
 					const along = p.facing===1?dx:-dx;
@@ -740,8 +888,13 @@ function updateProjectiles() {
 				hit = circRect(p.x, p.y, hitR, d.x, d.y, d.w, d.h);
 			}
 
-			if (hit) {
-				const baseDmg = p.power * 8;
+		if (hit) {
+				const homingMult = p.behavior === 'homing' ? 0.5 : 1;
+				// diminishing returns: each subsequent hit from same cast does less
+				const hitNum = (p.castId >= 0 && spellHitCounts[p.castId] != null) ? spellHitCounts[p.castId]++ : 0;
+				const dimMult = 1 / (1 + hitNum * 0.15);
+				const beamMult = p.shape === 'beam' ? 0.5 : 1;
+				const baseDmg = p.power * 8 * homingMult * dimMult * beamMult;
 				d.hp -= baseDmg;
 				d.flash = 8;
 				// accumulate damage per dummy
@@ -756,10 +909,13 @@ function updateProjectiles() {
 				}
 				applyEffects(p, d);
 
-				// chain: jump to next target
+				// chain: jump to next target + stun
 				if (p.shape === 'chain' && p.chainHits < p.chainMax) {
 					p.chainHits++;
 					p.hitDummies.add(d);
+					// chain stun
+					const stunTime = (p.phase.chainStunTime || 0);
+					if (stunTime > 0) d.stunTimer = Math.max(d.stunTimer, Math.round(stunTime * FPS));
 					let next = null, nextD = Infinity;
 					for (const d2 of dummies) {
 						if (d2 === d || d2.hp <= 0 || p.hitDummies.has(d2)) continue;
@@ -776,7 +932,7 @@ function updateProjectiles() {
 				}
 
 				// pierce shapes: mark dummy hit, don't destroy projectile
-				if (['nova','ring','beam','cone','wall','solidify'].includes(p.shape)) {
+				if (PIERCE_SET.has(p.shape)) {
 					p.hitDummies.add(d);
 					continue;
 				}
@@ -788,7 +944,7 @@ function updateProjectiles() {
 				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
 					p.phaseTriggered = true;
 					if (p.effects.includes('resetProjectiles')) {
-						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
 					} else {
 						morphProjectile(p, p.phaseIdx+1);
 					}
@@ -798,8 +954,7 @@ function updateProjectiles() {
 		}
 
 		/* ---- PLATFORM COLLISION ---- */
-		const pierceShapes = ['beam','cone','nova','ring','wall','solidify'];
-		const skipPlatformCollision = pierceShapes.includes(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' || p.behavior==='underfoot' || p.behavior==='aroundSelf' ||
+		const skipPlatformCollision = PIERCE_SET.has(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' || p.behavior==='underfoot' || p.behavior==='aroundSelf' ||
 			(p.behavior==='orbit' && p.age < p.orbitDur);
 
 		if (!skipPlatformCollision && !p.hasHit) {
@@ -829,10 +984,10 @@ function updateProjectiles() {
 			if (wallHit) {
 				spawnImpact(p.x, p.y, p.color);
 				p.hasHit = true;
-				if (!p.phaseTriggered && p.phase.nextTrigger==='onHit' && p.phaseIdx+1<p.spell.phases.length) {
+			if (!p.phaseTriggered && p.phase.nextTrigger==='onHit' && p.phaseIdx+1<p.spell.phases.length) {
 					p.phaseTriggered = true;
 					if (p.effects.includes('resetProjectiles')) {
-						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
 					} else {
 						morphProjectile(p, p.phaseIdx+1);
 					}
@@ -845,7 +1000,7 @@ function updateProjectiles() {
 			p.phaseTriggered = true;
 			if (p.phaseIdx+1<p.spell.phases.length) {
 				if (p.effects.includes('resetProjectiles')) {
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
 				} else {
 					morphProjectile(p, p.phaseIdx+1);
 				}
@@ -869,7 +1024,7 @@ function updateProjectiles() {
 				const extraCost = calcSpellCost(p.spell) * 0.15;
 				if (mana >= extraCost) {
 					mana -= extraCost;
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, dmgMult);
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, dmgMult, p.isUltimate, p.castId);
 					spawnImpact(p.x, p.y, p.color);
 					dmgNumbers.push({ x:p.x, y:p.y-14, text:'\ud83d\udd00 Fork!', age:0, color:p.color });
 				} else {
@@ -879,12 +1034,12 @@ function updateProjectiles() {
 		}
 
 		/* ---- EXPIRE ---- */
-		const shouldRemove = p.age >= p.maxAge || (p.hasHit && !pierceShapes.includes(p.shape));
+		const shouldRemove = p.age >= p.maxAge || (p.hasHit && !PIERCE_SET.has(p.shape));
 		if (shouldRemove) {
 			if (!p.phaseTriggered && p.phase.nextTrigger==='onExpire' && p.phaseIdx+1<p.spell.phases.length) {
 				p.phaseTriggered = true;
 				if (p.effects.includes('resetProjectiles')) {
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing);
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
 					projectiles.splice(i,1);
 				} else {
 					morphProjectile(p, p.phaseIdx+1);
@@ -907,54 +1062,82 @@ function updateProjectiles() {
    APPLY EFFECTS
    ============================================================= */
 function applyEffects(proj, dummy) {
+	const ultMult = proj.isUltimate ? 3 : 1;
+	const ePow = proj.phase.effectPower || 1;
+	const eDur = proj.phase.effectDuration || 1;
 	for (const fx of proj.effects) {
 		switch (fx) {
 			case 'burn':
-				if(dummy) dummy.dots.push({ type:'burn', dmg:proj.power*1.5, ticks:5, interval:20, timer:0, color:'#ff6a00' });
+				if(dummy) dummy.dots.push({ type:'burn', dmg:proj.power*0.3*ePow*ultMult, ticks:Math.round(5*eDur*ultMult), interval:20, timer:0, color:'#ff6a00' });
 				break;
 			case 'poison':
-				if(dummy) dummy.dots.push({ type:'poison', dmg:proj.power*1.2, ticks:6, interval:25, timer:0, color:'#44dd44' });
+				if(dummy) dummy.dots.push({ type:'poison', dmg:proj.power*0.2*ePow*ultMult, ticks:Math.round(6*eDur*ultMult), interval:25, timer:0, color:'#44dd44' });
 				break;
 			case 'freeze':
-				if(dummy){ dummy.slowTimer = (dummy.slowTimer||0)+90; dummy.flash = 15; }
+				if(dummy){ dummy.slowTimer = (dummy.slowTimer||0)+Math.round(90*eDur*ultMult); dummy.flash = 15; }
 				break;
 			case 'knockback':
-				if(dummy){ dummy.x += proj.facing * 40; dummy.x = Math.max(20, Math.min(WORLD_W-20-dummy.w, dummy.x)); }
+				if(dummy){ dummy.x += proj.facing * 40 * ePow * ultMult; dummy.x = Math.max(20, Math.min(WORLD_W-20-dummy.w, dummy.x)); }
 				break;
 			case 'pull': {
 				if(dummy){
 					const dx = player.x+player.w/2-(dummy.x+dummy.w/2);
 					const dy = player.y+player.h/2-(dummy.y+dummy.h/2);
 					const d2 = Math.sqrt(dx*dx+dy*dy)||1;
-					dummy.x += (dx/d2)*50;
-					dummy.y += (dy/d2)*30;
+					dummy.x += (dx/d2)*50*ePow*ultMult;
+					dummy.y += (dy/d2)*30*ePow*ultMult;
 				}
 				break;
 			}
 			case 'stun':
-				if(dummy) dummy.stunTimer = (dummy.stunTimer||0)+60;
+				if(dummy) dummy.stunTimer = (dummy.stunTimer||0)+Math.round(60*eDur*ultMult);
 				break;
-			case 'healSelf':
-				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+Math.round(proj.power*5), age:0, color:'#44ff88' });
+			case 'healSelf': {
+				const healAmt = Math.round(proj.power*5*ePow*ultMult);
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+healAmt, age:0, color:'#44ff88' });
 				break;
+			}
 			case 'shield':
 				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-20, text:'🛡️ Shield', age:0, color:'#88bbff' });
 				break;
 			case 'lifesteal':
-				mana = Math.min(maxMana, mana + proj.power*3);
-				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+Math.round(proj.power*3)+'💧', age:0, color:'#bb44ff' });
+				mana = Math.min(maxMana, mana + proj.power*3*ePow*ultMult);
+				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'+'+Math.round(proj.power*3*ePow*ultMult)+'💧', age:0, color:'#bb44ff' });
 				break;
 			case 'speedBoost':
-				playerBuffs.speedTimer = 300; playerBuffs.speedMult = 1.8;
+				playerBuffs.speedTimer = Math.round(300*eDur*ultMult); playerBuffs.speedMult = proj.isUltimate ? 2.5 : 1.8;
 				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'🏃 Speed!', age:0, color:'#ffcc00' });
 				break;
 			case 'jumpBoost':
-				playerBuffs.jumpTimer = 300; playerBuffs.jumpMult = 1.5;
+				playerBuffs.jumpTimer = Math.round(300*eDur*ultMult); playerBuffs.jumpMult = proj.isUltimate ? 2.0 : 1.5;
 				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-20, text:'⬆️ Jump!', age:0, color:'#66ff66' });
 				break;
 			case 'manaRegen':
-				playerBuffs.manaRegenTimer = 300; playerBuffs.manaRegenMult = 3;
+				playerBuffs.manaRegenTimer = Math.round(300*eDur*ultMult); playerBuffs.manaRegenMult = proj.isUltimate ? 6 : 3;
 				dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'💧 Regen!', age:0, color:'#66ccff' });
+				break;
+			case 'forceJump':
+				// forces the target to jump — enables multi-jumps in air
+				if (!dummy) {
+					// hit player (allyOrb or selfCast)
+					player.vy = player.jumpPow * (playerBuffs.jumpTimer > 0 ? playerBuffs.jumpMult : 1);
+					player.onGround = false;
+					dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'🚀 Jump!', age:0, color:'#ff8800' });
+				} else {
+					// hit enemy - launch them upward
+					dummy.y -= 60;
+					dmgNumbers.push({ x:dummy.x+dummy.w/2, y:dummy.y-10, text:'🚀 Launched!', age:0, color:'#ff8800' });
+				}
+				break;
+			case 'horizontalLaunch':
+				if (!dummy) {
+					player.launchVx = proj.facing * proj.power * 12;
+					dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'🚀 Launched!', age:0, color:'#ff8800' });
+				} else {
+					dummy.x += proj.facing * proj.power * 30;
+					dummy.x = Math.max(20, Math.min(WORLD_W-20-dummy.w, dummy.x));
+					dmgNumbers.push({ x:dummy.x+dummy.w/2, y:dummy.y-10, text:'LAUNCHED!', age:0, color:'#ff8800' });
+				}
 				break;
 		}
 	}
@@ -964,14 +1147,16 @@ function applyEffects(proj, dummy) {
    PARTICLES & IMPACT
    ============================================================= */
 function spawnImpact(x, y, color) {
+	if (particles.length > MAX_PARTICLES) return; // skip if too many particles
 	const rgb = hexToRgb(color);
-	for (let i = 0; i < 14; i++) {
+	const count = particles.length > MAX_PARTICLES * 0.7 ? 4 : 8;
+	for (let i = 0; i < count; i++) {
 		const ang = Math.random()*Math.PI*2;
 		const spd = 1.5+Math.random()*3.5;
 		particles.push({
 			x, y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
-			life:20+Math.random()*15|0, maxLife:35,
-			r:2+Math.random()*3, color:rgb,
+			life:18+Math.random()*12|0, maxLife:30,
+			r:2+Math.random()*2.5, color:rgb,
 		});
 	}
 }
@@ -998,6 +1183,11 @@ function update() {
 	if (moveX !== 0) player.facing = moveX;
 	const currentSpeed = player.speed * (playerBuffs.speedTimer > 0 ? playerBuffs.speedMult : 1);
 	player.vx = moveX * currentSpeed;
+	if (player.launchVx) {
+		player.vx += player.launchVx;
+		player.launchVx *= 0.88;
+		if (Math.abs(player.launchVx) < 0.5) player.launchVx = 0;
+	}
 
 	if ((keys['w']||keys['arrowup']||keys[' ']) && player.onGround) {
 		const currentJump = player.jumpPow * (playerBuffs.jumpTimer > 0 ? playerBuffs.jumpMult : 1);
@@ -1070,10 +1260,11 @@ function update() {
 	if (player.castTimer > 0) player.castTimer--;
 
 	/* cooldowns */
+	let anyCDChanged = false;
 	for (let i = 0; i < 10; i++) {
-		if (spellCooldowns[i] > 0) { spellCooldowns[i]--; hotbarDirty = true; }
+		if (spellCooldowns[i] > 0) { spellCooldowns[i]--; anyCDChanged = true; }
 	}
-	if (hotbarDirty) { renderHotbar(); hotbarDirty = false; }
+	if (anyCDChanged || hotbarDirty) { renderHotbar(); hotbarDirty = false; }
 
 	/* mana regen */
 	const currentRegen = baseManaRegen * (playerBuffs.manaRegenTimer > 0 ? playerBuffs.manaRegenMult : 1);
@@ -1167,11 +1358,13 @@ function render() {
 	ctx.fillStyle = grad;
 	ctx.fillRect(0,0,canvas.width,canvas.height);
 
-	/* grid parallax */
+	/* grid parallax - batched into single path */
 	ctx.save(); ctx.globalAlpha = 0.06; ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
 	const gs = 80, oX = -(camera.x*0.3)%gs, oY = -(camera.y*0.3)%gs;
-	for (let gx=oX;gx<canvas.width;gx+=gs){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,canvas.height);ctx.stroke();}
-	for (let gy=oY;gy<canvas.height;gy+=gs){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);ctx.stroke();}
+	ctx.beginPath();
+	for (let gx=oX;gx<canvas.width;gx+=gs){ctx.moveTo(gx,0);ctx.lineTo(gx,canvas.height);}
+	for (let gy=oY;gy<canvas.height;gy+=gs){ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);}
+	ctx.stroke();
 	ctx.restore();
 
 	/* platforms */
@@ -1223,20 +1416,34 @@ function render() {
 		const px=p.x-camera.x, py=p.y-camera.y;
 		const progress = p.age/p.maxAge;
 
+		// cull offscreen projectiles (generous margin for beams/cones)
+		const margin = 500;
+		if (px < -margin || px > canvas.width+margin || py < -margin || py > canvas.height+margin) continue;
+
 		drawTrail(p);
 
-		// glow
-		ctx.save();
-		ctx.globalAlpha = 0.25+0.2*(1-progress);
-		const glow = ctx.createRadialGradient(px,py,0,px,py,p.width*3);
-		glow.addColorStop(0,p.color); glow.addColorStop(1,'transparent');
-		ctx.fillStyle=glow;
-		ctx.beginPath();ctx.arc(px,py,p.width*3,0,Math.PI*2);ctx.fill();
-		ctx.restore();
+		// glow (skip if many projectiles)
+		if (projectiles.length < 100) {
+			ctx.save();
+			ctx.globalAlpha = 0.25+0.2*(1-progress);
+			const glow = ctx.createRadialGradient(px,py,0,px,py,p.width*3);
+			glow.addColorStop(0,p.color); glow.addColorStop(1,'transparent');
+			ctx.fillStyle=glow;
+			ctx.beginPath();ctx.arc(px,py,p.width*3,0,Math.PI*2);ctx.fill();
+			ctx.restore();
+		}
 
 		ctx.fillStyle=p.color; ctx.strokeStyle=p.color; ctx.globalAlpha=0.9;
 
 		switch(p.shape){
+			case 'allyOrb':{
+				const r=p.width*1.3;
+				ctx.fillStyle='#44ff88';ctx.strokeStyle='#44ff88';
+				ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle='#aaffcc';ctx.globalAlpha=0.6;
+				ctx.beginPath();ctx.arc(px,py,r*0.5,0,Math.PI*2);ctx.fill();
+				break;
+			}
 			case 'missile':case 'orb':{
 				const r=p.shape==='orb'?p.width*1.3:p.width*0.7;
 				ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
@@ -1251,11 +1458,14 @@ function render() {
 			}
 			case 'beam':{
 				const bx=p.startX-camera.x,by=p.startY-camera.y;
-				const bLen=p.beamLen*p.facing;
+				ctx.save();
+				ctx.translate(bx,by);
+				ctx.rotate(p.beamAngle);
 				ctx.globalAlpha=0.7;
-				ctx.fillRect(p.facing===1?bx:bx+bLen,by-p.height/2,Math.abs(bLen),p.height);
+				ctx.fillRect(0,-p.height/2,p.beamLen,p.height);
 				ctx.fillStyle='#fff';ctx.globalAlpha=0.5;
-				ctx.fillRect(p.facing===1?bx:bx+bLen,by-p.height*0.15,Math.abs(bLen),p.height*0.3);
+				ctx.fillRect(0,-p.height*0.15,p.beamLen,p.height*0.3);
+				ctx.restore();
 				break;
 			}
 			case 'ring':{
@@ -1271,6 +1481,13 @@ function render() {
 					const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
 					ctx.beginPath();ctx.moveTo(cx2,cy2);
 					ctx.lineTo(cx2-cH,cy2+cL);ctx.lineTo(cx2+cH,cy2+cL);
+					ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
+					ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
+				} else if(p.behavior==='barrage'){
+					// barrage cone points horizontally from spawn pos
+					const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
+					ctx.beginPath();ctx.moveTo(cx2,cy2);
+					ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);
 					ctx.closePath();ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();
 					ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();
 				} else {
@@ -1324,7 +1541,8 @@ function render() {
 		ctx.globalAlpha=1;
 	}
 
-	/* particles */
+	/* particles — cap to MAX_PARTICLES */
+	if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
 	for(const p of particles){
 		const alpha=p.life/p.maxLife;
 		ctx.beginPath();ctx.arc(p.x-camera.x,p.y-camera.y,p.r*alpha,0,Math.PI*2);
@@ -1401,9 +1619,9 @@ function drawTrail(proj){
 		ctx.beginPath();ctx.arc(tp.x-camera.x,tp.y-camera.y,r,0,Math.PI*2);
 		ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;ctx.fill();
 	}
-	if(['sparkle','flame','lightning'].includes(proj.trail)){
+	if(['sparkle','flame','lightning'].includes(proj.trail) && particles.length < MAX_PARTICLES){
 		const last=proj.trailParts[proj.trailParts.length-1];
-		if(last&&Math.random()<0.4){
+		if(last&&Math.random()<0.25){
 			particles.push({
 				x:last.x+(Math.random()-0.5)*8,y:last.y+(Math.random()-0.5)*8,
 				vx:(Math.random()-0.5)*1.5,vy:(Math.random()-0.5)*1.5-0.5,

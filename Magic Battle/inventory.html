@@ -148,6 +148,9 @@ input,select{font-family:inherit}
 .spell-slot .sp-name{font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spell-slot .sp-mana{font-size:11px;color:var(--blue)}
 .spell-slot .sp-empty{font-size:12px;color:var(--muted);font-style:italic}
+.ultimate-slot{border-color:rgba(255,170,0,.4);background:rgba(255,170,0,.08)}
+.ultimate-slot:hover{border-color:rgba(255,170,0,.6);background:rgba(255,170,0,.15)}
+.ultimate-slot .sp-mana{color:#ffaa00}
 
 /* ============================================================
    SPELL BUILDER MODAL
@@ -357,6 +360,10 @@ input,select{font-family:inherit}
 	</div>
 	<div class="modal-foot">
 		<button class="btn btn-danger" id="clearSpellBtn">Clear Spell</button>
+		<div style="display:flex;gap:6px">
+			<button class="btn btn-ghost" id="exportSpellBtn" title="Copy spell code to clipboard">📋 Export Code</button>
+			<button class="btn btn-ghost" id="importSpellBtn" title="Paste a spell code to load">📥 Import Code</button>
+		</div>
 		<button class="btn btn-ghost" id="cancelSpellBtn">Cancel</button>
 		<button class="btn btn-primary" id="saveSpellBtn">Save Spell</button>
 	</div>
@@ -380,9 +387,10 @@ const SHAPES = {
 	ring:     { label:'Ring',     icon:'⭕', controlReq:5,  manaCost:12, desc:'Expanding energy ring' },
 	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast' },
 	nova:     { label:'Nova',     icon:'💥', controlReq:7,  manaCost:15, desc:'Expanding explosion from a point' },
-	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets' },
+	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets, can stun on each hit' },
 	wall:     { label:'Wall',     icon:'🧱', controlReq:6,  manaCost:12, desc:'Stationary barrier' },
 	solidify: { label:'Platform', icon:'🟩', controlReq:4,  manaCost:10, desc:'Solid platform you can stand on' },
+	allyOrb:  { label:'Ally Orb',  icon:'💚', controlReq:1,  manaCost:6,  desc:'Orb that hits you / allies instead of enemies' },
 };
 
 /* -- Behavior catalogue -- */
@@ -395,10 +403,11 @@ const BEHAVIORS = {
 	orbit:        { label:'Orbit Caster', controlReq:6,  manaCost:8,  desc:'Circles around you, then launches' },
 	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Spirals outward' },
 	rain:         { label:'Rain Down',    controlReq:7,  manaCost:8,  desc:'Falls from the sky in an area' },
+	barrage:      { label:'Barrage',      controlReq:7,  manaCost:8,  desc:'Horizontal wall of projectiles in front of you' },
 	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place' },
 	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet' },
 	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position' },
-	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'4 projectiles spawn in each cardinal direction (overrides count)' },
+	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'Projectiles around you in a circle (uses Around Self Count slider)' },
 };
 
 /* -- Effects catalogue -- */
@@ -418,6 +427,8 @@ const EFFECTS = {
 	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay' },
 	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current' },
 	resetProjectiles:{ label:'Reset Projectiles',icon:'🔄', controlReq:0, manaCost:0, desc:'Next phase spawns fresh projectiles instead of continuing existing ones (free)' },
+	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump (enables multi-jumps in air)' },
+	horizontalLaunch:{ label:'H. Launch',icon:'💨', controlReq:2, manaCost:5, desc:'Launches target horizontally based on power' },
 };
 
 /* -- Trail styles -- */
@@ -438,45 +449,45 @@ const ITEM_DB = {
 	oak_staff:       { name:'Oak Staff',       type:'staff', icon:'🪄', rarity:'common',    stats:{magicPower:3},              desc:'A simple wooden staff.' },
 	crystal_staff:   { name:'Crystal Staff',   type:'staff', icon:'🔮', rarity:'uncommon',  stats:{magicPower:5,magicControl:2},desc:'Resonates with arcane energy.' },
 	void_staff:      { name:'Void Staff',      type:'staff', icon:'🌑', rarity:'epic',      stats:{magicPower:12,magicControl:5},desc:'Channels the emptiness between stars.' },
-	elder_staff:     { name:'Elder Staff',      type:'staff', icon:'✨', rarity:'legendary', stats:{magicPower:18,magicControl:8,magicCapacity:20},desc:'Carved from the First Tree.' },
+	elder_staff:     { name:'Elder Staff',      type:'staff', icon:'✨', rarity:'legendary', stats:{magicPower:18,magicControl:8,manaRegen:20},desc:'Carved from the First Tree.' },
 
 	/* -- robes -- */
 	linen_robe:      { name:'Linen Robe',      type:'robe',  icon:'👘', rarity:'common',    stats:{magicDefence:2},             desc:'Basic apprentice robe.' },
-	silk_robe:       { name:'Silk Robe',        type:'robe',  icon:'🥋', rarity:'uncommon',  stats:{magicDefence:4,magicCapacity:10},desc:'Woven with minor wards.' },
-	arcane_robe:     { name:'Arcane Vestment',  type:'robe',  icon:'🧥', rarity:'rare',      stats:{magicDefence:7,magicCapacity:25,magicControl:3},desc:'Glimmers with protective runes.' },
+	silk_robe:       { name:'Silk Robe',        type:'robe',  icon:'🥋', rarity:'uncommon',  stats:{magicDefence:4,manaRegen:10},desc:'Woven with minor wards.' },
+	arcane_robe:     { name:'Arcane Vestment',  type:'robe',  icon:'🧥', rarity:'rare',      stats:{magicDefence:7,manaRegen:25,magicControl:3},desc:'Glimmers with protective runes.' },
 	shadow_robe:     { name:'Shadowweave Robe', type:'robe',  icon:'🖤', rarity:'epic',      stats:{magicDefence:12,magicPower:5},desc:'Absorbs incoming magic.' },
 
 	/* -- relics -- */
-	mana_gem:        { name:'Mana Gem',         type:'relic', icon:'💎', rarity:'uncommon',  stats:{magicCapacity:15},           desc:'A crystallised pool of mana.' },
+	mana_gem:        { name:'Mana Gem',         type:'relic', icon:'💎', rarity:'uncommon',  stats:{manaRegen:15},           desc:'A crystallised pool of mana.' },
 	fire_ring:       { name:'Ring of Embers',   type:'relic', icon:'💍', rarity:'rare',      stats:{magicPower:6},               desc:'Warm to the touch, always.' },
 	frost_amulet:    { name:'Frost Amulet',     type:'relic', icon:'❄️', rarity:'rare',      stats:{magicDefence:5,magicControl:3},desc:'Chills hostile spells.' },
 	chaos_orb:       { name:'Chaos Orb',        type:'relic', icon:'🌀', rarity:'epic',      stats:{magicPower:8,magicControl:6},desc:'Unpredictable but potent.' },
-	phoenix_feather: { name:'Phoenix Feather',  type:'relic', icon:'🪶', rarity:'legendary', stats:{magicPower:10,magicCapacity:30,magicDefence:5},desc:'Reborn in flame.' },
+	phoenix_feather: { name:'Phoenix Feather',  type:'relic', icon:'🪶', rarity:'legendary', stats:{magicPower:10,manaRegen:30,magicDefence:5},desc:'Reborn in flame.' },
 
 	/* -- new staves -- */
 	storm_staff:     { name:'Storm Staff',       type:'staff', icon:'🌩️', rarity:'rare',      stats:{magicPower:8,magicControl:4},  desc:'Crackles with living lightning.' },
-	blood_staff:     { name:'Blood Staff',       type:'staff', icon:'🩸', rarity:'epic',      stats:{magicPower:14,magicCapacity:15},desc:'Feeds on the wielder\'s vitality.' },
-	stardust_staff:  { name:'Stardust Staff',    type:'staff', icon:'🌠', rarity:'legendary', stats:{magicPower:22,magicControl:10,magicCapacity:25},desc:'Forged from a dying star.' },
+	blood_staff:     { name:'Blood Staff',       type:'staff', icon:'🩸', rarity:'epic',      stats:{magicPower:14,manaRegen:15},desc:'Feeds on the wielder\'s vitality.' },
+	stardust_staff:  { name:'Stardust Staff',    type:'staff', icon:'🌠', rarity:'legendary', stats:{magicPower:22,magicControl:10,manaRegen:25},desc:'Forged from a dying star.' },
 	bone_staff:      { name:'Bone Staff',        type:'staff', icon:'🦴', rarity:'uncommon',  stats:{magicPower:4,magicDefence:2},  desc:'Carved from an ancient beast.' },
 	prism_staff:     { name:'Prism Staff',       type:'staff', icon:'🔷', rarity:'rare',      stats:{magicPower:7,magicControl:5},  desc:'Refracts magic into pure colour.' },
 
 	/* -- new robes -- */
 	ember_robe:      { name:'Ember Robe',        type:'robe',  icon:'🔥', rarity:'rare',      stats:{magicDefence:6,magicPower:4},  desc:'Smolders with perpetual heat.' },
-	void_robe:       { name:'Void Robe',         type:'robe',  icon:'🌑', rarity:'epic',      stats:{magicDefence:10,magicCapacity:20,magicControl:4},desc:'Woven from nothingness.' },
-	celestial_robe:  { name:'Celestial Robe',    type:'robe',  icon:'✨', rarity:'legendary', stats:{magicDefence:18,magicCapacity:40,magicControl:6,magicPower:8},desc:'Threaded with starlight.' },
+	void_robe:       { name:'Void Robe',         type:'robe',  icon:'🌑', rarity:'epic',      stats:{magicDefence:10,manaRegen:20,magicControl:4},desc:'Woven from nothingness.' },
+	celestial_robe:  { name:'Celestial Robe',    type:'robe',  icon:'✨', rarity:'legendary', stats:{magicDefence:18,manaRegen:40,magicControl:6,magicPower:8},desc:'Threaded with starlight.' },
 	hunter_cloak:    { name:'Hunter\'s Cloak',   type:'robe',  icon:'🧣', rarity:'uncommon',  stats:{magicDefence:3,magicControl:2},desc:'Light and agile.' },
-	tide_robe:       { name:'Tide Robe',         type:'robe',  icon:'🌊', rarity:'rare',      stats:{magicDefence:5,magicCapacity:20},desc:'Flows like living water.' },
+	tide_robe:       { name:'Tide Robe',         type:'robe',  icon:'🌊', rarity:'rare',      stats:{magicDefence:5,manaRegen:20},desc:'Flows like living water.' },
 
 	/* -- new relics -- */
 	sun_medallion:   { name:'Sun Medallion',     type:'relic', icon:'☀️', rarity:'epic',      stats:{magicPower:10,magicDefence:4}, desc:'Radiates blinding warmth.' },
-	moon_pendant:    { name:'Moon Pendant',      type:'relic', icon:'🌙', rarity:'epic',      stats:{magicCapacity:25,magicControl:5},desc:'Waxes and wanes with power.' },
-	dragon_heart:    { name:'Dragon Heart',      type:'relic', icon:'❤️‍🔥', rarity:'legendary', stats:{magicPower:15,magicCapacity:35,magicDefence:8},desc:'Still beating after millennia.' },
-	world_seed:      { name:'World Seed',        type:'relic', icon:'🌱', rarity:'legendary', stats:{magicCapacity:50,magicDefence:10,magicControl:8},desc:'Contains a universe waiting to bloom.' },
+	moon_pendant:    { name:'Moon Pendant',      type:'relic', icon:'🌙', rarity:'epic',      stats:{manaRegen:25,magicControl:5},desc:'Waxes and wanes with power.' },
+	dragon_heart:    { name:'Dragon Heart',      type:'relic', icon:'❤️‍🔥', rarity:'legendary', stats:{magicPower:15,manaRegen:35,magicDefence:8},desc:'Still beating after millennia.' },
+	world_seed:      { name:'World Seed',        type:'relic', icon:'🌱', rarity:'legendary', stats:{manaRegen:50,magicDefence:10,magicControl:8},desc:'Contains a universe waiting to bloom.' },
 	thunder_tooth:   { name:'Thunder Tooth',     type:'relic', icon:'⚡', rarity:'rare',      stats:{magicPower:7,magicControl:3},  desc:'A fang from the storm serpent.' },
-	ghost_lantern:   { name:'Ghost Lantern',     type:'relic', icon:'🏮', rarity:'uncommon',  stats:{magicCapacity:12,magicDefence:3},desc:'Illuminated by trapped spirits.' },
+	ghost_lantern:   { name:'Ghost Lantern',     type:'relic', icon:'🏮', rarity:'uncommon',  stats:{manaRegen:12,magicDefence:3},desc:'Illuminated by trapped spirits.' },
 	bloodstone:      { name:'Bloodstone',        type:'relic', icon:'🔴', rarity:'rare',      stats:{magicPower:8,magicDefence:4},  desc:'Pulses with a crimson glow.' },
-	wind_charm:      { name:'Wind Charm',        type:'relic', icon:'🍃', rarity:'uncommon',  stats:{magicControl:4,magicCapacity:8},desc:'Whispers secrets of the gale.' },
-	eye_of_eternity: { name:'Eye of Eternity',   type:'relic', icon:'👁️', rarity:'legendary', stats:{magicPower:12,magicControl:12,magicCapacity:30,magicDefence:6},desc:'Sees all timelines at once.' },
+	wind_charm:      { name:'Wind Charm',        type:'relic', icon:'🍃', rarity:'uncommon',  stats:{magicControl:4,manaRegen:8},desc:'Whispers secrets of the gale.' },
+	eye_of_eternity: { name:'Eye of Eternity',   type:'relic', icon:'👁️', rarity:'legendary', stats:{magicPower:12,magicControl:12,manaRegen:30,magicDefence:6},desc:'Sees all timelines at once.' },
 	crystal_crown:   { name:'Crystal Crown',     type:'relic', icon:'👑', rarity:'epic',      stats:{magicControl:8,magicPower:6,magicDefence:3},desc:'Worn by the Archmage of old.' },
 
 	/* -- crafting ingredients -- */
@@ -495,7 +506,7 @@ const ITEM_DB = {
    ============================================================= */
 function defaultPlayerState(){
 	return {
-		baseStats: { magicPower:10, magicControl:5, magicCapacity:100, magicDefence:8 },
+		baseStats: { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 },
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		/* inventory: array of { itemId, qty } */
 		inventory: [
@@ -529,6 +540,10 @@ function makeDefaultSpell(){
 			orbitRadius:80, orbitSpeed:3, orbitDuration:1.5,
 			timedReleaseDelay:0.5,
 			phaseForkDelay:1, phaseForkRepeats:1,
+			aroundSelfCount:4, aroundSelfRadius:50,
+			chainStunTime:0,
+			rainHeight:150,
+			effectPower:1, effectDuration:1,
 		}]
 	};
 }
@@ -594,7 +609,17 @@ function calcSpellManaCost(spell){
 		cost += (ph.count - 1) * 4;
 		cost += (ph.width - 1) * 2;
 		cost += (ph.height - 1) * 2;
+		// chain stun costs significant mana
+		if (ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
 		for(const fx of ph.effects) cost += (EFFECTS[fx]?.manaCost||0);
+		// effect intensity scaling: higher power/duration = much more mana
+		const tunableFx = ['burn','poison','freeze','stun'];
+		const hasTunable = ph.effects.some(fx => tunableFx.includes(fx));
+		if(hasTunable){
+			const ep = (ph.effectPower || 1);
+			const ed = (ph.effectDuration || 1);
+			cost += (ep * ep * 12) + (ed * ed * 8);
+		}
 	}
 	cost *= (0.6 + spell.phases.length * 0.4);
 	return Math.round(cost);
@@ -620,7 +645,7 @@ function renderStats(){
 	const defs = [
 		{ key:'magicPower',    label:'Power',    icon:'⚔️',  color:'#e74c3c' },
 		{ key:'magicControl',  label:'Control',  icon:'🎯',  color:'#9b59b6' },
-		{ key:'magicCapacity', label:'Capacity', icon:'💧',  color:'#3498db' },
+		{ key:'manaRegen',     label:'Mana Regen', icon:'💧',  color:'#3498db' },
 		{ key:'magicDefence',  label:'Defence',  icon:'🛡️',  color:'#2ecc71' },
 	];
 	document.getElementById('statsBar').innerHTML = defs.map(d =>
@@ -845,20 +870,23 @@ function renderSpellSlots(){
 	for(let i = 0; i < 10; i++){
 		const sp = STATE.spells[i];
 		const el = document.createElement('div');
-		el.className = 'spell-slot';
+		const isUlt = (i === 9);
+		el.className = 'spell-slot' + (isUlt ? ' ultimate-slot' : '');
 		if(sp){
-			const cost = calcSpellManaCost(sp);
+			const baseCost = calcSpellManaCost(sp);
+			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
+			const cost = Math.round(baseCost * controlDiscount);
 			const req  = calcSpellControlReq(sp);
 			const canUse = stats.magicControl >= req;
 			el.innerHTML = `
-				<span class="sp-num">${i+1}</span>
+				<span class="sp-num">${isUlt ? '⚡0' : (i+1)}</span>
 				<span class="sp-color" style="background:${sp.phases[0]?.color||'#888'}"></span>
 				<span class="sp-name" style="${canUse?'':'color:var(--red);text-decoration:line-through'}">${sp.name}</span>
-				<span class="sp-mana">${cost} 💧</span>
+				<span class="sp-mana">${isUlt ? (cost*10)+' ⚡' : cost+' 💧'}</span>
 			`;
 			if(!canUse) el.title = `Requires ${req} Control (you have ${stats.magicControl})`;
 		} else {
-			el.innerHTML = `<span class="sp-num">${i+1}</span><span class="sp-empty">Empty — click to create</span>`;
+			el.innerHTML = `<span class="sp-num">${isUlt ? '⚡0' : (i+1)}</span><span class="sp-empty">${isUlt ? 'Ultimate — click to create' : 'Empty — click to create'}</span>`;
 		}
 		el.addEventListener('click', () => openSpellBuilder(i));
 		wrap.appendChild(el);
@@ -876,14 +904,19 @@ function newPhase(){
 		orbitRadius:80, orbitSpeed:3, orbitDuration:1.5,
 		timedReleaseDelay:0.5,
 		phaseForkDelay:1, phaseForkRepeats:1,
+		aroundSelfCount:4, aroundSelfRadius:50,
+		chainStunTime:0,
+		rainHeight:150,
+		effectPower:1, effectDuration:1,
 	};
 }
 
 function openSpellBuilder(slotIdx){
 	editingSlot = slotIdx;
 	const existing = STATE.spells[slotIdx];
-	builderSpell = existing ? JSON.parse(JSON.stringify(existing)) : { name:'New Spell', phases:[newPhase()] };
-	document.getElementById('modalTitle').textContent = `Spell Builder — Slot ${slotIdx+1}`;
+	builderSpell = existing ? JSON.parse(JSON.stringify(existing)) : { name: slotIdx === 9 ? 'New Ultimate' : 'New Spell', phases:[newPhase()] };
+	const isUlt = (slotIdx === 9);
+	document.getElementById('modalTitle').textContent = isUlt ? `⚡ Ultimate Builder — Slot 0` : `Spell Builder — Slot ${slotIdx+1}`;
 	document.getElementById('spellModal').classList.add('open');
 	renderBuilder();
 	startPreview();
@@ -899,7 +932,10 @@ function closeSpellBuilder(){
 document.getElementById('modalClose').addEventListener('click', closeSpellBuilder);
 document.getElementById('cancelSpellBtn').addEventListener('click', closeSpellBuilder);
 document.getElementById('saveSpellBtn').addEventListener('click', () => {
-	STATE.spells[editingSlot] = JSON.parse(JSON.stringify(builderSpell));
+	const spellCopy = JSON.parse(JSON.stringify(builderSpell));
+	if(editingSlot === 9) spellCopy.isUltimate = true;
+	else delete spellCopy.isUltimate;
+	STATE.spells[editingSlot] = spellCopy;
 	saveState();
 	closeSpellBuilder();
 	renderSpellSlots();
@@ -910,27 +946,89 @@ document.getElementById('clearSpellBtn').addEventListener('click', () => {
 	closeSpellBuilder();
 	renderSpellSlots();
 });
+
+/* ---------- Spell Code System (Export / Import) ---------- */
+function encodeSpell(spell){
+	const json = JSON.stringify(spell);
+	return 'MB1:' + btoa(unescape(encodeURIComponent(json)));
+}
+function decodeSpell(code){
+	try {
+		code = code.trim();
+		if(!code.startsWith('MB1:')) return null;
+		const json = decodeURIComponent(escape(atob(code.slice(4))));
+		const obj = JSON.parse(json);
+		if(!obj || !obj.name || !Array.isArray(obj.phases) || obj.phases.length === 0) return null;
+		// Sanitise each phase to only keep known keys
+		const knownKeys = Object.keys(newPhase());
+		obj.phases = obj.phases.slice(0,5).map(ph => {
+			const clean = newPhase();
+			for(const k of knownKeys){ if(ph[k] !== undefined) clean[k] = ph[k]; }
+			return clean;
+		});
+		obj.name = String(obj.name).slice(0,30);
+		return obj;
+	} catch(e){ return null; }
+}
+
+document.getElementById('exportSpellBtn').addEventListener('click', () => {
+	if(!builderSpell) return;
+	const code = encodeSpell(builderSpell);
+	navigator.clipboard.writeText(code).then(() => {
+		const btn = document.getElementById('exportSpellBtn');
+		btn.textContent = '✅ Copied!';
+		setTimeout(() => { btn.textContent = '📋 Export Code'; }, 1500);
+	}).catch(() => {
+		prompt('Copy this spell code:', code);
+	});
+});
+
+document.getElementById('importSpellBtn').addEventListener('click', () => {
+	const code = prompt('Paste a spell code:');
+	if(!code) return;
+	const spell = decodeSpell(code);
+	if(!spell){
+		alert('Invalid spell code. Make sure you copied the full code starting with MB1:');
+		return;
+	}
+	builderSpell = spell;
+	renderBuilder();
+});
+
 document.getElementById('addPhaseBtn').addEventListener('click', () => {
-	if(builderSpell.phases.length >= 5) return; // max 5 phases
+	const maxPhases = (editingSlot === 9) ? 5 : 3;
+	if(builderSpell.phases.length >= maxPhases) return;
 	builderSpell.phases.push(newPhase());
 	renderBuilder();
 });
 
 function renderBuilder(){
 	const stats = computeStats();
-	const cost = calcSpellManaCost(builderSpell);
+	const baseCost = calcSpellManaCost(builderSpell);
+	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
+	const cost = Math.round(baseCost * controlDiscount);
+	const discountPct = Math.round((1 - controlDiscount) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
+	const isUlt = (editingSlot === 9);
+	const maxPhases = isUlt ? 5 : 3;
 
 	// meta
 	document.getElementById('spellMeta').innerHTML = `
 		<div class="prow">
-			<label>Spell Name</label>
+			<label>${isUlt ? '⚡ Ultimate Name' : 'Spell Name'}</label>
 			<input type="text" id="spellNameInput" value="${escHtml(builderSpell.name)}" maxlength="30"/>
 		</div>
-		<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b></div>
+		${isUlt ? `<div class="meta-chip" style="background:rgba(255,170,0,.15);color:#ffaa00">⚡ ULTIMATE — Costs Total Mana (${cost*10}⚡)</div>` : `<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b>${discountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${discountPct}% from Control)</span>` : ''}</div>`}
 		<div class="meta-chip">Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}</div>
-		<div class="meta-chip">Phases: <b>${builderSpell.phases.length}</b>/5</div>
+		<div class="meta-chip">Phases: <b>${builderSpell.phases.length}</b>/${maxPhases}</div>
+		${isUlt ? '<div class="meta-chip" style="color:#ffaa00">Max Power: 10 · Larger Size · Longer Effects</div>' : ''}
+		${(() => {
+			let total = 1;
+			for(const p of builderSpell.phases) total *= (p.behavior==='aroundSelf' ? (p.aroundSelfCount||4) : (p.count||1));
+			const over = total > 1000;
+			return `<div class="meta-chip">Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b>${over?' (max 1000!)':''}</div>`;
+		})()}
 	`;
 	document.getElementById('spellNameInput').addEventListener('input', e => {
 		builderSpell.name = e.target.value || 'Unnamed';
@@ -969,11 +1067,11 @@ function renderBuilder(){
 
 		// sliders: width, height, speed, duration, power
 		const sliders = [
-			{ prop:'width',    label:'Width',    min:0.3, max:3, step:0.1 },
-			{ prop:'height',   label:'Height',   min:0.3, max:3, step:0.1 },
-			{ prop:'speed',    label:'Speed',    min:0.3, max:3, step:0.1 },
-			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'?30:5), step:0.1 },
-			{ prop:'power',    label:'Power',    min:0.5, max:5, step:0.1 },
+			{ prop:'width',    label:'Width',    min:0.3, max:isUlt?8:3, step:0.1 },
+			{ prop:'height',   label:'Height',   min:0.3, max:isUlt?8:3, step:0.1 },
+			{ prop:'speed',    label:'Speed',    min:0.3, max:isUlt?5:3, step:0.1 },
+			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.shape==='beam'||ph.shape==='solidify'?30:isUlt?10:5), step:0.1 },
+			{ prop:'power',    label:'Power',    min:0.5, max:isUlt?10:5, step:0.1 },
 		];
 		for(const sl of sliders){
 			html += `<div class="prow"><label>${sl.label}: ${ph[sl.prop].toFixed(1)}</label>
@@ -985,13 +1083,42 @@ function renderBuilder(){
 
 		// count
 		html += `<div class="prow"><label>Projectile Count</label>
-			<input type="number" min="1" max="12" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
+			<input type="number" min="1" max="6" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
 
 		// spread (if count > 1)
 		if(ph.count > 1){
 			html += `<div class="prow"><label>Spread Angle: ${ph.spread}°</label>
 				<input type="range" min="0" max="360" step="5" value="${ph.spread}" data-idx="${idx}" data-prop="spread"/>
 			</div>`;
+		}
+
+		// chain-specific settings
+		if(ph.shape === 'chain'){
+			if(ph.chainStunTime == null) ph.chainStunTime = 0;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Chain Settings</label></div>`;
+			html += `<div class="prow"><label>Chain Stun: ${ph.chainStunTime.toFixed(1)}s (+${Math.round(ph.chainStunTime*25)} mana)</label>
+				<div class="range-row">
+					<input type="range" min="0" max="3" step="0.1" value="${ph.chainStunTime}" data-idx="${idx}" data-prop="chainStunTime"/>
+					<span class="range-val">${ph.chainStunTime.toFixed(1)}</span>
+				</div></div>`;
+		}
+
+		// aroundSelf-specific settings
+		if(ph.behavior === 'aroundSelf'){
+			if(!ph.aroundSelfCount) ph.aroundSelfCount = 4;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Around Self Settings</label></div>`;
+			html += `<div class="prow"><label>Around Self Count: ${ph.aroundSelfCount}</label>
+				<input type="range" min="4" max="16" step="1" value="${ph.aroundSelfCount}" data-idx="${idx}" data-prop="aroundSelfCount"/></div>`;
+			html += `<div class="prow"><label>Around Self Radius: ${ph.aroundSelfRadius||50}</label>
+				<input type="range" min="20" max="150" step="5" value="${ph.aroundSelfRadius||50}" data-idx="${idx}" data-prop="aroundSelfRadius"/></div>`;
+		}
+
+		// rain-specific settings
+		if(ph.behavior === 'rain'){
+			if(!ph.rainHeight) ph.rainHeight = 150;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Rain Settings</label></div>`;
+			html += `<div class="prow"><label>Rain Height: ${ph.rainHeight}</label>
+				<input type="range" min="50" max="800" step="10" value="${ph.rainHeight}" data-idx="${idx}" data-prop="rainHeight"/></div>`;
 		}
 
 		// orbit-specific settings
@@ -1012,6 +1139,19 @@ function renderBuilder(){
 			html += `<div class="fx-chip ${active?'active':''}" data-idx="${idx}" data-fx="${k}" title="${v.desc} (ctrl ${v.controlReq}+)">${v.icon} ${v.label}</div>`;
 		}
 		html += `</div></div>`;
+
+		// effect intensity settings (for burn/poison/freeze/stun)
+		const tunableEffects = ['burn','poison','freeze','stun'];
+		const hasTunable = ph.effects.some(fx => tunableEffects.includes(fx));
+		if(hasTunable){
+			if(!ph.effectPower) ph.effectPower = 1;
+			if(!ph.effectDuration) ph.effectDuration = 1;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Effect Intensity</label></div>`;
+			html += `<div class="prow"><label>Effect Power: ${ph.effectPower.toFixed(1)}x</label>
+				<input type="range" min="0.5" max="3" step="0.1" value="${ph.effectPower}" data-idx="${idx}" data-prop="effectPower"/></div>`;
+			html += `<div class="prow"><label>Effect Duration: ${ph.effectDuration.toFixed(1)}x</label>
+				<input type="range" min="0.5" max="3" step="0.1" value="${ph.effectDuration}" data-idx="${idx}" data-prop="effectDuration"/></div>`;
+		}
 
 		// timed release settings (if timedRelease effect is active)
 		if(ph.effects.includes('timedRelease')){
@@ -1083,7 +1223,20 @@ function renderBuilder(){
 	wrap.querySelectorAll('input[type=range][data-prop]').forEach(el => {
 		el.addEventListener('input', () => {
 			const val = parseFloat(el.value);
-			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = val;
+			const prop = el.dataset.prop;
+			if (prop === 'aroundSelfCount') {
+				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
+				renderBuilder(); return;
+			}
+			if (prop === 'aroundSelfRadius') {
+				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
+				renderBuilder(); return;
+			}
+			if (prop === 'rainHeight') {
+				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
+				renderBuilder(); return;
+			}
+			builderSpell.phases[+el.dataset.idx][prop] = val;
 			// update label & val span
 			const row = el.closest('.prow');
 			const valSpan = row.querySelector('.range-val');
@@ -1100,7 +1253,7 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('input[type=number][data-prop]').forEach(el => {
 		el.addEventListener('change', () => {
-			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(12,+el.value));
+			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(6,+el.value));
 			renderBuilder();
 		});
 	});
@@ -1117,13 +1270,23 @@ function renderBuilder(){
 
 function updateBuilderMeta(){
 	const stats = computeStats();
-	const cost = calcSpellManaCost(builderSpell);
+	const baseCost = calcSpellManaCost(builderSpell);
+	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
+	const cost = Math.round(baseCost * controlDiscount);
+	const discountPct = Math.round((1 - controlDiscount) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const meta = document.getElementById('spellMeta');
 	const chips = meta.querySelectorAll('.meta-chip');
-	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>`;
+	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>${discountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${discountPct}% from Control)</span>` : ''}`;
 	if(chips[1]) chips[1].innerHTML = `Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}`;
+	if(chips[2]) {
+		let total = 1;
+		for(const p of builderSpell.phases) total *= (p.behavior==='aroundSelf' ? (p.aroundSelfCount||4) : (p.count||1));
+		const over = total > 1000;
+		chips[2].innerHTML = `Phases: <b>${builderSpell.phases.length}</b>/5`;
+		if(chips[3]) chips[3].innerHTML = `Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b>${over?' (max 1000!)':''}`;
+	}
 	document.getElementById('spellDesc').textContent = generateSpellDescription(builderSpell);
 }
 
