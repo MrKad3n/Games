@@ -60,6 +60,23 @@
 		}
 		.dungeon-card button:hover { transform:translateY(-2px); }
 
+		/* Difficulty selector */
+		.diff-wrap { display:flex; gap:8px; margin-bottom:16px; }
+		.diff-btn {
+			padding:6px 14px; font-size:12px; font-weight:bold; border-radius:6px;
+			border:2px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06);
+			color:#ccc; cursor:pointer; transition:all .2s; text-transform:uppercase; letter-spacing:0.5px;
+		}
+		.diff-btn:hover { background:rgba(255,255,255,0.12); }
+		.diff-btn.selected { border-color:currentColor; background:rgba(255,255,255,0.15); }
+		.diff-btn.easy { color:#44dd88; }
+		.diff-btn.easy.selected { border-color:#44dd88; background:rgba(68,221,136,0.18); box-shadow:0 0 8px rgba(68,221,136,0.3); }
+		.diff-btn.normal { color:#66aaff; }
+		.diff-btn.normal.selected { border-color:#66aaff; background:rgba(102,170,255,0.18); box-shadow:0 0 8px rgba(102,170,255,0.3); }
+		.diff-btn.hard { color:#ff5555; }
+		.diff-btn.hard.selected { border-color:#ff5555; background:rgba(255,85,85,0.18); box-shadow:0 0 8px rgba(255,85,85,0.3); }
+		.diff-desc { font-size:11px; color:var(--muted); margin-bottom:14px; min-height:28px; text-align:center; }
+
 		/* Fire */
 		#fire-card { border-color:#ff6b35; background:linear-gradient(180deg,rgba(180,60,20,0.35),rgba(60,10,0,0.6)); }
 		#fire-card h2 { color:#ff9955; }
@@ -99,7 +116,13 @@
 				<p>Descend into the scorching volcanic corridors. Lava flows and flame-wielding creatures guard every turn.</p>
 				<div class="enemies-label">Enemies</div>
 				<div class="enemy-list">Imp · Flame Serpent · Ember Mage<br>Magma Golem · Fire Sprite</div>
-				<button onclick="location.href='dungeon.html?type=fire'">Enter Dungeon</button>
+				<div class="diff-wrap">
+					<button class="diff-btn easy" onclick="setDiff('fire','easy',this)">Easy</button>
+					<button class="diff-btn normal selected" onclick="setDiff('fire','normal',this)">Normal</button>
+					<button class="diff-btn hard" onclick="setDiff('fire','hard',this)">Hard</button>
+				</div>
+				<div class="diff-desc" id="fire-diff-desc">Standard enemy strength and attack speed.</div>
+				<button onclick="enterDungeon('fire')">Enter Dungeon</button>
 			</article>
 
 			<article class="dungeon-card" id="ice-card">
@@ -108,7 +131,13 @@
 				<p>Navigate the icy depths where frost bites and ancient cold creatures lurk in every shadow.</p>
 				<div class="enemies-label">Enemies</div>
 				<div class="enemy-list">Frost Wraith · Ice Archer · Snow Beast<br>Cryo Mage · Glacier Sentinel</div>
-				<button onclick="location.href='dungeon.html?type=ice'">Enter Dungeon</button>
+				<div class="diff-wrap">
+					<button class="diff-btn easy" onclick="setDiff('ice','easy',this)">Easy</button>
+					<button class="diff-btn normal selected" onclick="setDiff('ice','normal',this)">Normal</button>
+					<button class="diff-btn hard" onclick="setDiff('ice','hard',this)">Hard</button>
+				</div>
+				<div class="diff-desc" id="ice-diff-desc">Standard enemy strength and attack speed.</div>
+				<button onclick="enterDungeon('ice')">Enter Dungeon</button>
 			</article>
 
 			<article class="dungeon-card" id="earth-card">
@@ -117,9 +146,34 @@
 				<p>Dig through sprawling underground tunnels filled with living stone, vines, and crystal magic.</p>
 				<div class="enemies-label">Enemies</div>
 				<div class="enemy-list">Rock Golem · Vine Crawler · Cave Spider<br>Crystal Mage · Mud Elemental</div>
-				<button onclick="location.href='dungeon.html?type=earth'">Enter Dungeon</button>
+				<div class="diff-wrap">
+					<button class="diff-btn easy" onclick="setDiff('earth','easy',this)">Easy</button>
+					<button class="diff-btn normal selected" onclick="setDiff('earth','normal',this)">Normal</button>
+					<button class="diff-btn hard" onclick="setDiff('earth','hard',this)">Hard</button>
+				</div>
+				<div class="diff-desc" id="earth-diff-desc">Standard enemy strength and attack speed.</div>
+				<button onclick="enterDungeon('earth')">Enter Dungeon</button>
 			</article>
 		</section>
 	</main>
+	<script>
+	const selectedDiff = { fire:'normal', ice:'normal', earth:'normal' };
+	const DIFF_DESCS = {
+		easy:   'Enemies have less health and attack less often.',
+		normal: 'Standard enemy strength and attack speed.',
+		hard:   'Enemies have 2× health & size, deal more damage, and attack faster.',
+	};
+	function setDiff(dungeon, diff, btn){
+		selectedDiff[dungeon] = diff;
+		const wrap = btn.parentElement;
+		wrap.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+		btn.classList.add('selected');
+		document.getElementById(dungeon+'-diff-desc').textContent = DIFF_DESCS[diff];
+	}
+	function enterDungeon(type){
+		const diff = selectedDiff[type];
+		location.href = 'dungeon.html?type=' + type + '&diff=' + diff;
+	}
+	</script>
 </body>
 </html>

@@ -36,7 +36,8 @@
 				linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
 			background-size: cover;
 			background-position: center;
-			overflow: hidden;
+			background-attachment: fixed;
+			overflow-y: auto;
 		}
 
 		.menu-screen {
@@ -66,9 +67,9 @@
 		}
 
 		.mode-grid {
-			width: min(1200px, 94vw);
+			width: min(1400px, 96vw);
 			display: grid;
-			grid-template-columns: repeat(4, minmax(210px, 1fr));
+			grid-template-columns: repeat(3, minmax(220px, 1fr));
 			gap: 22px;
 			align-items: stretch;
 		}
@@ -181,6 +182,16 @@
 			background-image: url('images/backgrounds/pvp-card.jpg');
 		}
 
+		#raids-card {
+			border-color: #cc44ff;
+			background-image: url('images/backgrounds/raids-card.jpg');
+		}
+
+		#openworld-card {
+			border-color: #22cc88;
+			background-image: url('images/backgrounds/openworld-card.jpg');
+		}
+
 		@media (max-width: 1080px) {
 			.mode-grid {
 				grid-template-columns: repeat(2, minmax(220px, 1fr));
@@ -238,15 +249,29 @@
 				<p>Challenge other players in competitive magic duels and climb the rankings.</p>
 				<button id="pvpBtn" type="button">Queue PvP</button>
 			</article>
+
+			<article class="mode-card" id="raids-card">
+				<h2>Raid Bosses</h2>
+				<p>Face devastating raid bosses with unique mechanics. Can you survive their onslaught?</p>
+				<button id="raidsBtn" type="button">Enter Raids</button>
+			</article>
+
+			<article class="mode-card" id="openworld-card">
+				<h2>Open World</h2>
+				<p>Explore a vast magical landscape, discover secrets, and battle wild creatures at your own pace.</p>
+				<button id="openworldBtn" type="button">Explore World</button>
+			</article>
 		</section>
 	</main>
 
 	<script>
 		const modeRoutes = {
-			sandbox: 'sandbox.html',
+			sandbox: 'dungeon.html?mode=sandbox',
 			inventory: 'inventory.html',
 			dungeons: 'dungeons.html',
-			pvp: 'pvp.html'
+			pvp: 'pvp.html',
+			raids: 'dungeon.html?mode=raid',
+			openworld: 'dungeon.html?mode=openworld'
 		};
 
 		function launchMode(mode) {
@@ -262,6 +287,8 @@
 		document.getElementById('inventoryBtn').addEventListener('click', () => launchMode('inventory'));
 		document.getElementById('dungeonsBtn').addEventListener('click', () => launchMode('dungeons'));
 		document.getElementById('pvpBtn').addEventListener('click', () => launchMode('pvp'));
+		document.getElementById('raidsBtn').addEventListener('click', () => launchMode('raids'));
+		document.getElementById('openworldBtn').addEventListener('click', () => launchMode('openworld'));
 	</script>
 </body>
 </html>

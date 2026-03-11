@@ -102,6 +102,7 @@
 		<div id="totalManaBarBg"><div id="totalManaBarFill" style="width:0%"></div></div>
 		<div id="totalManaText">⚡ Total Mana: 0</div>
 	</div>
+	<div id="damageStoreWrap" style="position:fixed;top:100px;left:12px;font:bold 13px monospace;color:#ff6644;display:none;z-index:20"><div id="damageStoreText"></div></div>
 	<div id="hotbar"></div>
 
 <script>
@@ -163,9 +164,12 @@ const ITEM_DB={
 	crystal_crown:{stats:{magicControl:8,magicPower:6,magicDefence:3}},
 };
 
+let vowSacrificedItemSlots = new Set();
+
 function computeStats() {
 	const s = { ...playerData.baseStats };
 	for (const slotKey of ['staff','robe','relic1','relic2']) {
+		if(vowSacrificedItemSlots.has(slotKey)) continue;
 		const id = playerData.equipment[slotKey];
 		if (!id || !ITEM_DB[id]) continue;
 		for (const k in ITEM_DB[id].stats) s[k] = (s[k]||0) + ITEM_DB[id].stats[k];
@@ -176,24 +180,93 @@ function computeStats() {
 const stats = computeStats();
 
 /* --- spell cost / control helpers (mirrored from inventory) --- */
-const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10,allyOrb:6};
-const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,allyOrb:1};
-const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5};
-const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3};
-const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5};
-const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2};
+const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10,spike:8,polygon:9,allyOrb:6,meteor:16,vortex:18,same:0};
+const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,spike:3,polygon:3,allyOrb:1,meteor:6,vortex:7,same:0};
+const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5,ground:4,zigzag:5};
+const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4};
+const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10};
+const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7};
+
+/* --- Damage Store (for sandbox testing) --- */
+let damageStored = 0;
+
+/* --- Vow Boosts (read from playerData, per spell slot) --- */
+if(!playerData.vows) playerData.vows = [null,null,null];
+function getVowBoostsForSlot(slot){
+	const globalBoosts = new Set(['maxHealth','jumpHeight','playerSpeed','defense','elementalDmg']);
+	const b = {power:0,size:0,speed:0,count:0,duration:0,effects:0,phases:0,maxHealth:0,manaCost:0,cooldown:0,jumpHeight:0,playerSpeed:0,defense:0,elementalDmg:0,_sizeBonus:false};
+	for(const v of playerData.vows){
+		if(!v) continue;
+		if(v.boostType != null){
+			if(globalBoosts.has(v.boostType)){ b[v.boostType] = (b[v.boostType]||0) + (v.boostAmount||0); continue; }
+			if(v.targetSlot !== slot) continue;
+			b[v.boostType] = (b[v.boostType]||0) + (v.boostAmount||0);
+			if(v.sizeBonus) b._sizeBonus = true;
+		} else if(v.boosts){
+			if(v.targetSlot !== slot) continue;
+			for(const k in v.boosts) b[k]=(b[k]||0)+v.boosts[k];
+		}
+	}
+	return b;
+}
+/* --- Vow Sacrifices --- */
+let vowHealthPenalty=0, vowManaPenalty=0, vowLockedSlots=new Set(), vowMaxHealthBonus=0;
+let vowJumpBonus=0, vowSpeedBonus=0, vowDefenseBonus=0, vowElementalDmgBonus=0;
+let vowLockedEffects=new Set(), vowLockedShapes=new Set();
+function applyVowSacrifices(){
+	vowHealthPenalty=0; vowManaPenalty=0; vowLockedSlots=new Set(); vowMaxHealthBonus=0;
+	vowJumpBonus=0; vowSpeedBonus=0; vowDefenseBonus=0; vowElementalDmgBonus=0;
+	vowLockedEffects=new Set(); vowLockedShapes=new Set(); vowSacrificedItemSlots=new Set();
+	for(const v of playerData.vows){
+		if(!v) continue;
+		if(v.sacrifice==='health') vowHealthPenalty+=v.amount;
+		else if(v.sacrifice==='maxMana') vowManaPenalty+=v.amount;
+		else if(v.sacrifice==='spellSlot'){
+			for(const s of v.slots||[]) vowLockedSlots.add(s);
+		}
+		else if(v.sacrifice==='effects'){
+			for(const fx of v.sacrificedEffects||[]) vowLockedEffects.add(fx);
+		}
+		else if(v.sacrifice==='shapes'){
+			for(const sh of v.sacrificedShapes||[]) vowLockedShapes.add(sh);
+		}
+		else if(v.sacrifice==='items'){
+			for(const sl of v.sacrificedItemSlots||[]) vowSacrificedItemSlots.add(sl);
+		}
+		if(v.boostType==='maxHealth') vowMaxHealthBonus += (v.boostAmount||0) * 5;
+		if(v.boostType==='jumpHeight') vowJumpBonus += (v.boostAmount||0);
+		if(v.boostType==='playerSpeed') vowSpeedBonus += (v.boostAmount||0);
+		if(v.boostType==='defense') vowDefenseBonus += (v.boostAmount||0);
+		if(v.boostType==='elementalDmg') vowElementalDmgBonus += (v.boostAmount||0);
+	}
+}
+applyVowSacrifices();
+function updateDamageStoreHUD(){
+	const wrap=document.getElementById('damageStoreWrap');
+	const txt=document.getElementById('damageStoreText');
+	if(damageStored>0){wrap.style.display='block';txt.textContent='🔥 Stored: '+Math.round(damageStored);}
+	else{wrap.style.display='none';}
+}
 
 function calcSpellCost(spell) {
 	if (!spell || !spell.phases.length) return 0;
 	let cost = 5;
 	for (const ph of spell.phases) {
 		cost += (SHAPE_MANA[ph.shape]||0) + (BEH_MANA[ph.behavior]||0);
-		const powerCost = ph.power * 50;
-		cost += powerCost + (ph.count-1)*4 + (ph.width-1)*2 + (ph.height-1)*2;
+		const isAreaBeh = ph.behavior === 'rain' || ph.behavior === 'barrage';
+		const countMult = 1 + (ph.count - 1) * (isAreaBeh ? 0.1 : 0.4);
+		cost += ph.power * 50 * countMult + (ph.count-1)*(isAreaBeh?1:4) + (ph.width-1)*2 + (ph.height-1)*2;
 		if (ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
+		if (ph.behavior === 'ground' && ph.groundRadius > 200) cost += Math.floor((ph.groundRadius - 200) / 50) * 3;
+		if (ph.shape === 'summon') { cost += (ph.summonRange || 0) * 4 + (ph.summonHealth || 0) * 3 + (ph.summonSpeed || 0) * 3; }
 		for (const fx of ph.effects) cost += (FX_MANA[fx]||0);
+		// phase fork: significant upfront cost based on repeats
+		if (ph.effects.includes('phaseFork')) {
+			const repeats = ph.phaseForkRepeats || 1;
+			cost += repeats * 35;
+		}
 	}
-	cost *= (0.6 + spell.phases.length * 0.4);
+	cost *= (0.6 + spell.phases.length * 0.25);
 	return Math.round(cost);
 }
 
@@ -274,8 +347,23 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 let mouseDown = false;
-canvas.addEventListener('mousedown', () => { mouseDown = true; });
-canvas.addEventListener('mouseup',   () => { mouseDown = false; });
+let mouseScreenX = 0, mouseScreenY = 0;
+canvas.addEventListener('mousedown', e => { mouseDown = true; mouseScreenX = e.clientX; mouseScreenY = e.clientY; });
+canvas.addEventListener('mouseup',   () => { mouseDown = false; releaseHeldProjectiles(); });
+canvas.addEventListener('mousemove', e => { mouseScreenX = e.clientX; mouseScreenY = e.clientY; });
+
+function releaseHeldProjectiles(){
+	const worldMX=mouseScreenX+camera.x;
+	const worldMY=mouseScreenY+camera.y;
+	for(const p of projectiles){
+		if(!p._held)continue;
+		p._held=false;
+		const ang=Math.atan2(worldMY-p.y,worldMX-p.x);
+		const spd=(p.phase.speed||1)*7;
+		p.vx=Math.cos(ang)*spd;p.vy=Math.sin(ang)*spd;
+		p.age=0;p.hitDummies.clear();
+	}
+}
 
 /* =============================================================
    PLAYER
@@ -291,6 +379,15 @@ const player = {
 	castTimer: 0,
 	castColor: '#4488ff',
 };
+
+/* === PLAYER SPRITE === */
+const PLAYER_SPRITE=new Image();
+PLAYER_SPRITE.src='images/assests/player-sheet.png';
+const PLAYER_SPRITE_COLS=6, PLAYER_SPRITE_ROWS=4;
+const PLAYER_SPRITE_ROW={idle:0,walk:1,attack:2,defeat:3};
+const PLAYER_SPRITE_FPS=8;
+const PLAYER_SPRITE_SCALE=2.5;
+let playerAnimFrame=0,playerAnimTimer=0,playerAnimState='idle';
 
 /* =============================================================
    MANA
@@ -332,6 +429,10 @@ function renderHotbar() {
 		const keyLabel = isUlt ? '⚡0' : (i === 9 ? '0' : '' + (i + 1));
 		if (sp) {
 			const cost = calcSpellCost(sp);
+			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
+			const _vbHud = getVowBoostsForSlot(i);
+			const vowManaHud = Math.max(0.1, 1 - (_vbHud.manaCost||0) * 0.05);
+			const displayCost = Math.round(cost * controlDiscount * vowManaHud);
 			const req  = calcSpellCtrl(sp);
 			const usable = stats.magicControl >= req;
 			const color = sp.phases[0]?.color || '#888';
@@ -340,7 +441,7 @@ function renderHotbar() {
 				const pct = (spellCooldowns[i] / spellMaxCooldowns[i]) * 100;
 				cdHtml = `<div class="hb-cd-overlay" style="height:${pct}%"></div>`;
 			}
-			const manaLabel = isUlt ? `${cost*10}⚡` : `${cost}💧`;
+			const manaLabel = isUlt ? `${displayCost*10}⚡` : `${displayCost}💧`;
 			el.innerHTML = `
 				<span class="hb-key">${keyLabel}</span>
 				<div class="hb-dot" style="background:${usable ? color : '#555'}"></div>
@@ -364,7 +465,7 @@ const particles   = [];
 const dmgNumbers  = [];
 const MAX_PARTICLES = 300;
 const MAX_TRAIL = 8;
-const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','solidify']);
+const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','solidify','spike','summon','vortex']);
 
 /* --- diminishing returns: track hits per spell cast --- */
 let nextCastId = 0;
@@ -373,27 +474,36 @@ const spellHitCounts = {};
 /* --- per-dummy damage accumulator (rolling window) --- */
 const dummyDmgAccum = dummies.map(() => ({ total:0, timer:0, x:0, y:0, color:'#fff' }));
 
+/* --- Player minions (from summon shape) --- */
+const playerMinions = [];
+
 /* =============================================================
    CAST SPELL
    ============================================================= */
 function castSpell() {
 	const spell = playerData.spells[activeSlot];
 	if (!spell || !spell.phases.length) return;
+	if(vowLockedSlots.has(activeSlot)) return;
+	const _vbCast = getVowBoostsForSlot(activeSlot);
+	const vowManaCostMult = Math.max(0.1, 1 - (_vbCast.manaCost||0) * 0.05);
+	const vowCdMult = Math.max(0.1, 1 - (_vbCast.cooldown||0) * 0.08);
 	let cost = calcSpellCost(spell);
 	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-	cost = Math.round(cost * controlDiscount);
+	cost = Math.round(cost * controlDiscount * vowManaCostMult);
 	const req  = calcSpellCtrl(spell);
 	if (stats.magicControl < req) return;
 	if (spellCooldowns[activeSlot] > 0) return;
 
 	const isUlt = (activeSlot === 9 && spell.isUltimate);
+	const rawCost = calcSpellCost(spell);
+	const avgPower = spell.phases.reduce((s,p)=>s+(p.power||1),0)/spell.phases.length;
 
 	if (isUlt) {
 		const ultCost = cost * 10;
 		if (totalMana < ultCost) return;
 		totalMana -= ultCost;
 		updateTotalManaHUD();
-		const cd = 60 + spell.phases.length * 15;
+		const cd = Math.round((24 + Math.round(avgPower * 16) + Math.round(rawCost * 0.15)) * vowCdMult);
 		spellCooldowns[activeSlot] = cd;
 		spellMaxCooldowns[activeSlot] = cd;
 	} else {
@@ -401,7 +511,7 @@ function castSpell() {
 		mana -= cost;
 		totalMana += cost;
 		updateTotalManaHUD();
-		const cd = 30 + spell.phases.length * 10;
+		const cd = Math.round((8 + Math.round(avgPower * 12) + Math.round(rawCost * 0.12)) * vowCdMult);
 		spellCooldowns[activeSlot] = cd;
 		spellMaxCooldowns[activeSlot] = cd;
 	}
@@ -411,7 +521,7 @@ function castSpell() {
 
 	const castId = nextCastId++;
 	spellHitCounts[castId] = 0;
-	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing, undefined, isUlt, castId);
+	spawnPhase(spell, 0, player.x + player.w/2, player.y + player.h/2 - 6, player.facing, undefined, isUlt, castId, activeSlot);
 }
 
 /* Compute cascading projectile count up to and including phaseIdx
@@ -424,29 +534,51 @@ function calcCascadingCount(spell, phaseIdx) {
 	return product;
 }
 
-function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltimate, castId) {
+function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltimate, castId, sourceSlot) {
 	if (phaseIdx >= spell.phases.length) return;
 	// enforce total projectile cap of 1000
 	let totalProj = 1;
 	for (const p of spell.phases) totalProj *= (p.behavior === 'aroundSelf' ? (p.aroundSelfCount || 4) : (p.count || 1));
 	if (totalProj > 1000) return;
 	const ph = spell.phases[phaseIdx];
+	// Resolve 'same' shape: inherit shape from previous phase
+	const resolvedShape = (ph.shape === 'same' && phaseIdx > 0) ? spell.phases[phaseIdx - 1].shape : (ph.shape || 'missile');
 	const count = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : (ph.count || 1);
-	const baseAngle = facing === 1 ? 0 : Math.PI;
+	// Cursor-aimed behaviors: compute angle from player to mouse cursor
+	const cursorAimBehaviors = new Set(['straight','boomerang','lob','spiral','zigzag','teleport']);
+	let baseAngle;
+	if(cursorAimBehaviors.has(ph.behavior||'straight')){
+		const worldMX = mouseScreenX + camera.x;
+		const worldMY = mouseScreenY + camera.y;
+		const pcx = originX, pcy = originY;
+		baseAngle = Math.atan2(worldMY - pcy, worldMX - pcx);
+	} else {
+		baseAngle = facing === 1 ? 0 : Math.PI;
+	}
 	const powerMult = dmgMult || 1;
 	const ultFlag = !!isUltimate;
 	// auto +1 power for self-targeted behaviors (no mana cost increase)
 	const selfBehaviors = ['underfoot','selfCast','aroundSelf','stationary'];
 	const selfPowerBonus = ph.behavior === 'stationary' ? 2.0 : selfBehaviors.includes(ph.behavior) ? 1.0 : 0;
+	// Vow boosts (per-spell-slot)
+	const vb = getVowBoostsForSlot(sourceSlot != null ? sourceSlot : -1);
+	const vowPowerMult = 1 + vb.power * 0.12;
+	const vowSizeMult = 1 + vb.size * 0.1;
+	const vowSpeedMult = 1 + vb.speed * 0.1;
+	const vowCountBonus = vb.count || 0;
+	const vowDurMult = 1 + vb.duration * 0.1;
+	const vowSizeBonus = vb._sizeBonus ? 1.5 : 1;
+	const releaseSizeMult = (ph.effects && ph.effects.includes('damageRelease') && damageStored > 0) ? (1 + damageStored / 1000) : 1;
 
-	for (let i = 0; i < count; i++) {
+	const effectiveCount = Math.min(count + vowCountBonus, 20);
+	for (let i = 0; i < effectiveCount; i++) {
 		let spreadAngle = 0;
-		if (count > 1) {
+		if (effectiveCount > 1) {
 			const spreadRad = (ph.spread || 0) * Math.PI / 180;
-			spreadAngle = ((i / (count - 1)) - 0.5) * spreadRad;
+			spreadAngle = ((i / (effectiveCount - 1)) - 0.5) * spreadRad;
 		}
 		const angle = baseAngle + spreadAngle;
-		const spd = (ph.speed || 1) * 7;
+		const spd = (ph.speed || 1) * 7 * vowSpeedMult;
 
 		const proj = {
 			spell, phaseIdx, phase: ph,
@@ -456,15 +588,15 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltima
 			vy: Math.sin(angle) * spd,
 			facing,
 			age: 0,
-			maxAge: (ph.duration || 1) * FPS,
-			width: (ph.width || 1) * 10,
-			height: (ph.height || 1) * 10,
-			power: ((ph.power || 1) / count + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult,
+			maxAge: (ph.duration || 1) * FPS * vowDurMult,
+			width: (ph.width || 1) * 10 * vowSizeMult * vowSizeBonus * releaseSizeMult,
+			height: (ph.height || 1) * 10 * vowSizeMult * vowSizeBonus * releaseSizeMult,
+			power: ((ph.power || 1) / effectiveCount + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult * vowPowerMult,
 			color: ph.color || '#4488ff',
 			trail: ph.trail || 'none',
-			shape: ph.shape || 'missile',
+			shape: vowLockedShapes.has(resolvedShape) ? 'missile' : resolvedShape,
 			behavior: ph.behavior || 'straight',
-			effects: ph.effects || [],
+			effects: (ph.effects || []).filter(fx => !vowLockedEffects.has(fx)),
 			trailParts: [],
 			orbitAngle: i * (Math.PI * 2 / count),
 			orbitRadius: (ph.orbitRadius || 80),
@@ -481,6 +613,7 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltima
 			hasHit: false,
 			phaseTriggered: false,
 			hitDummies: new Set(),
+			aimAngle: baseAngle,
 			timedReleaseDelay: (ph.timedReleaseDelay || 0.5) * FPS,
 			timedReleaseTriggered: false,
 			phaseForkDelay: (ph.phaseForkDelay || 1) * FPS,
@@ -490,10 +623,17 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltima
 			isSolidPlatform: false,
 			isUltimate: ultFlag,
 			castId: castId != null ? castId : -1,
+			sourceSlot: sourceSlot != null ? sourceSlot : -1,
+			randomDelay: (ph.effects && ph.effects.includes('randomDelay')) ? Math.round(Math.random() * (ph.randomDelayMax || 0.5) * FPS) : 0,
+			afterHitEffect: ph.afterHitEffect || 'none',
+			polygonSides: ph.polygonSides || 6,
+			_held: !!ph.holdDown,
+			_holdSavedVx: 0,
+			_holdSavedVy: 0,
 		};
 
 		// solidify shapes act as instant platforms
-		if (ph.shape === 'solidify') {
+		if (resolvedShape === 'solidify') {
 			proj.isSolidPlatform = true;
 			proj.vx = 0; proj.vy = 0;
 		}
@@ -538,6 +678,57 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltima
 			proj.y = player.y + player.h/2 + Math.sin(selfAngle) * radius;
 			proj.vx = 0; proj.vy = 0;
 		}
+		if (ph.behavior === 'ground') {
+		// Ground: spawns at nearest dummy within radius (if auto-lock on), +40% damage bonus
+		const groundRadius = ph.groundRadius || 200;
+		let tgt = null;
+		if (ph.groundAutoLock !== false) {
+			let td = groundRadius;
+			for (const d of dummies) {
+				const dd = Math.hypot(d.x + d.w/2 - player.x - player.w/2, d.y + d.h/2 - player.y - player.h/2);
+				if (dd < td) { td = dd; tgt = d; }
+			}
+			if (tgt) { proj.x = tgt.x + tgt.w/2; proj.y = tgt.y + tgt.h + 4; }
+			else { proj.x = player.x + player.w/2; proj.y = player.y + player.h + 4; }
+			proj.vx = 0;
+			proj.vy = -((ph.speed || 1) * 2);
+			proj.maxAge *= 3;
+			proj.power *= 1.4;
+			proj._groundTarget = tgt;
+		}
+		}
+
+		if (proj._held) {
+			proj._holdSavedVx = proj.vx; proj._holdSavedVy = proj.vy;
+			proj.vx = 0; proj.vy = 0;
+		}
+		// Vortex shape: slow-moving projectile that does DoT and pulls enemies in
+		if (proj.shape === 'vortex') {
+			const spdMult = 0.35;
+			proj.vx *= spdMult; proj.vy *= spdMult;
+			proj.maxAge *= 2 * (ph.vortexDuration || 1);
+		}
+		if (proj.shape === 'summon') {
+			playerMinions.push({
+				x: proj.x, y: proj.y, w: 20, h: 20,
+				vx: 0, vy: 0,
+				color: proj.color,
+				spell: spell, phaseIdx: phaseIdx,
+				sourceSlot: proj.sourceSlot,
+				castId: proj.castId,
+				facing: proj.facing,
+				isUltimate: proj.isUltimate,
+				power: proj.power,
+				hp: 40 + (ph.summonHealth || 0) * 10, maxHp: 40 + (ph.summonHealth || 0) * 10,
+				age: 0, maxAge: proj.maxAge * 2,
+				fireTimer: 0, fireCooldown: Math.round(FPS * 2.5),
+				target: null, animTimer: 0,
+				detectRange: 600 + (ph.summonRange || 0) * 100,
+				moveSpeed: 2.5 + (ph.summonSpeed || 0) * 0.5,
+				summonClose: !!ph.summonClose,
+			});
+			continue;
+		}
 
 		projectiles.push(proj);
 	}
@@ -550,11 +741,15 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 	const spell = proj.spell;
 	if (phaseIdx >= spell.phases.length) return;
 	const ph = spell.phases[phaseIdx];
+	// Resolve 'same' shape: inherit from previous phase
+	const resolvedShape = (ph.shape === 'same' && phaseIdx > 0) ? spell.phases[phaseIdx - 1].shape : (ph.shape || 'missile');
 	const count = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : (ph.count || 1);
 	const powerMult = dmgMult || 1;
 	const selfBehaviors = ['underfoot','selfCast','aroundSelf','stationary'];
 	const selfPowerBonus = ph.behavior === 'stationary' ? 2.0 : selfBehaviors.includes(ph.behavior) ? 1.0 : 0;
-	const spd = (ph.speed || 1) * 7;
+	const _vb = getVowBoostsForSlot(proj.sourceSlot != null ? proj.sourceSlot : -1);
+	const spd = (ph.speed || 1) * 7 * (1 + _vb.speed * 0.1);
+	const _vowSzB = _vb._sizeBonus ? 1.5 : 1;
 	const origX = proj.x, origY = proj.y, origFacing = proj.facing;
 	const ultFlag = !!proj.isUltimate;
 
@@ -571,13 +766,13 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		p.phaseIdx = phaseIdx;
 		p.phase = ph;
 		p.age = 0;
-		p.maxAge = (ph.duration || 1) * FPS;
-		p.width = (ph.width || 1) * 10;
-		p.height = (ph.height || 1) * 10;
-		p.power = ((ph.power || 1) / count + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult;
+		p.maxAge = (ph.duration || 1) * FPS * (1 + _vb.duration * 0.1);
+		p.width = (ph.width || 1) * 10 * (1 + _vb.size * 0.1) * _vowSzB;
+		p.height = (ph.height || 1) * 10 * (1 + _vb.size * 0.1) * _vowSzB;
+		p.power = ((ph.power || 1) / count + 0.05 + selfPowerBonus) * (1 + stats.magicPower * 0.08) * powerMult * (1 + _vb.power * 0.12);
 		p.color = ph.color || '#4488ff';
 		p.trail = ph.trail || 'none';
-		p.shape = ph.shape || 'missile';
+		p.shape = resolvedShape;
 		p.behavior = ph.behavior || 'straight';
 		p.effects = ph.effects || [];
 		p.trailParts = [];
@@ -598,11 +793,13 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 		p.phaseForkNextAge = (ph.phaseForkDelay || 1) * FPS;
 		p.isSolidPlatform = false;
 		p.isUltimate = ultFlag;
+		p.afterHitEffect = ph.afterHitEffect || 'none';
+		p.polygonSides = ph.polygonSides || 6;
 
 		p.vx = Math.cos(angle) * spd;
 		p.vy = Math.sin(angle) * spd;
 
-		if (ph.shape === 'solidify') { p.isSolidPlatform = true; p.vx = 0; p.vy = 0; }
+		if (resolvedShape === 'solidify') { p.isSolidPlatform = true; p.vx = 0; p.vy = 0; }
 		if (ph.behavior === 'rain') {
 			p.vx = 0; p.vy = spd * 0.8;
 			p.startX = origX; p.startY = origY; p.facing = origFacing;
@@ -644,6 +841,21 @@ function morphProjectile(proj, phaseIdx, dmgMult) {
 			p.orbitSpeed = ph.orbitSpeed || 3;
 			p.orbitDur = (ph.orbitDuration || 1.5) * FPS;
 		}
+		if (ph.behavior === 'ground') {
+			const groundRadius = ph.groundRadius || 200;
+			let tgt = null;
+			if (ph.groundAutoLock !== false) {
+				let td = groundRadius;
+				for (const d of dummies) {
+					const dd = Math.hypot(d.x + d.w/2 - origX, d.y + d.h/2 - origY);
+					if (dd < td) { td = dd; tgt = d; }
+				}
+			}
+			if (tgt) { p.x = tgt.x + tgt.w/2; p.y = tgt.y + tgt.h + 4; }
+			else { p.x = origX; p.y = origY + 4; }
+			p.vx = 0; p.vy = -((ph.speed || 1) * 2);
+			p.maxAge *= 3; p.power *= 1.4; p._groundTarget = tgt;
+		}
 	}
 
 	// morph the existing projectile as index 0
@@ -683,6 +895,18 @@ function dist(x1,y1,x2,y2){ return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
 function updateProjectiles() {
 	for (let i = projectiles.length - 1; i >= 0; i--) {
 		const p = projectiles[i];
+
+		// random delay: projectile waits before becoming active
+		if (p.randomDelay > 0) { p.randomDelay--; continue; }
+
+		if (p._held) {
+			p.x = player.x + player.w/2 + player.facing*20;
+			p.y = player.y + player.h/2 - 6;
+			p.startX = p.x; p.startY = p.y;
+			p.trailParts.push({x:p.x,y:p.y,age:0});
+			if(p.trailParts.length>MAX_TRAIL)p.trailParts.shift();
+			for(const tp of p.trailParts)tp.age++;
+		} else {
 		p.age++;
 
 		// trail history
@@ -733,7 +957,9 @@ function updateProjectiles() {
 			case 'boomerang': {
 				const progress = p.age / p.maxAge;
 				if (progress > 0.45) {
-					const dx = p.startX-p.x, dy = p.startY-p.y;
+					if (!p.returning) { p.returning = true; p.hitDummies.clear(); }
+					const tx = player.x + player.w/2, ty = player.y + player.h/2;
+					const dx = tx-p.x, dy = ty-p.y;
 					const d2 = Math.sqrt(dx*dx+dy*dy)||1;
 					const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
 					p.vx = (dx/d2)*spd*1.02;
@@ -781,7 +1007,7 @@ function updateProjectiles() {
 
 			case 'spiral': {
 				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || (p.phase.speed||1)*7;
-				const baseAng = p.facing===1 ? 0 : Math.PI;
+				const baseAng = p.aimAngle != null ? p.aimAngle : (p.facing===1 ? 0 : Math.PI);
 				const spiralAngle = baseAng + p.age * 0.06;
 				const outward = 0.3 + p.age * 0.008;
 				p.vx = Math.cos(spiralAngle) * spd * outward;
@@ -801,6 +1027,59 @@ function updateProjectiles() {
 			case 'underfoot': break;
 			case 'selfCast': break;
 			case 'aroundSelf': break;
+			case 'ground': {
+				// Stay locked onto target dummy if alive
+				if (p._groundTarget) {
+					const tgt = p._groundTarget;
+					p.x = tgt.x + tgt.w/2;
+				}
+				// decelerate upward, stop at platforms
+				for (const plat of platforms) {
+					if (p.x >= plat.x && p.x <= plat.x + plat.w &&
+						p.y >= plat.y - 8 && p.y <= plat.y + 12) {
+						p.vy = 0; p.y = plat.y + 4;
+					}
+				}
+				if (p.vy < 0) p.vy *= 0.97;
+				if (Math.abs(p.vy) < 0.3) p.vy = 0;
+				break;
+			}
+			case 'zigzag': {
+				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || ((p.phase.speed||1)*7);
+				const ang = p.aimAngle != null ? p.aimAngle : (p.facing===1 ? 0 : Math.PI);
+				const perpAng = ang + Math.PI/2;
+				const amplitude = 40 + p.width * 0.5;
+				const freq = 0.09;
+				const offset = Math.sin(p.age * freq) * amplitude * freq;
+				p.vx = Math.cos(ang)*spd + Math.cos(perpAng)*offset;
+				p.vy = Math.sin(ang)*spd + Math.sin(perpAng)*offset;
+				break;
+			}
+			case 'teleport': {
+				/* Teleport forward every 20 frames along aim direction */
+				if(p.age>0&&p.age%20===0){
+					const ang=p.aimAngle!=null?p.aimAngle:(p.facing===1?0:Math.PI);
+					const jumpDist=60+p.width*0.5;
+					p.x+=Math.cos(ang)*jumpDist;
+					p.y+=Math.sin(ang)*jumpDist;
+					p.vx=0;p.vy=0;
+					for(let tp=0;tp<4;tp++) particles.push({x:p.x+(Math.random()-0.5)*10,y:p.y+(Math.random()-0.5)*10,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:15,color:p.color||'#88ccff'});
+				} else { p.vx=0;p.vy=0; }
+				/* Auto-advance to next phase when near a dummy */
+				if(!p.phaseTriggered&&p.phaseIdx+1<p.spell.phases.length){
+					for(const d of dummies){
+						if(d.hp<=0)continue;
+						const dx2=d.x+d.w/2-p.x,dy2=d.y+d.h/2-p.y;
+						if(Math.hypot(dx2,dy2)<d.w*0.8+p.width){
+							p.phaseTriggered=true;
+							if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,false,p.castId,p.sourceSlot);
+							else morphProjectile(p,p.phaseIdx+1);
+							break;
+						}
+					}
+				}
+				break;
+			}
 		}
 
 		// apply velocity (unless orbiting)
@@ -808,6 +1087,9 @@ function updateProjectiles() {
 			p.x += p.vx;
 			p.y += p.vy;
 		}
+		} // end else (not held)
+		/* Vortex: slow down gradually (slow-moving projectile) */
+		if (p.shape === 'vortex') { const slowFactor = 0.985; p.vx *= slowFactor; p.vy *= slowFactor; }
 
 		// beam extends forward from origin along beamAngle
 		if (p.shape === 'beam') {
@@ -815,21 +1097,22 @@ function updateProjectiles() {
 			p.x = p.startX; p.y = p.startY;
 		}
 		// allow all pierce shapes to re-hit targets every 60 frames (1 second)
-		if (PIERCE_SET.has(p.shape) && p.age > 0 && p.age % 60 === 0) p.hitDummies.clear();
+		if (PIERCE_SET.has(p.shape) && p.shape !== 'nova' && p.age > 0 && p.age % 60 === 0) p.hitDummies.clear();
 
 		/* ---- HIT DETECTION vs dummies ---- */
-		const hitR = Math.max(p.width, p.height) * 0.7;
+const hitR = Math.max(p.width, p.height) * 0.85;
 
 		// allyOrb: hits player instead of dummies
 		if ((p.shape === 'allyOrb' || p.behavior === 'selfCast') && !p.hasHit) {
 			if (circRect(p.x, p.y, hitR, player.x, player.y, player.w, player.h)) {
 				applyEffects(p, null); // null dummy = apply to player
 				spawnImpact(p.x, p.y, p.color);
+				if(p.afterHitEffect && p.afterHitEffect!=='none') spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color);
 				p.hasHit = true;
 				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
 					p.phaseTriggered = true;
 					if (p.effects.includes('resetProjectiles')) {
-						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId, p.sourceSlot);
 					} else {
 						morphProjectile(p, p.phaseIdx+1);
 					}
@@ -837,8 +1120,8 @@ function updateProjectiles() {
 			}
 		}
 
-		// allyOrb and selfCast skip dummy hit detection (they target the player)
-		if (p.shape !== 'allyOrb' && p.behavior !== 'selfCast')
+		// allyOrb, selfCast and noHit skip dummy hit detection
+		if (p.shape !== 'allyOrb' && p.behavior !== 'selfCast' && !p.phase.noHit)
 		for (const d of dummies) {
 			if (d.hp <= 0) continue;
 			if (p.hitDummies.has(d)) continue; // already hit this one (pierce shapes)
@@ -884,17 +1167,52 @@ function updateProjectiles() {
 			} else if (p.shape === 'solidify') {
 				const sw = p.width * 3, sh = p.height * 1.5;
 				hit = rectRect({x:p.x-sw/2,y:p.y-sh/2,w:sw,h:sh}, d);
+			} else if (p.shape === 'spike') {
+				hit = circRect(p.x, p.y, hitR * 0.9, d.x, d.y, d.w, d.h);
+			} else if (p.shape === 'polygon') {
+				hit = circRect(p.x, p.y, hitR, d.x, d.y, d.w, d.h);
+			} else if (p.shape === 'meteor') {
+				hit = circRect(p.x, p.y, Math.max(p.width, p.height) * 1.5, d.x, d.y, d.w, d.h);
+			} else if (p.shape === 'vortex') {
+				const vR2 = p.width * 3 + p.width * 2 * (p.age / p.maxAge);
+				hit = circRect(p.x, p.y, vR2, d.x, d.y, d.w, d.h);
+			} else if (p.shape === 'summon') {
+				hit = false; // summon projectiles spawn minions, don't hit directly
 			} else {
 				hit = circRect(p.x, p.y, hitR, d.x, d.y, d.w, d.h);
 			}
 
 		if (hit) {
 				const homingMult = p.behavior === 'homing' ? 0.5 : 1;
-				// diminishing returns: each subsequent hit from same cast does less
+				const lobMult = p.behavior === 'lob' ? 1.25 : 1; // lob: 25% damage bonus
+				const orbitMult = p.behavior === 'orbit' ? 0.7 : 1;
+				const rainMult = p.behavior === 'rain' ? 1.5 : 1;
+				const barrageMult = p.behavior === 'barrage' ? 1.35 : 1;
 				const hitNum = (p.castId >= 0 && spellHitCounts[p.castId] != null) ? spellHitCounts[p.castId]++ : 0;
-				const dimMult = 1 / (1 + hitNum * 0.15);
-				const beamMult = p.shape === 'beam' ? 0.5 : 1;
-				const baseDmg = p.power * 8 * homingMult * dimMult * beamMult;
+				const dimMult = 1 / (1 + hitNum * 0.08);
+				const beamMult = p.shape === 'beam' ? 0.65 : 1;
+				const releaseMult = p.effects.includes('damageRelease') ? (1 + damageStored/500) : 1;
+				const hasElemental = p.effects.includes('burn')||p.effects.includes('freeze')||p.effects.includes('poison')||p.effects.includes('stun');
+				const elemMult = hasElemental ? (1+vowElementalDmgBonus*0.07) : 1;
+				// PhaseThrough: 45% damage reduction for passing through walls
+				const phaseMult = p.effects.includes('phaseThrough') ? 0.55 : 1;
+				// Meteor: more damage the farther the enemy is from the player
+				let meteorDistMult = 1;
+				if (p.shape === 'meteor') { const md = Math.hypot(p.x - (player.x + player.w/2), p.y - (player.y + player.h/2)); meteorDistMult = 1 + Math.min(md / 300, 2.0); }
+				// Meteor: 25% base damage nerf
+				const meteorNerf = p.shape === 'meteor' ? 0.75 : 1;
+				// Spread damage bonus
+				let spreadMult = 1;
+				if (p.phase && p.phase.spread > 0 && p.phase.count > 1) { spreadMult = 1 + (p.phase.spread * 0.0025 * p.phase.count); }
+				const rawDmg = p.power * 8 * homingMult * lobMult * orbitMult * rainMult * barrageMult * dimMult * beamMult * releaseMult * elemMult * phaseMult * meteorDistMult * spreadMult * meteorNerf;
+				// burn/poison steal a portion of hit damage and deal it as DOT with 25% bonus
+				let dotSteal = 0;
+				if (p.effects.includes('burn'))  dotSteal = 0.5;
+				if (p.effects.includes('poison')) dotSteal = 0.4;
+				const baseDmg = rawDmg * (1 - dotSteal);
+				// Damage store/release
+				if(p.effects.includes('damageStore')){const dsPct=p.phase.damageStorePercent!=null?p.phase.damageStorePercent:0.5;damageStored+=baseDmg*dsPct;updateDamageStoreHUD();}
+				if(p.effects.includes('damageRelease')&&damageStored>0){damageStored=0;updateDamageStoreHUD();}
 				d.hp -= baseDmg;
 				d.flash = 8;
 				// accumulate damage per dummy
@@ -907,7 +1225,7 @@ function updateProjectiles() {
 					acc.y = d.y - 24;
 					acc.color = p.color;
 				}
-				applyEffects(p, d);
+				applyEffects(p, d, rawDmg);
 
 				// chain: jump to next target + stun
 				if (p.shape === 'chain' && p.chainHits < p.chainMax) {
@@ -927,6 +1245,7 @@ function updateProjectiles() {
 						const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;
 						p.vx = Math.cos(ang)*spd; p.vy = Math.sin(ang)*spd;
 						spawnImpact(p.x, p.y, p.color);
+						if(p.afterHitEffect && p.afterHitEffect!=='none') spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color);
 						continue;
 					}
 				}
@@ -934,17 +1253,52 @@ function updateProjectiles() {
 				// pierce shapes: mark dummy hit, don't destroy projectile
 				if (PIERCE_SET.has(p.shape)) {
 					p.hitDummies.add(d);
+					/* Vortex: pull dummies toward center + damage over time */
+					if (p.shape === 'vortex') {
+						const dx4 = p.x - (d.x + d.w/2), dy4 = p.y - (d.y + d.h/2);
+						const d4 = Math.sqrt(dx4*dx4 + dy4*dy4) || 1;
+						const pullStr = 3.5;
+						d.x += dx4/d4 * pullStr; d.y += dy4/d4 * pullStr;
+						// DoT: deal damage every 15 frames
+						if (!p._vortexDotTimer) p._vortexDotTimer = 0;
+						if (p.age % 15 === 0) {
+							const dotDmg = p.power * 0.3;
+							d.hp -= dotDmg; d.flash = 4;
+							const di2 = dummies.indexOf(d);
+							if (di2 >= 0) { dummyDmgAccum[di2].total += dotDmg; dummyDmgAccum[di2].timer = 180; }
+							dmgNumbers.push({x: d.x + d.w/2, y: d.y - 10, text: Math.round(dotDmg) + '\ud83c\udf00', age: 0, color: p.color});
+						}
+					}
 					continue;
+				}
+
+				/* Meteor: explosion on impact dealing 50% AoE damage */
+				if (p.shape === 'meteor' && !p._meteorExploded) {
+					p._meteorExploded = true;
+					const mSize = Math.max(p.width, p.height);
+					const explodeR = mSize * 6 + mSize * mSize * 0.04;
+					spawnAfterHitEffect(p.x, p.y, 'explosion', p.color, mSize * 2.5);
+					for (const d2 of dummies) {
+						if (d2 === d) continue;
+						const dd2 = Math.hypot(p.x - (d2.x + d2.w/2), p.y - (d2.y + d2.h/2));
+						if (dd2 < explodeR) {
+							const falloff = 1 - dd2 / explodeR;
+							const splashDmg = rawDmg * 0.5 * falloff;
+							d2.hp -= splashDmg; d2.flash = 8;
+							dmgNumbers.push({x: d2.x + d2.w/2, y: d2.y - 10, text: Math.round(splashDmg) + '💥', age: 0, color: '#ff6600'});
+						}
+					}
 				}
 
 				p.hasHit = true;
 				spawnImpact(p.x, p.y, p.color);
+				if(p.afterHitEffect && p.afterHitEffect!=='none') spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color);
 
 				// trigger next phase ON HIT (carry projectile forward by default)
 				if (!p.phaseTriggered && p.phase.nextTrigger === 'onHit' && p.phaseIdx+1 < p.spell.phases.length) {
 					p.phaseTriggered = true;
 					if (p.effects.includes('resetProjectiles')) {
-						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId, p.sourceSlot);
 					} else {
 						morphProjectile(p, p.phaseIdx+1);
 					}
@@ -953,8 +1307,21 @@ function updateProjectiles() {
 			}
 		}
 
+		/* ---- DISPEL — destroy spell walls on contact ---- */
+		if(p.effects.includes('dispel')&&!p.hasHit){
+			const dR=Math.max(p.width,p.height)*0.8;
+			for(let wi=spellWalls.length-1;wi>=0;wi--){
+				const sw=spellWalls[wi];
+				if(p.x>=sw.x-dR&&p.x<=sw.x+sw.w+dR&&p.y>=sw.y-dR&&p.y<=sw.y+sw.h+dR){
+					spawnImpact(sw.x+sw.w/2,sw.y+sw.h/2,'#aa88ff');
+					dmgNumbers.push({x:sw.x+sw.w/2,y:sw.y-10,text:'🚫 Wall Dispelled!',age:0,color:'#aa88ff'});
+					spellWalls.splice(wi,1);
+				}
+			}
+		}
+
 		/* ---- PLATFORM COLLISION ---- */
-		const skipPlatformCollision = PIERCE_SET.has(p.shape) || p.behavior==='stationary' || p.behavior==='selfCast' || p.behavior==='underfoot' || p.behavior==='aroundSelf' ||
+		const skipPlatformCollision = p.shape==='nova' || p.shape==='vortex' || p.effects.includes('phaseThrough') || p.behavior==='stationary' || p.behavior==='selfCast' || p.behavior==='underfoot' || p.behavior==='aroundSelf' || p.behavior==='ground' ||
 			(p.behavior==='orbit' && p.age < p.orbitDur);
 
 		if (!skipPlatformCollision && !p.hasHit) {
@@ -983,11 +1350,12 @@ function updateProjectiles() {
 			}
 			if (wallHit) {
 				spawnImpact(p.x, p.y, p.color);
+				if(p.afterHitEffect && p.afterHitEffect!=='none') spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color);
 				p.hasHit = true;
 			if (!p.phaseTriggered && p.phase.nextTrigger==='onHit' && p.phaseIdx+1<p.spell.phases.length) {
 					p.phaseTriggered = true;
 					if (p.effects.includes('resetProjectiles')) {
-						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+						spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId, p.sourceSlot);
 					} else {
 						morphProjectile(p, p.phaseIdx+1);
 					}
@@ -1000,7 +1368,7 @@ function updateProjectiles() {
 			p.phaseTriggered = true;
 			if (p.phaseIdx+1<p.spell.phases.length) {
 				if (p.effects.includes('resetProjectiles')) {
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId, p.sourceSlot);
 				} else {
 					morphProjectile(p, p.phaseIdx+1);
 				}
@@ -1021,25 +1389,35 @@ function updateProjectiles() {
 				p.phaseForkCount++;
 				p.phaseForkNextAge = p.age + p.phaseForkDelay;
 				const dmgMult = 1 / (1 + p.phaseForkCount * 0.3);
-				const extraCost = calcSpellCost(p.spell) * 0.15;
-				if (mana >= extraCost) {
-					mana -= extraCost;
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, dmgMult, p.isUltimate, p.castId);
-					spawnImpact(p.x, p.y, p.color);
-					dmgNumbers.push({ x:p.x, y:p.y-14, text:'\ud83d\udd00 Fork!', age:0, color:p.color });
-				} else {
-					dmgNumbers.push({ x:p.x, y:p.y-14, text:'No Mana!', age:0, color:'#ff4444' });
-				}
+				spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, dmgMult, p.isUltimate, p.castId, p.sourceSlot);
+				spawnImpact(p.x, p.y, p.color);
+				dmgNumbers.push({ x:p.x, y:p.y-14, text:'\ud83d\udd00 Fork!', age:0, color:p.color });
 			}
 		}
 
 		/* ---- EXPIRE ---- */
-		const shouldRemove = p.age >= p.maxAge || (p.hasHit && !PIERCE_SET.has(p.shape));
+		const shouldRemove = !p._held && (p.age >= p.maxAge || (p.hasHit && !PIERCE_SET.has(p.shape)));
 		if (shouldRemove) {
+			/* Meteor: explode on expire/ground contact too */
+			if (p.shape === 'meteor' && !p._meteorExploded) {
+				p._meteorExploded = true;
+				const mSize = Math.max(p.width, p.height);
+				const explodeR = mSize * 6 + mSize * mSize * 0.04;
+				spawnAfterHitEffect(p.x, p.y, 'explosion', p.color, mSize * 2.5);
+				for (const d2 of dummies) {
+					const dd2 = Math.hypot(p.x - (d2.x + d2.w/2), p.y - (d2.y + d2.h/2));
+					if (dd2 < explodeR) {
+						const falloff = 1 - dd2 / explodeR;
+						const splashDmg = p.power * 8 * 0.5 * falloff;
+						d2.hp -= splashDmg; d2.flash = 8;
+						dmgNumbers.push({x: d2.x + d2.w/2, y: d2.y - 10, text: Math.round(splashDmg) + '💥', age: 0, color: '#ff6600'});
+					}
+				}
+			}
 			if (!p.phaseTriggered && p.phase.nextTrigger==='onExpire' && p.phaseIdx+1<p.spell.phases.length) {
 				p.phaseTriggered = true;
 				if (p.effects.includes('resetProjectiles')) {
-					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId);
+					spawnPhase(p.spell, p.phaseIdx+1, p.x, p.y, p.facing, undefined, p.isUltimate, p.castId, p.sourceSlot);
 					projectiles.splice(i,1);
 				} else {
 					morphProjectile(p, p.phaseIdx+1);
@@ -1061,18 +1439,30 @@ function updateProjectiles() {
 /* =============================================================
    APPLY EFFECTS
    ============================================================= */
-function applyEffects(proj, dummy) {
+function applyEffects(proj, dummy, rawDmg) {
 	const ultMult = proj.isUltimate ? 3 : 1;
 	const ePow = proj.phase.effectPower || 1;
 	const eDur = proj.phase.effectDuration || 1;
 	for (const fx of proj.effects) {
 		switch (fx) {
-			case 'burn':
-				if(dummy) dummy.dots.push({ type:'burn', dmg:proj.power*0.3*ePow*ultMult, ticks:Math.round(5*eDur*ultMult), interval:20, timer:0, color:'#ff6a00' });
+			case 'burn': {
+				if(dummy && rawDmg) {
+					const stolenDmg = rawDmg * 0.5;
+					const ticks = Math.round(5 * eDur * ultMult);
+					const dotPerTick = (stolenDmg * 1.25) / ticks;
+					dummy.dots.push({ type:'burn', dmg:dotPerTick, ticks:ticks, interval:60, timer:0, color:'#ff6a00' });
+				}
 				break;
-			case 'poison':
-				if(dummy) dummy.dots.push({ type:'poison', dmg:proj.power*0.2*ePow*ultMult, ticks:Math.round(6*eDur*ultMult), interval:25, timer:0, color:'#44dd44' });
+			}
+			case 'poison': {
+				if(dummy && rawDmg) {
+					const stolenDmg = rawDmg * 0.4;
+					const ticks = Math.round(6 * eDur * ultMult);
+					const dotPerTick = (stolenDmg * 1.25) / ticks;
+					dummy.dots.push({ type:'poison', dmg:dotPerTick, ticks:ticks, interval:75, timer:0, color:'#44dd44' });
+				}
 				break;
+			}
 			case 'freeze':
 				if(dummy){ dummy.slowTimer = (dummy.slowTimer||0)+Math.round(90*eDur*ultMult); dummy.flash = 15; }
 				break;
@@ -1131,10 +1521,10 @@ function applyEffects(proj, dummy) {
 				break;
 			case 'horizontalLaunch':
 				if (!dummy) {
-					player.launchVx = proj.facing * proj.power * 12;
+					player.launchVx = proj.facing * proj.power * 3.5;
 					dmgNumbers.push({ x:player.x+player.w/2, y:player.y-10, text:'🚀 Launched!', age:0, color:'#ff8800' });
 				} else {
-					dummy.x += proj.facing * proj.power * 30;
+					dummy.x += proj.facing * proj.power * 10;
 					dummy.x = Math.max(20, Math.min(WORLD_W-20-dummy.w, dummy.x));
 					dmgNumbers.push({ x:dummy.x+dummy.w/2, y:dummy.y-10, text:'LAUNCHED!', age:0, color:'#ff8800' });
 				}
@@ -1161,6 +1551,84 @@ function spawnImpact(x, y, color) {
 	}
 }
 
+/* After-hit visual effects */
+function spawnAfterHitEffect(x, y, type, baseColor, spellSize) {
+	if (particles.length > MAX_PARTICLES * 0.8) return;
+	const sz = spellSize || 10;
+	const scaleMult = Math.max(0.6, Math.min(sz / 10, 3.5));
+	const lifeMult = 1 + scaleMult * 0.5;
+	switch(type) {
+		case 'explosion': {
+			const cnt = Math.round(14 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = Math.random()*Math.PI*2;
+				const spd = (2+Math.random()*5) * scaleMult;
+				const colors = [{r:255,g:80+Math.random()*60|0,b:0},{r:255,g:160+Math.random()*60|0,b:0},{r:255,g:220,b:100}];
+				particles.push({x, y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-1,
+					life:Math.round((20+Math.random()*15|0)*lifeMult), maxLife:Math.round(35*lifeMult), r:(3+Math.random()*3)*scaleMult, color:colors[i%3]});
+			}
+			break;
+		}
+		case 'flame_burst': {
+			const cnt = Math.round(10 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = -Math.PI/2 + (Math.random()-0.5)*1.2;
+				const spd = (2+Math.random()*3) * scaleMult;
+				particles.push({x:x+(Math.random()-0.5)*12*scaleMult, y, vx:Math.cos(ang)*spd*0.5, vy:Math.sin(ang)*spd-1,
+					life:Math.round((15+Math.random()*20|0)*lifeMult), maxLife:Math.round(35*lifeMult), r:(2.5+Math.random()*2)*scaleMult,
+					color:{r:255,g:50+Math.random()*120|0,b:0}});
+			}
+			break;
+		}
+		case 'ice_shatter': {
+			const cnt = Math.round(12 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = Math.random()*Math.PI*2;
+				const spd = (3+Math.random()*4) * scaleMult;
+				particles.push({x, y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-1.5,
+					life:Math.round((14+Math.random()*14|0)*lifeMult), maxLife:Math.round(28*lifeMult), r:(2+Math.random()*2.5)*scaleMult,
+					color:{r:100+Math.random()*60|0,g:180+Math.random()*60|0,b:255}});
+			}
+			break;
+		}
+		case 'electric_spark': {
+			const cnt = Math.round(10 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = Math.random()*Math.PI*2;
+				const spd = (4+Math.random()*5) * scaleMult;
+				particles.push({x:x+(Math.random()-0.5)*10*scaleMult, y:y+(Math.random()-0.5)*10*scaleMult,
+					vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+					life:Math.round((8+Math.random()*10|0)*lifeMult), maxLife:Math.round(18*lifeMult), r:(1.5+Math.random()*1.5)*scaleMult,
+					color:{r:200+Math.random()*55|0,g:200+Math.random()*55|0,b:50+Math.random()*50|0}});
+			}
+			break;
+		}
+		case 'poison_cloud': {
+			const cnt = Math.round(8 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = Math.random()*Math.PI*2;
+				const spd = (0.5+Math.random()*1.5) * scaleMult;
+				particles.push({x:x+(Math.random()-0.5)*20*scaleMult, y:y+(Math.random()-0.5)*20*scaleMult,
+					vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-0.5,
+					life:Math.round((30+Math.random()*25|0)*lifeMult), maxLife:Math.round(55*lifeMult), r:(4+Math.random()*3)*scaleMult,
+					color:{r:50+Math.random()*40|0,g:180+Math.random()*60|0,b:30+Math.random()*40|0}});
+			}
+			break;
+		}
+		case 'star_burst': {
+			const cnt = Math.round(12 * scaleMult);
+			for (let i = 0; i < cnt; i++) {
+				const ang = i * (Math.PI*2/cnt);
+				const spd = (3+Math.random()*2) * scaleMult;
+				particles.push({x, y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+					life:Math.round((16+Math.random()*12|0)*lifeMult), maxLife:Math.round(28*lifeMult), r:(2+Math.random()*2)*scaleMult,
+					color:{r:255,g:220+Math.random()*35|0,b:100+Math.random()*100|0}});
+			}
+			break;
+		}
+	}
+}
+
 function hexToRgb(hex) {
 	return {
 		r: parseInt(hex.slice(1,3),16)||100,
@@ -1181,6 +1649,7 @@ function update() {
 	if (keys['a']||keys['arrowleft'])  moveX -= 1;
 	if (keys['d']||keys['arrowright']) moveX += 1;
 	if (moveX !== 0) player.facing = moveX;
+	else { const worldMX = mouseScreenX + camera.x; player.facing = worldMX > player.x + player.w/2 ? 1 : -1; }
 	const currentSpeed = player.speed * (playerBuffs.speedTimer > 0 ? playerBuffs.speedMult : 1);
 	player.vx = moveX * currentSpeed;
 	if (player.launchVx) {
@@ -1204,6 +1673,7 @@ function update() {
 			if (player.vx > 0) player.x = p.x - player.w;
 			else if (player.vx < 0) player.x = p.x + p.w;
 			player.vx = 0;
+			player.launchVx = 0;
 		}
 	}
 	for (const sw of spellWalls) {
@@ -1211,6 +1681,7 @@ function update() {
 			if (player.vx > 0) player.x = sw.x - player.w;
 			else if (player.vx < 0) player.x = sw.x + sw.w;
 			player.vx = 0;
+			player.launchVx = 0;
 		}
 	}
 	// solidify projectiles as platforms (horizontal)
@@ -1254,10 +1725,17 @@ function update() {
 	if (player.y < 0) { player.y = 0; player.vy = 0; }
 
 	/* casting */
-	const wantCast = keys['x'] || mouseDown;
+	const wantCast = mouseDown;
 	if (wantCast && !castPressed) { castPressed = true; castSpell(); }
 	if (!wantCast) castPressed = false;
 	if (player.castTimer > 0) player.castTimer--;
+
+	/* player animation state */
+	if(player.castTimer>0) playerAnimState='attack';
+	else if(Math.abs(player.vx)>0.5||(!player.onGround&&Math.abs(player.vy)>1)) playerAnimState='walk';
+	else playerAnimState='idle';
+	playerAnimTimer++;
+	if(playerAnimTimer>=PLAYER_SPRITE_FPS){playerAnimTimer=0;playerAnimFrame=(playerAnimFrame+1)%PLAYER_SPRITE_COLS;}
 
 	/* cooldowns */
 	let anyCDChanged = false;
@@ -1343,6 +1821,43 @@ function update() {
 		if (acc.timer <= 0 && acc.total > 0) acc.total = 0;
 	}
 
+	/* Update player minions */
+	for (let mi = playerMinions.length - 1; mi >= 0; mi--) {
+		const m = playerMinions[mi];
+		m.age++; m.animTimer++;
+		if (m.age >= m.maxAge || m.hp <= 0) {
+			spawnImpact(m.x + m.w/2, m.y + m.h/2, m.color);
+			playerMinions.splice(mi, 1); continue;
+		}
+		// Find nearest dummy target
+		let nearest = null, nearDist = m.detectRange || 600;
+		for (const d of dummies) {
+			const dd = Math.hypot(d.x + d.w/2 - m.x - m.w/2, d.y + d.h/2 - m.y - m.h/2);
+			if (dd < nearDist) { nearest = d; nearDist = dd; }
+		}
+		m.target = nearest;
+		// Fly toward target
+		if (nearest) {
+			const dx = nearest.x + nearest.w/2 - m.x - m.w/2;
+			const dy = nearest.y + nearest.h/2 - m.y - m.h/2;
+			const dist = Math.hypot(dx, dy) || 1;
+			const speed = m.moveSpeed || 2.5;
+			const stopDist = m.summonClose ? 60 : 200;
+			if (dist > stopDist) { m.vx += (dx/dist) * speed * 0.1; m.vy += (dy/dist) * speed * 0.1; }
+			m.facing = dx > 0 ? 1 : -1;
+		}
+		m.vx *= 0.92; m.vy *= 0.92;
+		m.x += m.vx; m.y += m.vy;
+		// Fire next spell phase periodically
+		m.fireTimer++;
+		if (m.fireTimer >= m.fireCooldown && m.phaseIdx + 1 < m.spell.phases.length) {
+			m.fireTimer = 0;
+			const castId = nextCastId++; spellHitCounts[castId] = 0;
+			spawnPhase(m.spell, m.phaseIdx + 1, m.x + m.w/2, m.y + m.h/2, m.facing, 0.6, m.isUltimate, castId, m.sourceSlot);
+			spawnImpact(m.x + m.w/2, m.y + m.h/2, m.color);
+		}
+	}
+
 	updateCamera();
 }
 
@@ -1409,6 +1924,41 @@ function render() {
 		ctx.fillRect(dx-4,dy-18,(d.w+8)*hpPct,5);
 		ctx.font='9px Arial';ctx.fillStyle='#888';ctx.textAlign='center';
 		ctx.fillText('Dummy',dx+d.w/2,dy+d.h+12);
+	}
+
+	/* player minions */
+	for (const m of playerMinions) {
+		const mx = m.x - camera.x, my = m.y - camera.y;
+		if (mx+m.w<-50||mx>canvas.width+50) continue;
+		const bob = Math.sin(m.animTimer * 0.08) * 3;
+		// Glow
+		ctx.save();
+		const glow = ctx.createRadialGradient(mx+m.w/2, my+m.h/2+bob, 0, mx+m.w/2, my+m.h/2+bob, m.w*1.5);
+		glow.addColorStop(0, m.color); glow.addColorStop(1, 'transparent');
+		ctx.globalAlpha = 0.25; ctx.fillStyle = glow;
+		ctx.beginPath(); ctx.arc(mx+m.w/2, my+m.h/2+bob, m.w*1.5, 0, Math.PI*2); ctx.fill();
+		ctx.restore();
+		// Body
+		ctx.fillStyle = m.color;
+		ctx.beginPath(); ctx.arc(mx+m.w/2, my+m.h/2+bob, m.w*0.45, 0, Math.PI*2); ctx.fill();
+		// Eyes
+		ctx.fillStyle = '#fff';
+		ctx.beginPath(); ctx.arc(mx+m.w/2+m.facing*3-3, my+m.h/2+bob-2, 2, 0, Math.PI*2); ctx.fill();
+		ctx.beginPath(); ctx.arc(mx+m.w/2+m.facing*3+3, my+m.h/2+bob-2, 2, 0, Math.PI*2); ctx.fill();
+		// Wings
+		ctx.globalAlpha = 0.5;
+		const wingFlap = Math.sin(m.animTimer * 0.2) * 4;
+		ctx.fillStyle = m.color;
+		ctx.beginPath(); ctx.moveTo(mx+m.w/2-5, my+m.h/2+bob); ctx.lineTo(mx-4, my+m.h/2-8+bob+wingFlap); ctx.lineTo(mx+4, my+m.h/2+bob); ctx.fill();
+		ctx.beginPath(); ctx.moveTo(mx+m.w/2+5, my+m.h/2+bob); ctx.lineTo(mx+m.w+4, my+m.h/2-8+bob-wingFlap); ctx.lineTo(mx+m.w-4, my+m.h/2+bob); ctx.fill();
+		ctx.globalAlpha = 1;
+		// HP bar
+		if (m.hp < m.maxHp) {
+			const hpPct = m.hp / m.maxHp;
+			ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(mx-2, my-6+bob, m.w+4, 3);
+			ctx.fillStyle = hpPct > 0.5 ? '#44ff88' : '#ff8844';
+			ctx.fillRect(mx-2, my-6+bob, (m.w+4)*hpPct, 3);
+		}
 	}
 
 	/* projectiles */
@@ -1537,6 +2087,139 @@ function render() {
 				ctx.fillRect(px-sw2/2+2,py-sh2/2+2,sw2-4,3);
 				break;
 			}
+			case 'spike':{
+				ctx.save();ctx.translate(px,py);
+				const skA=Math.atan2(p.vy,p.vx);
+				ctx.rotate(skA);
+				const sk=Math.max(p.width,p.height)*0.9;
+				ctx.beginPath();
+				ctx.moveTo(sk*2,0);
+				ctx.lineTo(-sk,-sk*0.8);
+				ctx.lineTo(-sk*0.3,0);
+				ctx.lineTo(-sk,sk*0.8);
+				ctx.closePath();
+				ctx.fill();
+				ctx.fillStyle='#fff';ctx.globalAlpha=0.5;
+				ctx.beginPath();
+				ctx.moveTo(sk*1.5,0);
+				ctx.lineTo(-sk*0.2,-sk*0.25);
+				ctx.lineTo(-sk*0.2,sk*0.25);
+				ctx.closePath();
+				ctx.fill();
+				ctx.restore();
+				break;
+			}
+			case 'polygon':{
+				ctx.save();ctx.translate(px,py);
+				ctx.rotate(p.age*0.04);
+				const pgR=Math.max(p.width,p.height)*1.0;
+				const pgSides=p.polygonSides||6;
+				ctx.beginPath();
+				for(let si=0;si<=pgSides;si++){
+					const a=si*Math.PI*2/pgSides;
+					if(si===0) ctx.moveTo(Math.cos(a)*pgR,Math.sin(a)*pgR);
+					else ctx.lineTo(Math.cos(a)*pgR,Math.sin(a)*pgR);
+				}
+				ctx.closePath();
+				ctx.fill();
+				ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.globalAlpha=0.9;
+				ctx.stroke();
+				ctx.fillStyle='#fff';ctx.globalAlpha=0.25;
+				ctx.beginPath();
+				for(let si=0;si<=pgSides;si++){
+					const a=si*Math.PI*2/pgSides;
+					const ir=pgR*0.45;
+					if(si===0) ctx.moveTo(Math.cos(a)*ir,Math.sin(a)*ir);
+					else ctx.lineTo(Math.cos(a)*ir,Math.sin(a)*ir);
+				}
+				ctx.closePath();ctx.fill();
+				ctx.restore();
+				break;
+			}
+			case 'meteor':{
+				ctx.save();ctx.translate(px,py);
+				const mR=Math.max(p.width,p.height)*1.5;
+				const skA=Math.atan2(p.vy,p.vx);
+				ctx.rotate(skA);
+				// color phase cycling based on age
+				const cPhase=(p.age*0.03)%3;
+				const coreColors=[['#ff4400','#ffcc00'],['#ff00cc','#ff66ff'],['#4488ff','#88ddff']];
+				const cIdx=Math.floor(cPhase),cNext=(cIdx+1)%3,cFrac=cPhase-cIdx;
+				function lerpC(a,b,t){const pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);const r=((pa>>16)*(1-t)+(pb>>16)*t)|0;const g=(((pa>>8)&0xff)*(1-t)+((pb>>8)&0xff)*t)|0;const bl=((pa&0xff)*(1-t)+(pb&0xff)*t)|0;return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');}
+				const coreC=lerpC(coreColors[cIdx][0],coreColors[cNext][0],cFrac);
+				const glowC=lerpC(coreColors[cIdx][1],coreColors[cNext][1],cFrac);
+				// outer heatwave glow
+				ctx.globalAlpha=0.15;const heatGlow=ctx.createRadialGradient(0,0,mR*0.5,0,0,mR*2.5);
+				heatGlow.addColorStop(0,coreC);heatGlow.addColorStop(0.5,coreC+'44');heatGlow.addColorStop(1,'transparent');
+				ctx.fillStyle=heatGlow;ctx.beginPath();ctx.arc(0,0,mR*2.5,0,Math.PI*2);ctx.fill();
+				// rocky body with cracks
+				ctx.globalAlpha=1;ctx.fillStyle='#553322';ctx.beginPath();ctx.arc(0,0,mR,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle='#8b6644';ctx.globalAlpha=0.7;
+				for(let ci=0;ci<5;ci++){const ca=ci*1.25+p.age*0.01;ctx.beginPath();ctx.arc(Math.cos(ca)*mR*0.4,Math.sin(ca)*mR*0.35,mR*0.3,0,Math.PI*2);ctx.fill();}
+				// molten core
+				ctx.fillStyle=coreC;ctx.globalAlpha=0.8;ctx.beginPath();ctx.arc(0,0,mR*0.45,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle=glowC;ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(0,0,mR*0.25,0,Math.PI*2);ctx.fill();
+				// flame trail
+				ctx.globalAlpha=0.5;
+				for(let fi=1;fi<=6;fi++){const fx=-mR*fi*0.65,fy=(Math.sin(p.age*0.4+fi*1.2)*mR*0.25);
+					const tR=mR*(0.7-fi*0.09);ctx.fillStyle=fi<3?coreC:glowC;
+					ctx.beginPath();ctx.arc(fx,fy,Math.max(tR,2),0,Math.PI*2);ctx.fill();}
+				// ember sparks
+				ctx.globalAlpha=0.7;ctx.fillStyle=glowC;
+				for(let si=0;si<3;si++){const sx=-mR*(1.5+si*0.8)+Math.sin(p.age*0.5+si)*mR*0.3;const sy=Math.cos(p.age*0.7+si*2)*mR*0.5;ctx.beginPath();ctx.arc(sx,sy,1.5+Math.random(),0,Math.PI*2);ctx.fill();}
+				ctx.restore();break;
+			}
+			case 'vortex':{
+				ctx.save();ctx.translate(px,py);
+				const vR=p.width*3+p.width*2*(p.age/p.maxAge);
+				// dark void background
+				const voidGrad=ctx.createRadialGradient(0,0,0,0,0,vR);
+				voidGrad.addColorStop(0,'rgba(10,0,20,0.8)');voidGrad.addColorStop(0.5,p.color);voidGrad.addColorStop(1,'transparent');
+				ctx.globalAlpha=0.5*(1-progress*0.5);ctx.fillStyle=voidGrad;ctx.beginPath();ctx.arc(0,0,vR,0,Math.PI*2);ctx.fill();
+				// distortion rings
+				ctx.lineWidth=2;ctx.strokeStyle=p.color;
+				for(let ri=0;ri<3;ri++){
+					ctx.globalAlpha=0.4*(1-progress)*(1-ri*0.25);
+					const rr=vR*(0.4+ri*0.25);ctx.beginPath();
+					ctx.ellipse(0,0,rr,rr*0.6,p.age*0.03+ri*0.8,0,Math.PI*2);ctx.stroke();
+				}
+				// spinning debris/energy arms
+				ctx.lineWidth=3;
+				for(let arm=0;arm<4;arm++){
+					ctx.globalAlpha=0.7*(1-progress);ctx.strokeStyle=arm%2===0?p.color:'#fff';
+					ctx.beginPath();
+					const baseA=arm*Math.PI/2+p.age*0.08;
+					for(let t=0;t<20;t++){const a2=baseA+t*0.3;const r2=vR*0.1+vR*0.8*(t/20);const wobble=Math.sin(p.age*0.2+t*0.5)*r2*0.05;ctx.lineTo(Math.cos(a2)*(r2+wobble),Math.sin(a2)*(r2+wobble));}
+					ctx.stroke();
+				}
+				// glowing eye center
+				ctx.globalAlpha=0.9*(1-progress*0.3);
+				const eyeGrad=ctx.createRadialGradient(0,0,0,0,0,vR*0.2);
+				eyeGrad.addColorStop(0,'#fff');eyeGrad.addColorStop(0.5,p.color);eyeGrad.addColorStop(1,'transparent');
+				ctx.fillStyle=eyeGrad;ctx.beginPath();ctx.arc(0,0,vR*0.2,0,Math.PI*2);ctx.fill();
+				// energy crackles
+				ctx.globalAlpha=0.6;ctx.strokeStyle='#fff';ctx.lineWidth=1;
+				for(let li=0;li<3;li++){const la=p.age*0.15+li*2.1;const lr=vR*(0.3+Math.sin(p.age*0.1+li)*0.3);
+					ctx.beginPath();ctx.moveTo(Math.cos(la)*lr*0.2,Math.sin(la)*lr*0.2);
+					ctx.lineTo(Math.cos(la+0.3)*lr*0.6,Math.sin(la+0.2)*lr*0.5);
+					ctx.lineTo(Math.cos(la+0.1)*lr,Math.sin(la+0.4)*lr*0.8);ctx.stroke();}
+				ctx.restore();break;
+			}
+			case 'summon':{
+				// Draw summoning circle
+				ctx.save();ctx.translate(px,py);
+				const sr=p.width*1.2;
+				ctx.strokeStyle=p.color;ctx.lineWidth=2;
+				ctx.globalAlpha=0.6+Math.sin(p.age*0.1)*0.2;
+				ctx.beginPath();ctx.arc(0,0,sr,0,Math.PI*2);ctx.stroke();
+				ctx.rotate(p.age*0.08);
+				ctx.beginPath();ctx.arc(0,0,sr*0.6,0,Math.PI*2);ctx.stroke();
+				// Inner star
+				ctx.fillStyle=p.color;ctx.globalAlpha=0.7;
+				for(let si=0;si<5;si++){const a=si*Math.PI*2/5-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*sr*0.8,Math.sin(a)*sr*0.8);ctx.stroke();}
+				ctx.restore();
+				break;
+			}
 		}
 		ctx.globalAlpha=1;
 	}
@@ -1582,18 +2265,33 @@ function render() {
 
 	/* player */
 	const ppx=player.x-camera.x, ppy=player.y-camera.y;
-	ctx.fillStyle='#5b7fbf';ctx.fillRect(ppx,ppy,player.w,player.h);
-	ctx.fillStyle='#3a5a9e';ctx.fillRect(ppx,ppy+player.h-10,player.w,10);
-	ctx.fillStyle='#c8a882';ctx.fillRect(ppx+6,ppy+2,20,16);
-	ctx.fillStyle='#fff';
-	const eyeX=player.facing===1?ppx+18:ppx+10;
-	ctx.fillRect(eyeX,ppy+7,5,5);
-	ctx.fillStyle='#222';ctx.fillRect(player.facing===1?eyeX+2:eyeX,ppy+8,3,3);
-	ctx.fillStyle='#2e3a6e';ctx.beginPath();
-	ctx.moveTo(ppx+4,ppy+4);ctx.lineTo(ppx+player.w/2,ppy-18);ctx.lineTo(ppx+player.w-4,ppy+4);
-	ctx.closePath();ctx.fill();
+	if(PLAYER_SPRITE.complete && PLAYER_SPRITE.naturalWidth > 0){
+		const cols=PLAYER_SPRITE_COLS,rows=PLAYER_SPRITE_ROWS;
+		const fw=PLAYER_SPRITE.naturalWidth/cols;
+		const fh=PLAYER_SPRITE.naturalHeight/rows;
+		const row=PLAYER_SPRITE_ROW[playerAnimState]||0;
+		const col=playerAnimFrame%cols;
+		const _fitScale=Math.min(player.w/fw,player.h/fh)*2;
+		const dw=fw*_fitScale,dh=fh*_fitScale;
+		const drawX=ppx+player.w/2-dw/2;
+		const drawY=ppy+player.h-dh;
+		ctx.save();
+		if(player.facing===-1){ctx.translate(ppx+player.w/2,0);ctx.scale(-1,1);ctx.drawImage(PLAYER_SPRITE,col*fw,row*fh,fw,fh,-dw/2,drawY,dw,dh);}
+		else{ctx.drawImage(PLAYER_SPRITE,col*fw,row*fh,fw,fh,drawX,drawY,dw,dh);}
+		ctx.restore();
+	} else {
+		ctx.fillStyle='#5b7fbf';ctx.fillRect(ppx,ppy,player.w,player.h);
+		ctx.fillStyle='#3a5a9e';ctx.fillRect(ppx,ppy+player.h-10,player.w,10);
+		ctx.fillStyle='#c8a882';ctx.fillRect(ppx+6,ppy+2,20,16);
+		ctx.fillStyle='#fff';
+		const eyeX=player.facing===1?ppx+18:ppx+10;
+		ctx.fillRect(eyeX,ppy+7,5,5);
+		ctx.fillStyle='#222';ctx.fillRect(player.facing===1?eyeX+2:eyeX,ppy+8,3,3);
+		ctx.fillStyle='#2e3a6e';ctx.beginPath();
+		ctx.moveTo(ppx+4,ppy+4);ctx.lineTo(ppx+player.w/2,ppy-18);ctx.lineTo(ppx+player.w-4,ppy+4);
+		ctx.closePath();ctx.fill();
+	}
 	const armY=ppy+18, armX=player.facing===1?ppx+player.w:ppx;
-	ctx.fillStyle='#5b7fbf';ctx.fillRect(player.facing===1?armX:armX-10,armY,10,6);
 	if(player.castTimer>0){
 		ctx.save();ctx.globalAlpha=0.6*(player.castTimer/12);
 		ctx.beginPath();ctx.arc(player.facing===1?armX+10:armX-10,armY+3,12,0,Math.PI*2);

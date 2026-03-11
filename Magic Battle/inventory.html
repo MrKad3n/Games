@@ -15,7 +15,7 @@
 	--blue:#3498db;--gold:#f1c40f;--orange:#e67e22;--purple:#9b59b6;
 	--slot-bg:rgba(255,255,255,.04);--slot-hover:rgba(255,255,255,.1);
 	--rarity-common:#aaa;--rarity-uncommon:#2ecc71;--rarity-rare:#3498db;
-	--rarity-epic:#9b59b6;--rarity-legendary:#f39c12;
+	--rarity-epic:#9b59b6;--rarity-legendary:#f39c12;--rarity-mythical:#cc44ff;
 }
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
@@ -121,6 +121,7 @@ input,select{font-family:inherit}
 .inv-cell[data-rarity=rare]{border-color:var(--rarity-rare)}
 .inv-cell[data-rarity=epic]{border-color:var(--rarity-epic)}
 .inv-cell[data-rarity=legendary]{border-color:var(--rarity-legendary)}
+.inv-cell[data-rarity=mythical]{border-color:var(--rarity-mythical);box-shadow:0 0 8px rgba(204,68,255,0.4)}
 
 /* item tooltip */
 .tooltip{
@@ -240,6 +241,7 @@ input,select{font-family:inherit}
 	cursor:pointer;transition:background .15s,border-color .15s;user-select:none;
 }
 .fx-chip.active{background:rgba(108,92,231,.25);border-color:var(--accent)}
+.fx-chip.blocked{opacity:0.35;cursor:not-allowed;text-decoration:line-through}
 
 /* add phase button */
 .add-phase-btn{
@@ -286,6 +288,57 @@ input,select{font-family:inherit}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+.tab-btn{
+	padding:8px 18px;font-size:13px;font-weight:600;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px 6px 0 0;
+	color:var(--muted);cursor:pointer;transition:background .2s,color .2s;
+}
+.tab-btn.active{background:var(--panel);color:var(--accent2);border-bottom-color:transparent}
+.tab-btn:hover:not(.active){background:rgba(255,255,255,.1)}
+
+/* ============================================================
+   CRAFTING
+   ============================================================ */
+.craft-card{
+	display:flex;align-items:center;gap:12px;padding:10px 14px;
+	background:var(--slot-bg);border:1px solid var(--border);border-radius:8px;
+	transition:background .15s;
+}
+.craft-card:hover{background:var(--slot-hover)}
+.craft-icon{font-size:28px;width:40px;text-align:center;flex-shrink:0}
+.craft-info{flex:1;display:flex;flex-direction:column;gap:3px}
+.craft-name{font-size:14px;font-weight:700}
+.craft-name[data-rarity=common]{color:var(--rarity-common)}
+.craft-name[data-rarity=uncommon]{color:var(--rarity-uncommon)}
+.craft-name[data-rarity=rare]{color:var(--rarity-rare)}
+.craft-name[data-rarity=epic]{color:var(--rarity-epic)}
+.craft-name[data-rarity=legendary]{color:var(--rarity-legendary)}
+.craft-name[data-rarity=mythical]{color:var(--rarity-mythical);text-shadow:0 0 6px rgba(204,68,255,0.5)}
+.craft-desc{font-size:11px;color:var(--muted);font-style:italic}
+.craft-ingredients{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.craft-ing{
+	display:flex;align-items:center;gap:3px;padding:2px 7px;
+	font-size:11px;border-radius:4px;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);
+}
+.craft-ing.has{color:var(--green);border-color:rgba(40,167,69,.4)}
+.craft-ing.missing{color:var(--red);border-color:rgba(231,76,60,.4)}
+.craft-btn{
+	padding:8px 16px;font-size:12px;font-weight:700;border:none;border-radius:6px;
+	background:var(--accent);color:#fff;cursor:pointer;transition:background .2s,opacity .2s;
+	flex-shrink:0;
+}
+.craft-btn:hover:not(:disabled){background:#7c6cf0}
+.craft-btn:disabled{opacity:.35;cursor:not-allowed}
+
+@keyframes fadeUp{
+	0%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+	100%{opacity:0;transform:translate(-50%,-80%) scale(1.1)}
+}
 </style>
 </head>
 <body>
@@ -312,9 +365,17 @@ input,select{font-family:inherit}
 		</div>
 	</div>
 
-	<!-- CENTER: Inventory Grid -->
+	<!-- CENTER: Inventory Grid + Crafting -->
 	<div id="centerCol">
-		<div class="panel" style="flex:1;display:flex;flex-direction:column">
+		<!-- Tab bar -->
+		<div style="display:flex;gap:4px;margin-bottom:4px">
+			<button class="tab-btn active" data-tab="inventory" onclick="switchTab('inventory')">📦 Inventory</button>
+			<button class="tab-btn" data-tab="crafting" onclick="switchTab('crafting')">🔨 Crafting</button>
+			<button class="tab-btn" data-tab="quests" onclick="switchTab('quests')">🗺️ Quests</button>
+		</div>
+
+		<!-- Inventory Tab -->
+		<div id="inventoryTab" class="panel" style="flex:1;display:flex;flex-direction:column">
 			<h3>Inventory</h3>
 			<div class="inv-toolbar">
 				<input type="text" id="searchBox" placeholder="Search items..." autocomplete="off"/>
@@ -325,6 +386,27 @@ input,select{font-family:inherit}
 			</div>
 			<div class="inv-grid" id="invGrid"></div>
 		</div>
+
+		<!-- Crafting Tab -->
+		<div id="craftingTab" class="panel" style="flex:1;display:none;flex-direction:column;overflow-y:auto">
+			<h3>Crafting</h3>
+			<div class="inv-toolbar" style="margin-bottom:8px">
+				<input type="text" id="craftSearchBox" placeholder="Search recipes..." autocomplete="off"/>
+				<select id="craftFilter" style="padding:6px 10px;font-size:12px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:6px;color:#fff">
+					<option value="all">All Types</option>
+					<option value="staff">Staves</option>
+					<option value="robe">Robes</option>
+					<option value="relic">Relics</option>
+				</select>
+			</div>
+			<div id="craftList" style="display:flex;flex-direction:column;gap:8px"></div>
+		</div>
+
+		<!-- Quest Tab -->
+		<div id="questTab" class="panel" style="flex:1;display:none;flex-direction:column">
+			<h3>Quests</h3>
+			<div id="questList"></div>
+		</div>
 	</div>
 
 	<!-- RIGHT: Spell Slots -->
@@ -333,7 +415,27 @@ input,select{font-family:inherit}
 			<h3>Spell Loadout <span style="font-size:11px;color:var(--muted);text-transform:none">(click to edit)</span></h3>
 			<div id="spellSlots" style="display:flex;flex-direction:column;gap:6px"></div>
 		</div>
+		<div class="panel" style="margin-top:8px">
+			<h3>Vows <span style="font-size:11px;color:var(--muted);text-transform:none">(sacrifice for power)</span></h3>
+			<div id="vowSlots" style="display:flex;flex-direction:column;gap:6px"></div>
+		</div>
 	</div>
+</div>
+
+<!-- ==================== VOW EDITOR MODAL ==================== -->
+<div class="modal-overlay" id="vowModal" style="display:none">
+<div class="modal" style="max-width:500px">
+	<div class="modal-head">
+		<h2 id="vowModalTitle">Vow Editor</h2>
+		<button class="close-btn" id="vowModalClose">✕</button>
+	</div>
+	<div class="modal-body" id="vowModalBody" style="display:flex;flex-direction:column;gap:12px"></div>
+	<div class="modal-foot">
+		<button class="btn btn-danger" id="vowClearBtn">Remove Vow</button>
+		<button class="btn btn-ghost" id="vowCancelBtn">Cancel</button>
+		<button class="btn btn-primary" id="vowSaveBtn">Save Vow</button>
+	</div>
+</div>
 </div>
 
 <!-- ==================== TOOLTIP ==================== -->
@@ -380,55 +482,103 @@ input,select{font-family:inherit}
 
 /* -- Shape catalogue -- */
 const SHAPES = {
-	missile:  { label:'Missile',  icon:'💠', controlReq:0,  manaCost:5,  desc:'Small fast projectile' },
-	orb:      { label:'Orb',      icon:'🔮', controlReq:1,  manaCost:8,  desc:'Larger slower energy ball' },
-	blade:    { label:'Blade',    icon:'🗡️', controlReq:2,  manaCost:7,  desc:'Slashing blade projectile' },
-	beam:     { label:'Beam',     icon:'⚡', controlReq:4,  manaCost:10, desc:'Continuous energy beam' },
-	ring:     { label:'Ring',     icon:'⭕', controlReq:5,  manaCost:12, desc:'Expanding energy ring' },
-	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast' },
-	nova:     { label:'Nova',     icon:'💥', controlReq:7,  manaCost:15, desc:'Expanding explosion from a point' },
-	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets, can stun on each hit' },
-	wall:     { label:'Wall',     icon:'🧱', controlReq:6,  manaCost:12, desc:'Stationary barrier' },
-	solidify: { label:'Platform', icon:'🟩', controlReq:4,  manaCost:10, desc:'Solid platform you can stand on' },
-	allyOrb:  { label:'Ally Orb',  icon:'💚', controlReq:1,  manaCost:6,  desc:'Orb that hits you / allies instead of enemies' },
+	missile:  { label:'Missile',  icon:'💠', controlReq:0,  manaCost:5,  desc:'Small fast projectile', dmgNote:'' },
+	orb:      { label:'Orb',      icon:'🔮', controlReq:1,  manaCost:8,  desc:'Larger slower energy ball', dmgNote:'' },
+	blade:    { label:'Blade',    icon:'🗡️', controlReq:2,  manaCost:7,  desc:'Slashing blade projectile', dmgNote:'' },
+	beam:     { label:'Beam',     icon:'⚡', controlReq:4,  manaCost:10, desc:'Continuous energy beam', dmgNote:'-35% dmg' },
+	ring:     { label:'Ring',     icon:'⭕', controlReq:5,  manaCost:12, desc:'Expanding energy ring', dmgNote:'' },
+	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast', dmgNote:'' },
+	nova:     { label:'Nova',     icon:'💥', controlReq:7,  manaCost:15, desc:'Expanding explosion from a point', dmgNote:'' },
+	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets, can stun on each hit', dmgNote:'' },
+	wall:     { label:'Wall',     icon:'🧱', controlReq:6,  manaCost:12, desc:'Stationary barrier', dmgNote:'' },
+	solidify: { label:'Platform', icon:'🟩', controlReq:4,  manaCost:10, desc:'Solid platform you can stand on', dmgNote:'no dmg' },
+	spike:    { label:'Spike',    icon:'🔱', controlReq:3,  manaCost:8,  desc:'Pointed projectile that faces its direction and pierces', dmgNote:'' },
+	polygon:  { label:'Polygon',  icon:'⬡',  controlReq:3,  manaCost:9,  desc:'Customizable polygon with any number of sides', dmgNote:'' },
+	allyOrb:  { label:'Ally Orb',  icon:'💚', controlReq:1,  manaCost:6,  desc:'Orb that hits you / allies instead of enemies', dmgNote:'heals' },
+	summon:   { label:'Summon',   icon:'👾', controlReq:8,  manaCost:20, desc:'Summons minions — increase range/health/speed for mana. Fires next spell phase.', dmgNote:'indirect' },
+	meteor:   { label:'Meteor',   icon:'☄️', controlReq:6,  manaCost:16, desc:'Blazing comet: +distance dmg, AoE explosion on impact/expire (50% splash)', dmgNote:'-25% dmg' },
+	vortex:   { label:'Vortex',   icon:'🌀', controlReq:7,  manaCost:18, desc:'Slow-moving void that pulls enemies in and deals DoT (30%)', dmgNote:'30% DoT' },
+	same:     { label:'Same',     icon:'🔄', controlReq:0,  manaCost:0,  desc:'Re-uses the previous phase shape — allows different behavior on same projectile', dmgNote:'' },
+
+};
+
+/* -- After-hit effect catalogue -- */
+const AFTER_HIT_EFFECTS = {
+	none:          { label:'None',          icon:'—',  desc:'No after-hit effect' },
+	explosion:     { label:'Explosion',     icon:'💥', desc:'Fiery burst on impact' },
+	flame_burst:   { label:'Flame Burst',   icon:'🔥', desc:'Flames erupt on impact' },
+	ice_shatter:   { label:'Ice Shatter',   icon:'❄️', desc:'Ice shards scatter on impact' },
+	electric_spark:{ label:'Electric Spark', icon:'⚡', desc:'Sparks fly on impact' },
+	poison_cloud:  { label:'Poison Cloud',  icon:'☠️', desc:'Toxic mist lingers on impact' },
+	star_burst:    { label:'Star Burst',    icon:'⭐', desc:'Radiant star particles on impact' },
 };
 
 /* -- Behavior catalogue -- */
 const BEHAVIORS = {
-	straight:     { label:'Straight',     controlReq:0,  manaCost:0,  desc:'Fires in a straight line' },
-	lob:          { label:'Lob / Arc',    controlReq:1,  manaCost:2,  desc:'Arcs through the air' },
-	homing:       { label:'Homing',       controlReq:3,  manaCost:5,  desc:'Tracks nearest target' },
-	boomerang:    { label:'Boomerang',    controlReq:3,  manaCost:4,  desc:'Goes out then returns' },
-	groundSurge:  { label:'Ground Surge', controlReq:4,  manaCost:5,  desc:'Travels along the ground' },
-	orbit:        { label:'Orbit Caster', controlReq:6,  manaCost:8,  desc:'Circles around you, then launches' },
-	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Spirals outward' },
-	rain:         { label:'Rain Down',    controlReq:7,  manaCost:8,  desc:'Falls from the sky in an area' },
-	barrage:      { label:'Barrage',      controlReq:7,  manaCost:8,  desc:'Horizontal wall of projectiles in front of you' },
-	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place' },
-	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet' },
-	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position' },
-	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'Projectiles around you in a circle (uses Around Self Count slider)' },
+	straight:     { label:'Straight',     controlReq:0,  manaCost:0,  desc:'Fires in a straight line', dmgNote:'' },
+	lob:          { label:'Lob / Arc',    controlReq:1,  manaCost:2,  desc:'Arcs through the air', dmgNote:'+25% dmg' },
+	homing:       { label:'Homing',       controlReq:3,  manaCost:5,  desc:'Tracks nearest target', dmgNote:'-50% dmg' },
+	boomerang:    { label:'Boomerang',    controlReq:3,  manaCost:4,  desc:'Goes out then returns', dmgNote:'' },
+	groundSurge:  { label:'Ground Surge', controlReq:4,  manaCost:5,  desc:'Travels along the ground toward enemies', dmgNote:'' },
+	orbit:        { label:'Orbit Caster', controlReq:6,  manaCost:8,  desc:'Circles around you, then launches', dmgNote:'-30% dmg' },
+	rain:         { label:'Rain Down',    controlReq:7,  manaCost:8,  desc:'Falls from the sky in an area (spread changes angles)', dmgNote:'+50% dmg' },
+	barrage:      { label:'Barrage',      controlReq:7,  manaCost:8,  desc:'Horizontal wall of projectiles (spread changes angles)', dmgNote:'+35% dmg' },
+	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place', dmgNote:'' },
+	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet', dmgNote:'' },
+	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position', dmgNote:'' },
+	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'Projectiles around you in a circle (uses Around Self Count slider)', dmgNote:'' },
+	ground:       { label:'Ground',       controlReq:3,  manaCost:4,  desc:'Erupts from ground at nearest enemy within radius. Expand radius for mana.', dmgNote:'+40% dmg' },
+	zigzag:       { label:'Zigzag',       controlReq:4,  manaCost:5,  desc:'Weaves in a sine wave pattern', dmgNote:'' },
+	teleport:     { label:'Teleport',     controlReq:6,  manaCost:7,  desc:'Blinks forward at intervals, hard to dodge', dmgNote:'' },
+	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing. Matching elemental spells buffed.', dmgNote:'10k+ mana', ultimateOnly:true },
+
 };
+
+/* Elemental effects that can be used with Domain for buffing */
+const DOMAIN_ELEMENTS = ['burn','freeze','poison','stun'];
 
 /* -- Effects catalogue -- */
 const EFFECTS = {
-	burn:      { label:'Burn',      icon:'🔥', controlReq:2, manaCost:5, desc:'+fire DoT' },
-	freeze:    { label:'Freeze',    icon:'❄️', controlReq:2, manaCost:5, desc:'Slows target' },
-	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:3, desc:'Pushes target away' },
-	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you' },
-	poison:    { label:'Poison',    icon:'☠️', controlReq:3, manaCost:5, desc:'+poison DoT' },
-	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target' },
-	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit' },
-	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost' },
-	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:8, desc:'Drains life on hit' },
-	speedBoost: { label:'Speed Boost', icon:'🏃', controlReq:3, manaCost:4, desc:'Temp. speed boost on hit' },
-	jumpBoost:  { label:'Jump Boost',  icon:'⬆️', controlReq:3, manaCost:4, desc:'Temp. jump boost on hit' },
-	manaRegen:  { label:'Mana Regen',  icon:'💧', controlReq:4, manaCost:5, desc:'Temp. mana regen boost' },
-	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay' },
-	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current' },
-	resetProjectiles:{ label:'Reset Projectiles',icon:'🔄', controlReq:0, manaCost:0, desc:'Next phase spawns fresh projectiles instead of continuing existing ones (free)' },
-	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump (enables multi-jumps in air)' },
-	horizontalLaunch:{ label:'H. Launch',icon:'💨', controlReq:2, manaCost:5, desc:'Launches target horizontally based on power' },
+	burn:      { label:'Burn',      icon:'🔥', controlReq:2, manaCost:5, desc:'+fire DoT', category:'elemental', dmgNote:'50% as DoT' },
+	freeze:    { label:'Freeze',    icon:'❄️', controlReq:2, manaCost:5, desc:'Slows target', category:'elemental', dmgNote:'' },
+	poison:    { label:'Poison',    icon:'☠️', controlReq:3, manaCost:5, desc:'+poison DoT', category:'elemental', dmgNote:'40% as DoT' },
+	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:3, desc:'Pushes target away', category:'movement', dmgNote:'' },
+	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you', category:'movement', dmgNote:'' },
+	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump', category:'movement', dmgNote:'' },
+	horizontalLaunch:{ label:'H. Launch',icon:'💨', controlReq:2, manaCost:5, desc:'Launches target horizontally', category:'movement', dmgNote:'' },
+	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target', category:'elemental', dmgNote:'' },
+	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit', category:'support', dmgNote:'' },
+	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
+	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:8, desc:'Drains life on hit', category:'support', dmgNote:'' },
+	speedBoost: { label:'Speed Boost', icon:'🏃', controlReq:3, manaCost:4, desc:'Temp. speed boost on hit', category:'buff', dmgNote:'' },
+	jumpBoost:  { label:'Jump Boost',  icon:'⬆️', controlReq:3, manaCost:4, desc:'Temp. jump boost on hit', category:'buff', dmgNote:'' },
+	manaRegen:  { label:'Mana Regen',  icon:'💧', controlReq:4, manaCost:5, desc:'Temp. mana regen boost', category:'buff', dmgNote:'' },
+	randomDelay:{ label:'Random Delay',icon:'🎲', controlReq:1, manaCost:2, desc:'Each projectile spawns after a random delay', category:'utility', dmgNote:'' },
+	phaseThrough:{ label:'Phase',   icon:'👻', controlReq:6, manaCost:20, desc:'Projectile passes through walls', category:'utility', dmgNote:'-45% dmg' },
+	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay', category:'utility', dmgNote:'' },
+	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current', category:'utility', dmgNote:'' },
+	resetProjectiles:{ label:'Reset Projectiles',icon:'🔄', controlReq:0, manaCost:0, desc:'Next phase spawns fresh instead of morphing (free)', category:'utility', dmgNote:'' },
+	damageStore:  { label:'Dmg Store',  icon:'🗃️', controlReq:2, manaCost:4, desc:'Stores a % of damage dealt for later use (customizable)', category:'store', dmgNote:'' },
+	damageRelease:{ label:'Dmg Release', icon:'💥', controlReq:4, manaCost:6, desc:'Consumes stored damage for bonus dmg & size', category:'store', dmgNote:'+stored dmg' },
+	damageHeal:   { label:'Dmg Heal',   icon:'💗', controlReq:3, manaCost:5, desc:'Ally Orb converts stored damage into health (50%)', category:'store', dmgNote:'' },
+	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:8, desc:'Destroys enemy projectiles and magic walls on contact', category:'utility', dmgNote:'' },
+	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Reduces enemy detection range temporarily', category:'cc', dmgNote:'' },
+	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'On kill, enemy explodes into damaging fragments', category:'elemental', dmgNote:'on-kill AoE' },
+	leechMana:    { label:'Leech Mana', icon:'💧', controlReq:5, manaCost:7, desc:'Restores mana on hit', category:'support', dmgNote:'' },
+	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
+	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
+	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
+};
+
+/* Effect category rules: 'exclusive' means only one per phase */
+const EFFECT_CATEGORIES = {
+	elemental: { label:'🔥 Elemental', exclusive:true },
+	movement:  { label:'💨 Forced Movement', exclusive:true },
+	cc:        { label:'⚡ Crowd Control', exclusive:false },
+	support:   { label:'💚 Support', exclusive:false },
+	buff:      { label:'🏃 Buffs', exclusive:false },
+	utility:   { label:'🔧 Utility', exclusive:false },
+	store:     { label:'🗃️ Damage Store', exclusive:false },
 };
 
 /* -- Trail styles -- */
@@ -499,7 +649,248 @@ const ITEM_DB = {
 	starlight_dew:   { name:'Starlight Dew',    type:'ingredient', icon:'🌟', rarity:'legendary',stats:{}, desc:'Collected under a cloudless new moon.' },
 	mana_herb:       { name:'Mana Herb',        type:'ingredient', icon:'🌿', rarity:'common',   stats:{}, desc:'Brewed into mana potions.' },
 	void_shard:      { name:'Void Shard',       type:'ingredient', icon:'🌑', rarity:'rare',     stats:{}, desc:'Hums with anti-energy.' },
+
+	/* -- dungeon boss ingredients -- */
+	molten_core:     { name:'Molten Core',      type:'ingredient', icon:'🌋', rarity:'rare',     stats:{}, desc:'The heart of a slain fire beast, still molten.' },
+	inferno_fang:    { name:'Inferno Fang',     type:'ingredient', icon:'🦷', rarity:'epic',     stats:{}, desc:'A tooth from the Inferno Dragon itself.' },
+	lava_essence:    { name:'Lava Essence',     type:'ingredient', icon:'🔶', rarity:'uncommon', stats:{}, desc:'Condensed volcanic energy.' },
+	frost_core:      { name:'Frost Core',       type:'ingredient', icon:'💎', rarity:'rare',     stats:{}, desc:'Radiates an eternal chill.' },
+	glacial_shard:   { name:'Glacial Shard',    type:'ingredient', icon:'🔷', rarity:'epic',     stats:{}, desc:'A fragment of the Frozen Colossus.' },
+	permafrost:      { name:'Permafrost',       type:'ingredient', icon:'❄️', rarity:'uncommon', stats:{}, desc:'Ice that has existed for millennia.' },
+	terra_core:      { name:'Terra Core',       type:'ingredient', icon:'🪨', rarity:'rare',     stats:{}, desc:'The living heart of the earth.' },
+	titan_shard:     { name:'Titan Shard',      type:'ingredient', icon:'⛰️', rarity:'epic',     stats:{}, desc:'A fragment of the Stone Titan.' },
+	ancient_amber:   { name:'Ancient Amber',    type:'ingredient', icon:'🟠', rarity:'uncommon', stats:{}, desc:'Hardened tree resin from deep underground.' },
+	void_heart:      { name:'Void Heart',       type:'ingredient', icon:'💜', rarity:'mythical', stats:{}, desc:'The still-pulsing core of the Void Arbiter. Radiates abyssal energy.' },
 };
+
+/* =============================================================
+   ITEM BOOSTS — Items boost the power of spells using matching components
+   All spells are unlocked by default, but items provide damage multipliers.
+   ============================================================= */
+const ITEM_BOOSTS = {
+	/* --- Staves --- */
+	stardust_staff: { shapes:['meteor'], boost:1.3, desc:'+30% Meteor spell damage' },
+	void_staff:     { shapes:['vortex'], boost:1.25, desc:'+25% Vortex spell damage' },
+	blood_staff:    { effects:['lifesteal','leechMana'], boost:1.35, desc:'+35% Lifesteal/Leech Mana effectiveness' },
+	elder_staff:    { shapes:['chain'], boost:1.25, desc:'+25% Chain spell damage' },
+	crystal_staff:  { shapes:['orb','missile'], boost:1.1, desc:'+10% Orb/Missile damage' },
+	bone_staff:     { effects:['burn','poison'], boost:1.15, desc:'+15% DoT damage' },
+	storm_staff:    { behaviors:['arc','zigzag'], boost:1.2, desc:'+20% Arc/Zigzag damage' },
+	prism_staff:    { shapes:['spray','cone'], boost:1.15, desc:'+15% Spray/Cone damage' },
+
+	/* --- Robes --- */
+	shadow_robe:    { effects:['blind'], boost:1.4, desc:'+40% Blind duration' },
+	void_robe:      { effects:['phaseThrough'], boost:1.3, desc:'+30% Phase Through damage' },
+	celestial_robe: { behaviors:['teleport'], shapes:['wall'], boost:1.25, desc:'+25% Teleport/Wall effectiveness' },
+	silk_robe:      { behaviors:['straight','homing'], boost:1.08, desc:'+8% basic spell damage' },
+	hunter_cloak:   { behaviors:['boomerang'], boost:1.15, desc:'+15% Boomerang damage' },
+
+	/* --- Relics --- */
+	chaos_orb:      { effects:['ricochet'], behaviors:['boomerang'], boost:1.2, desc:'+20% Ricochet/Boomerang damage' },
+	sun_medallion:  { shapes:['cone','ring'], boost:1.25, desc:'+25% Cone/Ring damage' },
+	moon_pendant:   { behaviors:['zigzag'], boost:1.2, desc:'+20% Zigzag damage' },
+	crystal_crown:  { shapes:['polygon','spike'], boost:1.25, desc:'+25% Polygon/Spike damage' },
+	phoenix_feather:{ effects:['healSelf','damageHeal','damageStore','damageRelease'], boost:1.35, desc:'+35% healing/damage store effects' },
+	dragon_heart:   { shapes:['blade'], effects:['shatter'], boost:1.3, desc:'+30% Blade/Shatter damage' },
+	world_seed:     { effects:['gravityWell'], behaviors:['groundSurge'], boost:1.25, desc:'+25% Gravity Well/Ground Surge damage' },
+	eye_of_eternity:{ effects:['phaseFork','mark'], boost:1.3, desc:'+30% Phase Fork/Mark damage' },
+	ember_charm:    { effects:['burn'], boost:1.15, desc:'+15% Burn damage' },
+	frost_charm:    { effects:['slow','freeze'], boost:1.15, desc:'+15% Slow/Freeze effectiveness' },
+};
+
+/* Build reverse lookup: which items boost each shape/behavior/effect */
+const SHAPE_BOOST_ITEMS = {};  // shape key -> [{ itemId, boost }]
+const BEH_BOOST_ITEMS = {};    // behavior key -> [{ itemId, boost }]
+const EFFECT_BOOST_ITEMS = {}; // effect key -> [{ itemId, boost }]
+for(const [itemId, data] of Object.entries(ITEM_BOOSTS)){
+	for(const sh of (data.shapes||[])){
+		if(!SHAPE_BOOST_ITEMS[sh]) SHAPE_BOOST_ITEMS[sh] = [];
+		SHAPE_BOOST_ITEMS[sh].push({ itemId, boost: data.boost });
+	}
+	for(const bh of (data.behaviors||[])){
+		if(!BEH_BOOST_ITEMS[bh]) BEH_BOOST_ITEMS[bh] = [];
+		BEH_BOOST_ITEMS[bh].push({ itemId, boost: data.boost });
+	}
+	for(const fx of (data.effects||[])){
+		if(!EFFECT_BOOST_ITEMS[fx]) EFFECT_BOOST_ITEMS[fx] = [];
+		EFFECT_BOOST_ITEMS[fx].push({ itemId, boost: data.boost });
+	}
+}
+
+/* Check if player has an item equipped (in any slot) */
+function hasItemEquipped(itemId){
+	for(const slotKey of ['staff','robe','relic1','relic2']){
+		if(STATE.equipment[slotKey] === itemId) return true;
+	}
+	return false;
+}
+
+/* Calculate total boost for a spell based on equipped items */
+function getSpellBoost(spell){
+	let totalBoost = 1.0;
+	const checked = new Set();
+	
+	// Iterate through all phases of the spell
+	const phases = spell.phases || [];
+	for(const phase of phases){
+		// Check shape boosts
+		if(phase.shape && SHAPE_BOOST_ITEMS[phase.shape]){
+			for(const item of SHAPE_BOOST_ITEMS[phase.shape]){
+				if(!checked.has(item.itemId) && hasItemEquipped(item.itemId)){
+					totalBoost *= item.boost;
+					checked.add(item.itemId);
+				}
+			}
+		}
+		
+		// Check behavior boosts
+		if(phase.behavior && BEH_BOOST_ITEMS[phase.behavior]){
+			for(const item of BEH_BOOST_ITEMS[phase.behavior]){
+				if(!checked.has(item.itemId) && hasItemEquipped(item.itemId)){
+					totalBoost *= item.boost;
+					checked.add(item.itemId);
+				}
+			}
+		}
+		
+		// Check effect boosts
+		for(const fx of (phase.effects || [])){
+			if(EFFECT_BOOST_ITEMS[fx]){
+				for(const item of EFFECT_BOOST_ITEMS[fx]){
+					if(!checked.has(item.itemId) && hasItemEquipped(item.itemId)){
+						totalBoost *= item.boost;
+						checked.add(item.itemId);
+					}
+				}
+			}
+		}
+	}
+	
+	return totalBoost;
+}
+
+/* Check if a shape/behavior/effect is unlocked — ALL UNLOCKED BY DEFAULT */
+function getVowUnlocks(){
+	const unlocks = new Set();
+	for(const v of STATE.vows){
+		if(!v || !v.vowUnlocks) continue;
+		for(const u of v.vowUnlocks) unlocks.add(u);
+	}
+	return unlocks;
+}
+
+/* Empty item requirement lookups - all unlocked now, kept for backward compatibility */
+const SHAPE_ITEM_REQ = {};
+const BEH_ITEM_REQ = {};
+const EFFECT_ITEM_REQ = {};
+/* All spells are unlocked by default — items provide boosts, not unlocks */
+function isShapeUnlocked(key){ return true; }
+function isBehaviorUnlocked(key){ return true; }
+function isEffectUnlocked(key){ return true; }
+
+/* =============================================================
+   CRAFTING RECIPES
+   ============================================================= */
+const CRAFTING_RECIPES = [
+	/* ---- STAVES ---- */
+	{ result:'crystal_staff', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:8 }, { itemId:'ice_crystal', qty:2 },
+	]},
+	{ result:'bone_staff', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:5 }, { itemId:'ember_shard', qty:3 },
+	]},
+	{ result:'storm_staff', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:10 }, { itemId:'ice_crystal', qty:4 }, { itemId:'ember_shard', qty:4 },
+	]},
+	{ result:'prism_staff', qty:1, ingredients:[
+		{ itemId:'ice_crystal', qty:5 }, { itemId:'arcane_dust', qty:8 }, { itemId:'mana_herb', qty:4 },
+	]},
+	{ result:'void_staff', qty:1, ingredients:[
+		{ itemId:'void_shard', qty:6 }, { itemId:'shadow_essence', qty:4 }, { itemId:'arcane_dust', qty:12 },
+	]},
+	{ result:'blood_staff', qty:1, ingredients:[
+		{ itemId:'molten_core', qty:2 }, { itemId:'shadow_essence', qty:3 }, { itemId:'ember_shard', qty:8 },
+	]},
+	{ result:'elder_staff', qty:1, ingredients:[
+		{ itemId:'dragon_scale', qty:2 }, { itemId:'starlight_dew', qty:2 }, { itemId:'arcane_dust', qty:20 }, { itemId:'mana_herb', qty:10 },
+	]},
+	{ result:'stardust_staff', qty:1, ingredients:[
+		{ itemId:'starlight_dew', qty:4 }, { itemId:'dragon_scale', qty:3 }, { itemId:'void_shard', qty:5 }, { itemId:'arcane_dust', qty:25 },
+	]},
+
+	/* ---- ROBES ---- */
+	{ result:'silk_robe', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:6 }, { itemId:'mana_herb', qty:3 },
+	]},
+	{ result:'hunter_cloak', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:5 }, { itemId:'ancient_amber', qty:2 },
+	]},
+	{ result:'ember_robe', qty:1, ingredients:[
+		{ itemId:'ember_shard', qty:6 }, { itemId:'lava_essence', qty:2 }, { itemId:'arcane_dust', qty:8 },
+	]},
+	{ result:'tide_robe', qty:1, ingredients:[
+		{ itemId:'ice_crystal', qty:5 }, { itemId:'permafrost', qty:2 }, { itemId:'mana_herb', qty:4 },
+	]},
+	{ result:'arcane_robe', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:15 }, { itemId:'mana_herb', qty:6 }, { itemId:'shadow_essence', qty:2 },
+	]},
+	{ result:'shadow_robe', qty:1, ingredients:[
+		{ itemId:'shadow_essence', qty:5 }, { itemId:'void_shard', qty:4 }, { itemId:'arcane_dust', qty:12 },
+	]},
+	{ result:'void_robe', qty:1, ingredients:[
+		{ itemId:'void_shard', qty:6 }, { itemId:'shadow_essence', qty:4 }, { itemId:'frost_core', qty:1 },
+	]},
+	{ result:'celestial_robe', qty:1, ingredients:[
+		{ itemId:'starlight_dew', qty:3 }, { itemId:'dragon_scale', qty:2 }, { itemId:'arcane_dust', qty:20 }, { itemId:'mana_herb', qty:12 },
+	]},
+
+	/* ---- RELICS ---- */
+	{ result:'mana_gem', qty:1, ingredients:[
+		{ itemId:'arcane_dust', qty:6 }, { itemId:'mana_herb', qty:4 },
+	]},
+	{ result:'ghost_lantern', qty:1, ingredients:[
+		{ itemId:'shadow_essence', qty:2 }, { itemId:'arcane_dust', qty:5 }, { itemId:'mana_herb', qty:3 },
+	]},
+	{ result:'wind_charm', qty:1, ingredients:[
+		{ itemId:'mana_herb', qty:5 }, { itemId:'arcane_dust', qty:6 }, { itemId:'ice_crystal', qty:2 },
+	]},
+	{ result:'fire_ring', qty:1, ingredients:[
+		{ itemId:'ember_shard', qty:5 }, { itemId:'molten_core', qty:1 }, { itemId:'arcane_dust', qty:6 },
+	]},
+	{ result:'frost_amulet', qty:1, ingredients:[
+		{ itemId:'ice_crystal', qty:5 }, { itemId:'frost_core', qty:1 }, { itemId:'arcane_dust', qty:6 },
+	]},
+	{ result:'thunder_tooth', qty:1, ingredients:[
+		{ itemId:'ember_shard', qty:4 }, { itemId:'ice_crystal', qty:4 }, { itemId:'arcane_dust', qty:8 },
+	]},
+	{ result:'bloodstone', qty:1, ingredients:[
+		{ itemId:'molten_core', qty:2 }, { itemId:'shadow_essence', qty:3 }, { itemId:'ember_shard', qty:5 },
+	]},
+	{ result:'chaos_orb', qty:1, ingredients:[
+		{ itemId:'void_shard', qty:4 }, { itemId:'ember_shard', qty:4 }, { itemId:'ice_crystal', qty:4 }, { itemId:'shadow_essence', qty:3 },
+	]},
+	{ result:'sun_medallion', qty:1, ingredients:[
+		{ itemId:'molten_core', qty:2 }, { itemId:'inferno_fang', qty:1 }, { itemId:'starlight_dew', qty:1 }, { itemId:'ember_shard', qty:8 },
+	]},
+	{ result:'moon_pendant', qty:1, ingredients:[
+		{ itemId:'frost_core', qty:2 }, { itemId:'glacial_shard', qty:1 }, { itemId:'starlight_dew', qty:1 }, { itemId:'mana_herb', qty:8 },
+	]},
+	{ result:'crystal_crown', qty:1, ingredients:[
+		{ itemId:'terra_core', qty:2 }, { itemId:'ice_crystal', qty:6 }, { itemId:'arcane_dust', qty:15 }, { itemId:'ancient_amber', qty:4 },
+	]},
+	{ result:'phoenix_feather', qty:1, ingredients:[
+		{ itemId:'inferno_fang', qty:2 }, { itemId:'molten_core', qty:3 }, { itemId:'starlight_dew', qty:2 }, { itemId:'dragon_scale', qty:2 },
+	]},
+	{ result:'dragon_heart', qty:1, ingredients:[
+		{ itemId:'inferno_fang', qty:2 }, { itemId:'glacial_shard', qty:2 }, { itemId:'titan_shard', qty:2 }, { itemId:'dragon_scale', qty:3 },
+	]},
+	{ result:'eye_of_eternity', qty:1, ingredients:[
+		{ itemId:'starlight_dew', qty:4 }, { itemId:'void_shard', qty:6 }, { itemId:'dragon_scale', qty:3 }, { itemId:'shadow_essence', qty:5 },
+	]},
+	{ result:'world_seed', qty:1, ingredients:[
+		{ itemId:'terra_core', qty:3 }, { itemId:'titan_shard', qty:2 }, { itemId:'starlight_dew', qty:3 }, { itemId:'ancient_amber', qty:6 }, { itemId:'mana_herb', qty:15 },
+	]},
+];
 
 /* =============================================================
    DEFAULT PLAYER STATE  (will be overridden by localStorage)
@@ -507,6 +898,7 @@ const ITEM_DB = {
 function defaultPlayerState(){
 	return {
 		baseStats: { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 },
+		mageRank: 5, // Max rank for now
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		/* inventory: array of { itemId, qty } */
 		inventory: [
@@ -526,6 +918,7 @@ function defaultPlayerState(){
 			{ itemId:'dragon_scale', qty:1 },
 		],
 		spells: new Array(10).fill(null),  // each slot: null or spell object
+		vows: [null, null, null],  // 3 vow slots
 	};
 }
 
@@ -544,6 +937,9 @@ function makeDefaultSpell(){
 			chainStunTime:0,
 			rainHeight:150,
 			effectPower:1, effectDuration:1,
+			randomDelayMax:0.5,
+			afterHitEffect:'none',
+			polygonSides:6,
 		}]
 	};
 }
@@ -568,6 +964,7 @@ function loadState(){
 			const s = JSON.parse(raw);
 			// ensure arrays are correct length
 			if(!s.spells || s.spells.length < 10) s.spells = (s.spells||[]).concat(new Array(10).fill(null)).slice(0,10);
+			if(!s.vows) s.vows = [null, null, null];
 			return s;
 		}
 	} catch(e){}
@@ -575,7 +972,22 @@ function loadState(){
 	s.spells[0] = makeDefaultSpell();
 	return s;
 }
+
+/* Calculate and update spell boosts based on equipped items */
+function updateSpellBoosts(){
+	if(!STATE.spellBoosts) STATE.spellBoosts = [];
+	for(let i=0; i<10; i++){
+		const spell = STATE.spells[i];
+		if(!spell || !spell.phases || !spell.phases.length){
+			STATE.spellBoosts[i] = 1.0;
+			continue;
+		}
+		STATE.spellBoosts[i] = getSpellBoost(spell);
+	}
+}
+
 function saveState(){
+	updateSpellBoosts();
 	localStorage.setItem('magicBattle_playerData', JSON.stringify(STATE));
 }
 
@@ -595,6 +1007,141 @@ function computeStats(){
 }
 
 /* =============================================================
+   VOW SYSTEM — sacrifice health/slots/mana for boosts
+   ============================================================= */
+const VOW_SACRIFICES = {
+	health:    { label:'Health',      icon:'❤️', desc:'Reduce max health' },
+	spellSlot: { label:'Spell Slots', icon:'🔒', desc:'Lock spell slots (more slots = more points)' },
+	maxMana:   { label:'Max Mana',    icon:'💧', desc:'Reduce max mana pool (scales up to 40pts at 1200)' },
+	effects:   { label:'Effects',     icon:'✨', desc:'Give up spell effects (0.5pts each, 1pt for elemental)' },
+	shapes:    { label:'Shapes',      icon:'⬡', desc:'Give up spell shapes (1pt each)' },
+	movement:  { label:'Movement',    icon:'🐢', desc:'Reduce base movement speed (10% = 2pts, up to 50%)' },
+	visibility:{ label:'Visibility',  icon:'🌫️', desc:'Reduce vision range — fog closes in (15% = 1pt, up to 60%)' },
+	items:     { label:'Items',       icon:'🎒', desc:'Sacrifice equipped gear (10/15/20/30 pts for 1st-4th piece)' },
+};
+const VOW_BOOST_TYPES = {
+	power:      { label:'Power',        icon:'⚔️', desc:'+12% damage per point' },
+	size:       { label:'Size',         icon:'📐', desc:'+10% projectile size per point' },
+	speed:      { label:'Speed',        icon:'💨', desc:'+10% projectile speed per point' },
+	count:      { label:'Count',        icon:'🔢', desc:'+1 extra projectile per point' },
+	duration:   { label:'Duration',     icon:'⏱️', desc:'+10% spell duration per point' },
+	effects:    { label:'Effect Pwr',   icon:'✨', desc:'+15% effect strength per point' },
+	phases:     { label:'Extra Phase',  icon:'🔗', desc:'+1 max phase per point' },
+	maxHealth:  { label:'Max Health',   icon:'💗', desc:'+8 max health per point (global)' },
+	manaCost:   { label:'Mana Cost',    icon:'💧', desc:'-5% mana cost per point' },
+	cooldown:   { label:'Cooldown',     icon:'⏳', desc:'-8% cooldown per point' },
+	jumpHeight: { label:'Jump Height',  icon:'⬆️', desc:'+8% jump height per point (global)' },
+	playerSpeed:{ label:'Move Speed',   icon:'🏃', desc:'+8% move speed per point (global)' },
+	defense:    { label:'Defense',      icon:'🛡️', desc:'+6% damage reduction per point (global)' },
+	elementalDmg:{ label:'Elemental Dmg',icon:'🔥', desc:'+7% damage for spells with elemental effects per point' },
+	critChance: { label:'Crit Chance',  icon:'🎯', desc:'+5% chance for 2x damage per point (global)' },
+	spellVamp:  { label:'Spell Vamp',   icon:'🩸', desc:'+3% of spell damage returned as health per point (global)' },
+	thorns:     { label:'Thorns',       icon:'🌹', desc:'Return 8% of damage taken back to attackers per point (global)' },
+	manaEfficiency:{ label:'Mana Efficiency',icon:'💎', desc:'-2.5% mana cost on ALL spells per point (global, half of per-slot manaCost)' },
+};
+
+/* Points earned per sacrifice — vowIdx enables cumulative scaling across vows */
+function calcVowPoints(vow, vowIdx){
+	if(!vow) return 0;
+	if(vow.sacrifice === 'health') return Math.floor(vow.amount / 10); // 10 hp = 1 point
+	if(vow.sacrifice === 'maxMana'){
+		// Scaling: more points the more you sacrifice, up to 40 at 1200
+		const amt = vow.amount || 0;
+		// Quadratic scaling: pts = 40 * (amt/1200)^1.5 roughly
+		const ratio = amt / 1200;
+		return Math.floor(40 * Math.pow(ratio, 1.3));
+	}
+	if(vow.sacrifice === 'effects'){
+		// 0.5 pts per effect, 1 pt for elemental effects
+		let pts = 0;
+		for(const fx of (vow.sacrificedEffects||[])){
+			const eff = EFFECTS[fx];
+			pts += (eff && eff.category === 'elemental') ? 1 : 0.5;
+		}
+		return Math.floor(pts);
+	}
+	if(vow.sacrifice === 'shapes'){
+		return (vow.sacrificedShapes||[]).length; // 1 pt per shape
+	}
+	if(vow.sacrifice === 'movement'){
+		// 10% = 2 pts, 20% = 4 pts ... up to 50% = 10 pts
+		return Math.floor((vow.amount || 0) / 5);
+	}
+	if(vow.sacrifice === 'visibility'){
+		// 15% = 1 pt, 30% = 3 pts, 45% = 5 pts, 60% = 8 pts (scales slightly)
+		const amt = vow.amount || 0;
+		return Math.floor(amt / 15) + Math.floor(amt / 30);
+	}
+	if(vow.sacrifice === 'spellSlot'){
+		let otherCount = 0;
+		if(vowIdx != null){
+			for(let i = 0; i < STATE.vows.length; i++){
+				if(i === vowIdx) continue;
+				const other = STATE.vows[i];
+				if(other && other.sacrifice === 'spellSlot'){
+					otherCount += (other.slots||[]).filter(s => s !== 9).length;
+				}
+			}
+		}
+		let pts = 0;
+		const regularSlots = (vow.slots||[]).filter(s => s !== 9);
+		const hasUlt = (vow.slots||[]).includes(9);
+		const n = regularSlots.length;
+		for(let i = 0; i < n; i++) pts += Math.max(1, otherCount + i);
+		if(hasUlt) pts += 8;
+		return pts;
+	}
+	if(vow.sacrifice === 'items'){
+		const slots = vow.sacrificedItemSlots || [];
+		const ITEM_PTS = [10, 15, 20, 30];
+		// Count how many item slots are sacrificed across OTHER vows
+		let otherCount = 0;
+		if(vowIdx != null){
+			for(let i = 0; i < STATE.vows.length; i++){
+				if(i === vowIdx) continue;
+				const other = STATE.vows[i];
+				if(other && other.sacrifice === 'items') otherCount += (other.sacrificedItemSlots||[]).length;
+			}
+		}
+		let pts = 0;
+		for(let i = 0; i < slots.length; i++){
+			const idx = otherCount + i;
+			pts += idx < ITEM_PTS.length ? ITEM_PTS[idx] : 30;
+		}
+		return pts;
+	}
+	return 0;
+}
+function calcVowSpent(vow){
+	if(!vow) return 0;
+	let spent = 0;
+	if(vow.boostAmount != null) spent += vow.boostAmount;
+	else if(vow.boosts){ for(const k in vow.boosts) spent+=vow.boosts[k]; }
+	/* Each vow unlock costs 5 points */
+	if(vow.vowUnlocks) spent += vow.vowUnlocks.length * 5;
+	return spent;
+}
+function calcVowBoostsForSlot(slot){
+	const globalBoosts = new Set(['maxHealth','jumpHeight','playerSpeed','defense','elementalDmg','critChance','spellVamp','thorns','manaEfficiency']);
+	const b = {power:0,size:0,speed:0,count:0,duration:0,effects:0,phases:0,maxHealth:0,manaCost:0,cooldown:0,jumpHeight:0,playerSpeed:0,defense:0,elementalDmg:0,_sizeBonus:false};
+	for(const v of STATE.vows){
+		if(!v) continue;
+		/* New format: single boostType + boostAmount */
+		if(v.boostType != null){
+			if(globalBoosts.has(v.boostType)){ b[v.boostType] = (b[v.boostType]||0) + (v.boostAmount||0); continue; }
+			if(v.targetSlot !== slot) continue;
+			b[v.boostType] = (b[v.boostType]||0) + (v.boostAmount||0);
+			if(v.sizeBonus) b._sizeBonus = true;
+		} else if(v.boosts){
+			/* Legacy format */
+			if(v.targetSlot !== slot) continue;
+			for(const k in v.boosts) b[k] = (b[k]||0) + v.boosts[k];
+		}
+	}
+	return b;
+}
+
+/* =============================================================
    SPELL COST / CONTROL REQUIREMENT CALCULATORS
    ============================================================= */
 function calcSpellManaCost(spell){
@@ -603,22 +1150,30 @@ function calcSpellManaCost(spell){
 	for(const ph of spell.phases){
 		cost += (SHAPES[ph.shape]?.manaCost||0);
 		cost += (BEHAVIORS[ph.behavior]?.manaCost||0);
-		// power costs scale exponentially when near max
-		const powerCost = ph.power * 50;
+		// power costs scale — count multiplies power cost (rain/barrage much cheaper)
+		const isAreaBeh = ph.behavior === 'rain' || ph.behavior === 'barrage';
+		const countMult = 1 + (ph.count - 1) * (isAreaBeh ? 0.1 : 0.4);
+		const powerCost = ph.power * 50 * countMult;
 		cost += powerCost;
-		cost += (ph.count - 1) * 4;
+		cost += (ph.count - 1) * (isAreaBeh ? 1 : 4);
 		cost += (ph.width - 1) * 2;
 		cost += (ph.height - 1) * 2;
 		// chain stun costs significant mana
 		if (ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
 		for(const fx of ph.effects) cost += (EFFECTS[fx]?.manaCost||0);
 		// effect intensity scaling: higher power/duration = much more mana
+		// burn/poison only scale with duration (not power)
 		const tunableFx = ['burn','poison','freeze','stun'];
 		const hasTunable = ph.effects.some(fx => tunableFx.includes(fx));
 		if(hasTunable){
-			const ep = (ph.effectPower || 1);
+			const onlyBurnPoison = ph.effects.filter(fx => tunableFx.includes(fx)).every(fx => fx==='burn'||fx==='poison');
+			const ep = onlyBurnPoison ? 1 : (ph.effectPower || 1);
 			const ed = (ph.effectDuration || 1);
 			cost += (ep * ep * 12) + (ed * ed * 8);
+		}
+		// phase fork: significant upfront mana cost
+		if(ph.effects.includes('phaseFork')){
+			cost += (ph.phaseForkRepeats || 1) * 35;
 		}
 	}
 	cost *= (0.6 + spell.phases.length * 0.4);
@@ -685,11 +1240,14 @@ function renderEquipment(){
 				const nice = k.replace('magic','').replace(/([A-Z])/,' $1');
 				return `+${v} ${nice}`;
 			}).join(', ');
+			const boost = ITEM_BOOSTS[id];
+			const boostStr = boost ? `<div class="eq-sub" style="color:#f0c060;font-size:10px">⚡ ${boost.desc}</div>` : '';
 			el.innerHTML = `
 				<div class="eq-icon">${item.icon}</div>
 				<div class="eq-info">
 					<div class="eq-name" style="color:var(--rarity-${item.rarity})">${item.name}</div>
 					<div class="eq-sub">${statStr}</div>
+					${boostStr}
 				</div>
 				<button class="unequip-btn" data-slot="${slotKey}" title="Unequip">✕</button>
 			`;
@@ -776,10 +1334,14 @@ function showTooltip(e, item, qty){
 		const nice = k.replace('magic','Magic ');
 		return `<div class="tt-stat">+${v} ${nice}</div>`;
 	}).join('');
+	// Show item boost if it has one
+	const boostData = ITEM_BOOSTS[item.id];
+	const boostLine = boostData ? `<div class="tt-stat" style="color:#f0c060;font-size:10px">⚡ ${boostData.desc}</div>` : '';
 	tooltipEl.innerHTML = `
 		<div class="tt-name" style="color:var(--rarity-${item.rarity})">${item.name}${qty>1?' x'+qty:''}</div>
 		<div class="tt-type">${item.type} · ${item.rarity}</div>
 		${statLines}
+		${boostLine}
 		<div class="tt-desc">${item.desc}</div>
 	`;
 	tooltipEl.style.display = 'block';
@@ -861,6 +1423,143 @@ function removeFromInventory(itemId, qty){
 }
 
 /* =============================================================
+   CRAFTING SYSTEM
+   ============================================================= */
+let craftSearch = '';
+let craftTypeFilter = 'all';
+
+function switchTab(tab){
+	document.getElementById('inventoryTab').style.display = tab === 'inventory' ? 'flex' : 'none';
+	document.getElementById('craftingTab').style.display  = tab === 'crafting'  ? 'flex' : 'none';
+	document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+	if(tab === 'crafting') renderCraftList();
+}
+
+function getIngredientCount(itemId){
+	const e = STATE.inventory.find(e => e.itemId === itemId);
+	return e ? e.qty : 0;
+}
+
+function canCraft(recipe){
+	return recipe.ingredients.every(ing => getIngredientCount(ing.itemId) >= ing.qty);
+}
+
+function renderCraftList(){
+	const wrap = document.getElementById('craftList');
+	wrap.innerHTML = '';
+	const RARITY_ORDER = { common:0, uncommon:1, rare:2, epic:3, legendary:4, mythical:5 };
+	let recipes = CRAFTING_RECIPES.slice();
+
+	// Filter by type
+	if(craftTypeFilter !== 'all'){
+		recipes = recipes.filter(r => ITEM_DB[r.result]?.type === craftTypeFilter);
+	}
+	// Filter by search
+	if(craftSearch){
+		const q = craftSearch.toLowerCase();
+		recipes = recipes.filter(r => {
+			const item = ITEM_DB[r.result];
+			if(!item) return false;
+			if(item.name.toLowerCase().includes(q)) return true;
+			return r.ingredients.some(ing => (ITEM_DB[ing.itemId]?.name||'').toLowerCase().includes(q));
+		});
+	}
+	// Sort: craftable first, then by rarity
+	recipes.sort((a,b) => {
+		const ca = canCraft(a) ? 0 : 1;
+		const cb = canCraft(b) ? 0 : 1;
+		if(ca !== cb) return ca - cb;
+		return (RARITY_ORDER[ITEM_DB[a.result]?.rarity]||0) - (RARITY_ORDER[ITEM_DB[b.result]?.rarity]||0);
+	});
+
+	if(!recipes.length){
+		wrap.innerHTML = '<div style="text-align:center;color:#666;padding:20px">No recipes found.</div>';
+		return;
+	}
+
+	for(const recipe of recipes){
+		const item = ITEM_DB[recipe.result];
+		if(!item) continue;
+		const craftable = canCraft(recipe);
+		const card = document.createElement('div');
+		card.className = 'craft-card';
+		if(!craftable) card.style.opacity = '0.55';
+
+		// Icon
+		const iconDiv = document.createElement('div');
+		iconDiv.className = 'craft-icon';
+		iconDiv.textContent = item.icon;
+		card.appendChild(iconDiv);
+
+		// Info
+		const info = document.createElement('div');
+		info.className = 'craft-info';
+
+		const nameEl = document.createElement('div');
+		nameEl.className = 'craft-name';
+		nameEl.style.color = `var(--rarity-${item.rarity})`;
+		nameEl.textContent = item.name;
+		info.appendChild(nameEl);
+
+		// Stats summary
+		const statsLine = document.createElement('div');
+		statsLine.style.cssText = 'font-size:10px;color:#999;margin-bottom:4px';
+		const statKeys = Object.entries(item.stats||{}).filter(([,v])=>v!==0);
+		statsLine.textContent = statKeys.map(([k,v])=>`${k.replace(/([A-Z])/g,' $1').trim()}: ${v>0?'+':''}${v}`).join(', ') || item.desc || '';
+		info.appendChild(statsLine);
+
+		// Ingredients row
+		const ingRow = document.createElement('div');
+		ingRow.className = 'craft-ingredients';
+		for(const ing of recipe.ingredients){
+			const ingItem = ITEM_DB[ing.itemId];
+			if(!ingItem) continue;
+			const have = getIngredientCount(ing.itemId);
+			const el = document.createElement('span');
+			el.className = 'craft-ing ' + (have >= ing.qty ? 'has' : 'missing');
+			el.textContent = `${ingItem.icon} ${have}/${ing.qty}`;
+			el.title = ingItem.name;
+			ingRow.appendChild(el);
+		}
+		info.appendChild(ingRow);
+		card.appendChild(info);
+
+		// Craft button
+		const btn = document.createElement('button');
+		btn.className = 'craft-btn';
+		btn.textContent = craftable ? 'Craft' : '🔒';
+		btn.disabled = !craftable;
+		btn.addEventListener('click', () => craftItem(recipe));
+		card.appendChild(btn);
+
+		wrap.appendChild(card);
+	}
+}
+
+function craftItem(recipe){
+	if(!canCraft(recipe)) return;
+	// Consume ingredients
+	for(const ing of recipe.ingredients){
+		removeFromInventory(ing.itemId, ing.qty);
+	}
+	// Add result
+	addToInventory(recipe.result, recipe.qty);
+	saveState();
+	renderCraftList();
+	renderInventory();
+
+	// Flash feedback
+	const btn = document.querySelector('.craft-card .craft-btn');
+	if(btn){
+		const flash = document.createElement('div');
+		flash.textContent = `✨ Crafted ${ITEM_DB[recipe.result]?.name}!`;
+		flash.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:var(--rarity-' + (ITEM_DB[recipe.result]?.rarity||'common') + ');padding:12px 24px;border-radius:8px;font-size:16px;font-weight:bold;z-index:9999;pointer-events:none;animation:fadeUp .8s ease forwards';
+		document.body.appendChild(flash);
+		setTimeout(() => flash.remove(), 900);
+	}
+}
+
+/* =============================================================
    RENDER: SPELL SLOTS (right col)
    ============================================================= */
 function renderSpellSlots(){
@@ -875,7 +1574,9 @@ function renderSpellSlots(){
 		if(sp){
 			const baseCost = calcSpellManaCost(sp);
 			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-			const cost = Math.round(baseCost * controlDiscount);
+			const _vbSlot = calcVowBoostsForSlot(i);
+			const vowManaSlot = Math.max(0.1, 1 - (_vbSlot.manaCost||0) * 0.05);
+			const cost = Math.round(baseCost * controlDiscount * vowManaSlot);
 			const req  = calcSpellControlReq(sp);
 			const canUse = stats.magicControl >= req;
 			el.innerHTML = `
@@ -894,6 +1595,449 @@ function renderSpellSlots(){
 }
 
 /* =============================================================
+   VOW SYSTEM UI
+   ============================================================= */
+let editingVowSlot = 0;
+let vowEditor = null; // temp vow during editing
+
+function renderVowSlots(){
+	const wrap = document.getElementById('vowSlots');
+	wrap.innerHTML = '';
+	for(let i = 0; i < 3; i++){
+		const v = STATE.vows[i];
+		const el = document.createElement('div');
+		el.className = 'spell-slot';
+		el.style.cursor = 'pointer';
+		if(v){
+			const pts = calcVowPoints(v, i);
+			const spent = calcVowSpent(v);
+			const sacLabel = v.sacrifice === 'spellSlot'
+				? `🔒 Slots: ${(v.slots||[]).map(s=>s===9?'Ult':(s+1)).join(',')}`
+				: v.sacrifice === 'health' ? `❤️ -${v.amount} HP` : `💧 -${v.amount} Mana`;
+			const targetLabel = v.targetSlot===9?'⚡Ult':`Spell ${(v.targetSlot||0)+1}`;
+			let boostLabel = '';
+			if(v.boostType != null){
+				const info = VOW_BOOST_TYPES[v.boostType];
+				boostLabel = `${info?info.icon:''} ${info?info.label:v.boostType} ×${v.boostAmount||0}`;
+				if(v.sizeBonus) boostLabel += ' 🎨+50%sz';
+			} else if(v.boosts){
+				boostLabel = Object.entries(v.boosts).filter(([k,val])=>val>0).map(([k,val])=>`${VOW_BOOST_TYPES[k]?.icon||''}${val}`).join(' ');
+			}
+			el.innerHTML = `<span class="sp-num" style="background:rgba(200,50,50,.3);color:#ff6666">V${i+1}</span>
+				<span class="sp-name" style="color:#ff9999">${sacLabel} → ${targetLabel}</span>
+				<span class="sp-mana" style="color:#ffcc44">${boostLabel} (${spent}/${pts})</span>`;
+		} else {
+			el.innerHTML = `<span class="sp-num" style="background:rgba(100,100,100,.2);color:#888">V${i+1}</span>
+				<span class="sp-empty" style="color:#666">Empty — click to create vow</span>`;
+		}
+		el.addEventListener('click', () => openVowEditor(i));
+		wrap.appendChild(el);
+	}
+}
+
+function openVowEditor(slotIdx){
+	editingVowSlot = slotIdx;
+	const existing = STATE.vows[slotIdx];
+	if(existing){
+		vowEditor = JSON.parse(JSON.stringify(existing));
+		/* Migrate from old boosts dict to new single-boost format */
+		if(vowEditor.boosts && vowEditor.boostType == null){
+			let best = null, bestVal = 0;
+			for(const k in vowEditor.boosts){
+				if(vowEditor.boosts[k] > bestVal){ bestVal = vowEditor.boosts[k]; best = k; }
+			}
+			vowEditor.boostType = best || 'power';
+			vowEditor.boostAmount = bestVal || 0;
+			vowEditor.sizeBonus = false;
+			delete vowEditor.boosts;
+		}
+	} else {
+		vowEditor = { sacrifice:'health', amount:30, slots:[], targetSlot:0, boostType:'power', boostAmount:0, sizeBonus:false };
+	}
+	if(vowEditor.targetSlot == null) vowEditor.targetSlot = 0;
+	document.getElementById('vowModal').style.display = 'flex';
+	document.getElementById('vowModalTitle').textContent = `Vow Editor — Slot ${slotIdx+1}`;
+	renderVowEditor();
+}
+
+function renderVowEditor(){
+	const v = vowEditor;
+	const pts = calcVowPoints(v, editingVowSlot);
+	const spent = calcVowSpent(v);
+	const remaining = pts - spent;
+	let html = '';
+
+	/* Compute spell slots already sacrificed by OTHER vows (cross-vow dedup) */
+	const usedSlots = new Set();
+	for(let i = 0; i < STATE.vows.length; i++){
+		if(i === editingVowSlot) continue;
+		const other = STATE.vows[i];
+		if(other && other.sacrifice === 'spellSlot'){
+			for(const s of other.slots||[]) usedSlots.add(s);
+		}
+	}
+
+	// Target spell slot selector
+	const globalBoosts = new Set(['maxHealth','jumpHeight','playerSpeed','defense','elementalDmg','critChance','spellVamp','thorns','manaEfficiency']);
+	const isGlobal = globalBoosts.has(v.boostType);
+	if(!isGlobal){
+		html += `<div style="font-size:13px;color:var(--muted);margin-bottom:2px">Target Spell (boosts apply to this spell only):</div>`;
+		html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">`;
+		for(let s=0;s<10;s++){
+			const isTarget = v.targetSlot === s;
+			const label = s===9?'⚡Ult':`${s+1}`;
+			const spellName = STATE.spells[s]?.name || (s===9?'Ultimate':'Empty');
+			html += `<div class="fx-chip ${isTarget?'active':''}" data-targetslot="${s}" style="cursor:pointer;padding:4px 8px;font-size:11px" title="${spellName}">${label}</div>`;
+		}
+		html += `</div>`;
+	} else {
+		html += `<div style="font-size:12px;color:#88bbff;margin-bottom:8px">🌐 This boost applies globally (not spell-specific)</div>`;
+	}
+
+	// Sacrifice type
+	html += `<div style="font-size:13px;color:var(--muted)">Sacrifice something for power:</div>`;
+	html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+	for(const [k,info] of Object.entries(VOW_SACRIFICES)){
+		const sel = v.sacrifice===k;
+		html += `<div class="fx-chip ${sel?'active':''}" data-sac="${k}" style="cursor:pointer;padding:6px 10px;font-size:12px">${info.icon} ${info.label}</div>`;
+	}
+	html += `</div>`;
+
+	// Amount / slot selection
+	if(v.sacrifice === 'health'){
+		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Health to sacrifice: ${v.amount}</label>
+			<input type="range" min="10" max="80" step="10" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
+	} else if(v.sacrifice === 'maxMana'){
+		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Mana to sacrifice: ${v.amount} (${pts} pts)</label>
+			<input type="range" min="100" max="1200" step="100" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
+	} else if(v.sacrifice === 'effects'){
+		if(!v.sacrificedEffects) v.sacrificedEffects = [];
+		/* Collect effects already sacrificed by OTHER vows */
+		const usedEffects = new Set();
+		for(let i = 0; i < STATE.vows.length; i++){
+			if(i === editingVowSlot) continue;
+			const other = STATE.vows[i];
+			if(other && other.sacrifice === 'effects'){
+				for(const fx of other.sacrificedEffects||[]) usedEffects.add(fx);
+			}
+		}
+		html += `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Select effects to give up (0.5pts each, 1pt for elemental):</div>`;
+		html += `<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+		for(const [fx,info] of Object.entries(EFFECTS)){
+			const isSac = v.sacrificedEffects.includes(fx);
+			const takenByOther = usedEffects.has(fx);
+			const isElem = info.category === 'elemental';
+			const ptLabel = isElem ? '1pt' : '0.5pt';
+			if(takenByOther && !isSac){
+				html += `<div class="fx-chip" style="padding:3px 7px;font-size:10px;opacity:0.35;cursor:not-allowed;text-decoration:line-through" title="Already sacrificed">${info.icon} ${info.label}</div>`;
+			} else {
+				html += `<div class="fx-chip ${isSac?'active':''}" data-sacfx="${fx}" style="cursor:pointer;padding:3px 7px;font-size:10px" title="${ptLabel}">${info.icon} ${info.label} <span style="font-size:9px;opacity:0.6">(${ptLabel})</span></div>`;
+			}
+		}
+		html += `</div>`;
+	} else if(v.sacrifice === 'shapes'){
+		if(!v.sacrificedShapes) v.sacrificedShapes = [];
+		/* Collect shapes already sacrificed by OTHER vows */
+		const usedShapes = new Set();
+		for(let i = 0; i < STATE.vows.length; i++){
+			if(i === editingVowSlot) continue;
+			const other = STATE.vows[i];
+			if(other && other.sacrifice === 'shapes'){
+				for(const sh of other.sacrificedShapes||[]) usedShapes.add(sh);
+			}
+		}
+		html += `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Select shapes to give up (1pt each):</div>`;
+		html += `<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+		for(const [sh,info] of Object.entries(SHAPES)){
+			const isSac = v.sacrificedShapes.includes(sh);
+			const takenByOther = usedShapes.has(sh);
+			if(takenByOther && !isSac){
+				html += `<div class="fx-chip" style="padding:3px 7px;font-size:10px;opacity:0.35;cursor:not-allowed;text-decoration:line-through" title="Already sacrificed">${info.icon} ${info.label}</div>`;
+			} else {
+				html += `<div class="fx-chip ${isSac?'active':''}" data-sacshape="${sh}" style="cursor:pointer;padding:3px 7px;font-size:10px">${info.icon} ${info.label}</div>`;
+			}
+		}
+		html += `</div>`;
+	} else if(v.sacrifice === 'spellSlot'){
+		html += `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Select spell slots to sacrifice:</div>`;
+		html += `<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+		for(let s=0;s<10;s++){
+			const isLocked = (v.slots||[]).includes(s);
+			const takenByOther = usedSlots.has(s);
+			const label = s===9?'⚡Ult':`${s+1}`;
+			if(takenByOther && !isLocked){
+				html += `<div class="fx-chip" style="padding:4px 8px;font-size:11px;opacity:0.35;cursor:not-allowed;text-decoration:line-through" title="Already sacrificed in another vow">${label}</div>`;
+			} else {
+				html += `<div class="fx-chip ${isLocked?'active':''}" data-lockslot="${s}" style="cursor:pointer;padding:4px 8px;font-size:11px">${label}</div>`;
+			}
+		}
+		html += `</div>`;
+	} else if(v.sacrifice === 'movement'){
+		if(!v.amount) v.amount = 10;
+		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Movement speed penalty: ${v.amount}% (${pts} pts)</label>
+			<input type="range" min="10" max="50" step="5" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
+	} else if(v.sacrifice === 'visibility'){
+		if(!v.amount) v.amount = 15;
+		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Vision reduction: ${v.amount}% (${pts} pts)</label>
+			<input type="range" min="15" max="60" step="15" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
+	} else if(v.sacrifice === 'items'){
+		if(!v.sacrificedItemSlots) v.sacrificedItemSlots = [];
+		const EQUIP_SLOTS = ['staff','robe','relic1','relic2'];
+		const SLOT_LABELS = {staff:'🪄 Staff',robe:'👘 Robe',relic1:'💎 Relic 1',relic2:'💎 Relic 2'};
+		/* Gather slots already sacrificed in other vows */
+		const usedItemSlots = new Set();
+		for(let i=0;i<STATE.vows.length;i++){
+			if(i===vowEditorIdx) continue;
+			const other = STATE.vows[i];
+			if(other && other.sacrifice === 'items') for(const sl of other.sacrificedItemSlots||[]) usedItemSlots.add(sl);
+		}
+		html += `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Sacrifice equipped gear (10/15/20/30 pts):</div>`;
+		html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+		for(const slot of EQUIP_SLOTS){
+			const itemId = STATE.equipment[slot];
+			const item = itemId ? ITEM_DB[itemId] : null;
+			const isSac = v.sacrificedItemSlots.includes(slot);
+			const takenByOther = usedItemSlots.has(slot);
+			if(!item){
+				html += `<div class="fx-chip" style="padding:4px 8px;font-size:10px;opacity:0.3;cursor:not-allowed">${SLOT_LABELS[slot]} (empty)</div>`;
+			} else if(takenByOther && !isSac){
+				html += `<div class="fx-chip" style="padding:4px 8px;font-size:10px;opacity:0.35;cursor:not-allowed;text-decoration:line-through" title="Already sacrificed">${item.icon} ${item.name}</div>`;
+			} else {
+				html += `<div class="fx-chip ${isSac?'active':''}" data-sacitem="${slot}" style="cursor:pointer;padding:4px 8px;font-size:10px">${item.icon} ${item.name}</div>`;
+			}
+		}
+		html += `</div>`;
+	}
+	// Points display        
+	html += `<div style="font-size:13px;color:#ffcc44;padding:6px 0;border-top:1px solid var(--border)">
+		Vow Points: <strong>${spent}</strong> / <strong>${pts}</strong> available (${remaining} remaining)</div>`;
+
+	// Single Boost Type Selection (pick ONE)
+	html += `<div style="font-size:12px;color:var(--muted);margin-bottom:2px">Choose ONE boost type to enhance:</div>`;
+	html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">`;
+	for(const [k,info] of Object.entries(VOW_BOOST_TYPES)){
+		const sel = v.boostType === k;
+		html += `<div class="fx-chip ${sel?'active':''}" data-boosttype="${k}" style="cursor:pointer;padding:4px 10px;font-size:11px" title="${info.desc}">${info.icon} ${info.label}</div>`;
+	}
+	html += `</div>`;
+
+	// Boost amount (all points into the chosen type)
+	if(v.boostType){
+		const info = VOW_BOOST_TYPES[v.boostType];
+		const amt = v.boostAmount || 0;
+		html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+			<span style="font-size:12px;color:#ffcc44;min-width:120px">${info.icon} ${info.label}: <strong>${amt}</strong> / ${pts}</span>
+			<input type="range" min="0" max="${pts}" step="1" value="${amt}" id="vowBoostAmt" style="flex:1"/>
+		</div>`;
+		html += `<div style="font-size:10px;color:#888;margin-bottom:4px">${info.desc}</div>`;
+
+		// Size bonus toggle (only when power is selected)
+		if(v.boostType === 'power'){
+			html += `<div style="margin-top:2px"><label style="font-size:11px;color:var(--muted);cursor:pointer">
+				<input type="checkbox" id="vowSizeBonus" ${v.sizeBonus?'checked':''}/> 🎨 +50% Spell Size Bonus (cosmetic fun!)
+			</label></div>`;
+		}
+	}
+
+	/* ── VOW UNLOCKS — spend 5pts each to unlock item-gated shapes/behaviors/effects ── */
+	if(!v.vowUnlocks) v.vowUnlocks = [];
+	const allLocked = [];
+	for(const [sh, itemId] of Object.entries(SHAPE_ITEM_REQ)){
+		const info = SHAPES[sh];
+		if(info) allLocked.push({type:'shape',key:sh,label:`${info.icon} ${info.label}`,itemId, tag:'shape:'+sh});
+	}
+	for(const [bh, itemId] of Object.entries(BEH_ITEM_REQ)){
+		const info = BEHAVIORS[bh];
+		if(info) allLocked.push({type:'behavior',key:bh,label:`${info.icon||'⚙️'} ${info.label}`,itemId, tag:'behavior:'+bh});
+	}
+	for(const [fx, itemId] of Object.entries(EFFECT_ITEM_REQ)){
+		const info = EFFECTS[fx];
+		if(info) allLocked.push({type:'effect',key:fx,label:`${info.icon} ${info.label}`,itemId, tag:'effect:'+fx});
+	}
+	/* Gather unlocks from OTHER vows to avoid duplicates */
+	const otherUnlocks = new Set();
+	for(let i=0;i<STATE.vows.length;i++){
+		if(i===vowEditorIdx) continue;
+		const other = STATE.vows[i];
+		if(other && other.vowUnlocks) for(const u of other.vowUnlocks) otherUnlocks.add(u);
+	}
+	if(allLocked.length){
+		html += `<div style="font-size:13px;color:var(--muted);margin-top:8px;border-top:1px solid var(--border);padding-top:6px">🔓 Unlock item-gated abilities (5 pts each):</div>`;
+		html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">`;
+		for(const lock of allLocked){
+			const isUnlocked = v.vowUnlocks.includes(lock.tag);
+			const takenByOther = otherUnlocks.has(lock.tag);
+			const alreadyHasItem = hasItemEquipped(lock.itemId);
+			if(alreadyHasItem){
+				html += `<div class="fx-chip" style="padding:3px 7px;font-size:10px;opacity:0.35;cursor:not-allowed" title="Already equipped via item">✅ ${lock.label}</div>`;
+			} else if(takenByOther && !isUnlocked){
+				html += `<div class="fx-chip" style="padding:3px 7px;font-size:10px;opacity:0.35;cursor:not-allowed;text-decoration:line-through" title="Unlocked in another vow">${lock.label}</div>`;
+			} else {
+				html += `<div class="fx-chip ${isUnlocked?'active':''}" data-vowunlock="${lock.tag}" style="cursor:pointer;padding:3px 7px;font-size:10px" title="${lock.type}: ${lock.key} (5pts)">${lock.label} <span style="font-size:9px;opacity:0.6">(5pt)</span></div>`;
+			}
+		}
+		html += `</div>`;
+	}
+
+	document.getElementById('vowModalBody').innerHTML = html;
+
+	// === EVENT LISTENERS ===
+
+	// Target spell slot selection
+	document.querySelectorAll('#vowModalBody [data-targetslot]').forEach(el => {
+		el.addEventListener('click', () => {
+			vowEditor.targetSlot = +el.dataset.targetslot;
+			renderVowEditor();
+		});
+	});
+
+	// Sacrifice type selection
+	document.querySelectorAll('#vowModalBody [data-sac]').forEach(el => {
+		el.addEventListener('click', () => {
+			vowEditor.sacrifice = el.dataset.sac;
+			if(vowEditor.sacrifice === 'health') vowEditor.amount = 30;
+			else if(vowEditor.sacrifice === 'maxMana') vowEditor.amount = 300;
+			else if(vowEditor.sacrifice === 'effects') vowEditor.sacrificedEffects = vowEditor.sacrificedEffects || [];
+			else if(vowEditor.sacrifice === 'shapes') vowEditor.sacrificedShapes = vowEditor.sacrificedShapes || [];
+			else vowEditor.slots = vowEditor.slots || [];
+			renderVowEditor();
+		});
+	});
+
+	// Amount slider
+	const amtEl = document.getElementById('vowAmount');
+	if(amtEl){
+		amtEl.addEventListener('input', () => {
+			vowEditor.amount = +amtEl.value;
+			const newPts = calcVowPoints(vowEditor, editingVowSlot);
+			if((vowEditor.boostAmount||0) > newPts) vowEditor.boostAmount = newPts;
+			renderVowEditor();
+		});
+	}
+
+	// Effect sacrifice toggles
+	document.querySelectorAll('#vowModalBody [data-sacfx]').forEach(el => {
+		el.addEventListener('click', () => {
+			const fx = el.dataset.sacfx;
+			if(!vowEditor.sacrificedEffects) vowEditor.sacrificedEffects = [];
+			const idx = vowEditor.sacrificedEffects.indexOf(fx);
+			if(idx >= 0) vowEditor.sacrificedEffects.splice(idx, 1);
+			else vowEditor.sacrificedEffects.push(fx);
+			const newPts = calcVowPoints(vowEditor, editingVowSlot);
+			if((vowEditor.boostAmount||0) > newPts) vowEditor.boostAmount = newPts;
+			renderVowEditor();
+		});
+	});
+
+	// Shape sacrifice toggles
+	document.querySelectorAll('#vowModalBody [data-sacshape]').forEach(el => {
+		el.addEventListener('click', () => {
+			const sh = el.dataset.sacshape;
+			if(!vowEditor.sacrificedShapes) vowEditor.sacrificedShapes = [];
+			const idx = vowEditor.sacrificedShapes.indexOf(sh);
+			if(idx >= 0) vowEditor.sacrificedShapes.splice(idx, 1);
+			else vowEditor.sacrificedShapes.push(sh);
+			const newPts = calcVowPoints(vowEditor, editingVowSlot);
+			if((vowEditor.boostAmount||0) > newPts) vowEditor.boostAmount = newPts;
+			renderVowEditor();
+		});
+	});
+
+	// Item sacrifice toggles
+	document.querySelectorAll('#vowModalBody [data-sacitem]').forEach(el => {
+		el.addEventListener('click', () => {
+			const slot = el.dataset.sacitem;
+			if(!vowEditor.sacrificedItemSlots) vowEditor.sacrificedItemSlots = [];
+			const idx = vowEditor.sacrificedItemSlots.indexOf(slot);
+			if(idx >= 0) vowEditor.sacrificedItemSlots.splice(idx, 1);
+			else vowEditor.sacrificedItemSlots.push(slot);
+			const newPts = calcVowPoints(vowEditor, editingVowSlot);
+			if((vowEditor.boostAmount||0) > newPts) vowEditor.boostAmount = newPts;
+			renderVowEditor();
+		});
+	});
+
+	// Spell slot toggles (respect cross-vow dedup)
+	document.querySelectorAll('#vowModalBody [data-lockslot]').forEach(el => {
+		el.addEventListener('click', () => {
+			const s = +el.dataset.lockslot;
+			if(!vowEditor.slots) vowEditor.slots = [];
+			const idx = vowEditor.slots.indexOf(s);
+			if(idx >= 0) vowEditor.slots.splice(idx, 1);
+			else vowEditor.slots.push(s);
+			/* Clamp boostAmount to new pts total */
+			const newPts = calcVowPoints(vowEditor, editingVowSlot);
+			if((vowEditor.boostAmount||0) > newPts) vowEditor.boostAmount = newPts;
+			renderVowEditor();
+		});
+	});
+
+	// Boost type selection (pick one)
+	document.querySelectorAll('#vowModalBody [data-boosttype]').forEach(el => {
+		el.addEventListener('click', () => {
+			vowEditor.boostType = el.dataset.boosttype;
+			if(vowEditor.boostType !== 'power') vowEditor.sizeBonus = false;
+			renderVowEditor();
+		});
+	});
+
+	// Boost amount slider
+	const boostAmtEl = document.getElementById('vowBoostAmt');
+	if(boostAmtEl){
+		boostAmtEl.addEventListener('input', () => {
+			vowEditor.boostAmount = +boostAmtEl.value;
+			renderVowEditor();
+		});
+	}
+
+	// Size bonus checkbox
+	const sizeEl = document.getElementById('vowSizeBonus');
+	if(sizeEl){
+		sizeEl.addEventListener('change', () => {
+			vowEditor.sizeBonus = sizeEl.checked;
+		});
+	}
+
+	// Vow unlock toggles (5pts each to unlock item-gated abilities)
+	document.querySelectorAll('#vowModalBody [data-vowunlock]').forEach(el => {
+		el.addEventListener('click', () => {
+			const tag = el.dataset.vowunlock;
+			if(!vowEditor.vowUnlocks) vowEditor.vowUnlocks = [];
+			const idx = vowEditor.vowUnlocks.indexOf(tag);
+			if(idx >= 0) vowEditor.vowUnlocks.splice(idx, 1);
+			else vowEditor.vowUnlocks.push(tag);
+			renderVowEditor();
+		});
+	});
+}
+
+// Vow modal buttons
+document.getElementById('vowModalClose').addEventListener('click', () => { document.getElementById('vowModal').style.display='none'; });
+document.getElementById('vowCancelBtn').addEventListener('click', () => { document.getElementById('vowModal').style.display='none'; });
+document.getElementById('vowClearBtn').addEventListener('click', () => {
+	STATE.vows[editingVowSlot] = null;
+	saveState();
+	renderVowSlots();
+	renderSpellSlots();
+	document.getElementById('vowModal').style.display='none';
+});
+document.getElementById('vowSaveBtn').addEventListener('click', () => {
+	const pts = calcVowPoints(vowEditor, editingVowSlot);
+	const spent = calcVowSpent(vowEditor);
+	if(spent > pts){ alert('Not enough vow points! Remove some boosts or sacrifice more.'); return; }
+	/* Ensure new format fields */
+	if(vowEditor.boosts) delete vowEditor.boosts;
+	if(vowEditor.boostType == null) vowEditor.boostType = 'power';
+	if(vowEditor.boostAmount == null) vowEditor.boostAmount = 0;
+	if(vowEditor.sizeBonus == null) vowEditor.sizeBonus = false;
+	STATE.vows[editingVowSlot] = vowEditor;
+	saveState();
+	renderVowSlots();
+	renderSpellSlots();
+	document.getElementById('vowModal').style.display='none';
+});
+
+/* =============================================================
    SPELL BUILDER
    ============================================================= */
 function newPhase(){
@@ -907,7 +2051,15 @@ function newPhase(){
 		aroundSelfCount:4, aroundSelfRadius:50,
 		chainStunTime:0,
 		rainHeight:150,
+		groundRadius:200, groundAutoLock:true,
+		summonRange:0, summonHealth:0, summonSpeed:0, summonClose:false,
 		effectPower:1, effectDuration:1,
+		randomDelayMax:0.5,
+		afterHitEffect:'none', polygonSides:6,
+		noHit:false, vortexDuration:1,
+		holdDown:false,
+		// Domain expansion properties
+		domainElement:'burn', domainColor:'#ff4400', domainPattern:'flames',
 	};
 }
 
@@ -996,7 +2148,8 @@ document.getElementById('importSpellBtn').addEventListener('click', () => {
 });
 
 document.getElementById('addPhaseBtn').addEventListener('click', () => {
-	const maxPhases = (editingSlot === 9) ? 5 : 3;
+	const vowPhaseBonus = calcVowBoostsForSlot(editingSlot).phases || 0;
+	const maxPhases = ((editingSlot === 9) ? 5 : 3) + vowPhaseBonus;
 	if(builderSpell.phases.length >= maxPhases) return;
 	builderSpell.phases.push(newPhase());
 	renderBuilder();
@@ -1006,12 +2159,24 @@ function renderBuilder(){
 	const stats = computeStats();
 	const baseCost = calcSpellManaCost(builderSpell);
 	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-	const cost = Math.round(baseCost * controlDiscount);
-	const discountPct = Math.round((1 - controlDiscount) * 100);
+	const _vbBuilder = calcVowBoostsForSlot(editingSlot);
+	const vowManaMult = Math.max(0.1, 1 - (_vbBuilder.manaCost||0) * 0.05);
+	const cost = Math.round(baseCost * controlDiscount * vowManaMult);
+	const totalDiscountPct = Math.round((1 - controlDiscount * vowManaMult) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const isUlt = (editingSlot === 9);
-	const maxPhases = isUlt ? 5 : 3;
+	const vowPhaseBonus = _vbBuilder.phases || 0;
+	const maxPhases = (isUlt ? 5 : 3) + vowPhaseBonus;
+
+	/* Gather vow-locked effects & shapes */
+	const vowLockedEffects = new Set();
+	const vowLockedShapes  = new Set();
+	for(const v of STATE.vows){
+		if(!v) continue;
+		if(v.sacrifice === 'effects') for(const fx of v.sacrificedEffects||[]) vowLockedEffects.add(fx);
+		if(v.sacrifice === 'shapes')  for(const sh of v.sacrificedShapes||[])  vowLockedShapes.add(sh);
+	}
 
 	// meta
 	document.getElementById('spellMeta').innerHTML = `
@@ -1019,7 +2184,7 @@ function renderBuilder(){
 			<label>${isUlt ? '⚡ Ultimate Name' : 'Spell Name'}</label>
 			<input type="text" id="spellNameInput" value="${escHtml(builderSpell.name)}" maxlength="30"/>
 		</div>
-		${isUlt ? `<div class="meta-chip" style="background:rgba(255,170,0,.15);color:#ffaa00">⚡ ULTIMATE — Costs Total Mana (${cost*10}⚡)</div>` : `<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b>${discountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${discountPct}% from Control)</span>` : ''}</div>`}
+		${isUlt ? `<div class="meta-chip" style="background:rgba(255,170,0,.15);color:#ffaa00">⚡ ULTIMATE — Costs Total Mana (${cost*10}⚡)</div>` : `<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}% discount)</span>` : ''}</div>`}
 		<div class="meta-chip">Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}</div>
 		<div class="meta-chip">Phases: <b>${builderSpell.phases.length}</b>/${maxPhases}</div>
 		${isUlt ? '<div class="meta-chip" style="color:#ffaa00">Max Power: 10 · Larger Size · Longer Effects</div>' : ''}
@@ -1041,6 +2206,18 @@ function renderBuilder(){
 	const wrap = document.getElementById('phasesWrap');
 	wrap.innerHTML = '';
 	builderSpell.phases.forEach((ph, idx) => {
+		/* Auto-strip vow-locked effects & shapes from existing phases */
+		if(vowLockedEffects.size) ph.effects = ph.effects.filter(fx => !vowLockedEffects.has(fx));
+		/* Auto-strip item-locked effects from existing phases */
+		ph.effects = ph.effects.filter(fx => !EFFECT_ITEM_REQ[fx] || hasItemEquipped(EFFECT_ITEM_REQ[fx]));
+		if(vowLockedShapes.has(ph.shape) || (SHAPE_ITEM_REQ[ph.shape] && !hasItemEquipped(SHAPE_ITEM_REQ[ph.shape]))){
+			const firstAvail = Object.keys(SHAPES).find(k => !vowLockedShapes.has(k) && isShapeUnlocked(k));
+			if(firstAvail) ph.shape = firstAvail;
+		}
+		if(BEH_ITEM_REQ[ph.behavior] && !hasItemEquipped(BEH_ITEM_REQ[ph.behavior])){
+			const firstAvailBeh = Object.keys(BEHAVIORS).find(k => isBehaviorUnlocked(k));
+			if(firstAvailBeh) ph.behavior = firstAvailBeh;
+		}
 		const card = document.createElement('div');
 		card.className = 'phase-card';
 		const isLast = idx === builderSpell.phases.length - 1;
@@ -1054,24 +2231,78 @@ function renderBuilder(){
 		// Shape
 		html += `<div class="prow"><label>Shape</label><select data-idx="${idx}" data-prop="shape">`;
 		for(const [k,v] of Object.entries(SHAPES)){
-			html += `<option value="${k}" ${ph.shape===k?'selected':''}>${v.icon} ${v.label} (ctrl ${v.controlReq}+)</option>`;
+			const shLocked = vowLockedShapes.has(k);
+			const itemReq = SHAPE_ITEM_REQ[k];
+			const itemLocked = itemReq && !hasItemEquipped(itemReq);
+			const locked = shLocked || itemLocked;
+			const lockLabel = shLocked ? ' 🔒 vow' : (itemLocked ? ` 🔒 ${ITEM_DB[itemReq]?.name||itemReq}` : '');
+			html += `<option value="${k}" ${ph.shape===k?'selected':''} ${locked?'disabled':''}>${v.icon} ${v.label} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${lockLabel}  </option>`;
 		}
 		html += `</select></div>`;
+
+		// Check if this is a domain phase (phase 1 with domain behavior)
+		const isDomainPhase = idx === 0 && ph.behavior === 'domain';
+		// Check if spell has domain (affects subsequent phases)
+		const spellHasDomain = builderSpell.phases[0]?.behavior === 'domain';
 
 		// Behavior
 		html += `<div class="prow"><label>Behavior</label><select data-idx="${idx}" data-prop="behavior">`;
 		for(const [k,v] of Object.entries(BEHAVIORS)){
-			html += `<option value="${k}" ${ph.behavior===k?'selected':''}>${v.label} (ctrl ${v.controlReq}+)</option>`;
+			const behItemReq = BEH_ITEM_REQ[k];
+			const behItemLocked = behItemReq && !hasItemEquipped(behItemReq);
+			// Domain only available for ultimates on phase 1
+			const domainLocked = v.ultimateOnly && (!isUlt || idx > 0);
+			// If spell has domain and this is phase 2+, behavior is forced to homing
+			const forcedHoming = spellHasDomain && idx > 0 && k !== 'homing';
+			const locked = behItemLocked || domainLocked || forcedHoming;
+			let lockLabel = behItemLocked ? ` 🔒 ${ITEM_DB[behItemReq]?.name||behItemReq}` : '';
+			if(domainLocked && !behItemLocked) lockLabel = ' 🔒 Ult Phase 1 Only';
+			if(forcedHoming && !behItemLocked) lockLabel = ' 🔒 Domain forces Homing';
+			html += `<option value="${k}" ${ph.behavior===k?'selected':''} ${locked?'disabled':''}>${v.label} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${lockLabel}</option>`;
 		}
 		html += `</select></div>`;
 
-		// sliders: width, height, speed, duration, power
+		// Domain-specific settings (phase 1 only)
+		if(isDomainPhase){
+			if(!ph.domainElement) ph.domainElement = 'burn';
+			if(!ph.domainColor) ph.domainColor = '#ff4400';
+			if(!ph.domainPattern) ph.domainPattern = 'flames';
+			html += `<div class="prow" style="border-top:2px solid #ffaa00;padding-top:8px;margin-top:8px"><label style="color:#ffaa00;font-weight:bold">⚡ DOMAIN EXPANSION ⚡</label></div>`;
+			html += `<div class="prow" style="color:#aaa;font-size:.85em">Creates massive zone larger than screen. Next phases attack from edges with homing. Spells with same element get +50% damage while active.</div>`;
+			html += `<div class="prow"><label>Domain Element</label><select data-idx="${idx}" data-prop="domainElement">`;
+			for(const el of DOMAIN_ELEMENTS){
+				const fx = EFFECTS[el];
+				html += `<option value="${el}" ${ph.domainElement===el?'selected':''}>${fx.icon} ${fx.label}</option>`;
+			}
+			html += `</select></div>`;
+			html += `<div class="prow"><label>Domain Color</label><input type="color" value="${ph.domainColor}" data-idx="${idx}" data-prop="domainColor"/></div>`;
+			html += `<div class="prow"><label>Visual Pattern</label><select data-idx="${idx}" data-prop="domainPattern">
+				<option value="flames" ${ph.domainPattern==='flames'?'selected':''}>🔥 Flames</option>
+				<option value="crystals" ${ph.domainPattern==='crystals'?'selected':''}>❄️ Crystals</option>
+				<option value="skulls" ${ph.domainPattern==='skulls'?'selected':''}>☠️ Skulls</option>
+				<option value="lightning" ${ph.domainPattern==='lightning'?'selected':''}>⚡ Lightning</option>
+				<option value="void" ${ph.domainPattern==='void'?'selected':''}>🌑 Void</option>
+				<option value="stars" ${ph.domainPattern==='stars'?'selected':''}>⭐ Stars</option>
+			</select></div>`;
+			// Skip normal sliders for domain phase - add domain-specific ones
+			html += `<div class="prow"><label>Duration: ${ph.duration.toFixed(1)}s</label>
+				<div class="range-row">
+					<input type="range" min="3" max="15" step="0.5" value="${ph.duration}" data-idx="${idx}" data-prop="duration"/>
+					<span class="range-val">${ph.duration.toFixed(1)}s</span>
+				</div></div>`;
+		}
+
+		// sliders: width, height, speed, duration, power - skip for domain phase 1
+		if(!isDomainPhase){
+		const isBigShape = ph.shape === 'solidify' || ph.shape === 'wall';
+		// Domain spells cap power at 10 max on phase 2+
+		const domainPowerCap = spellHasDomain && idx > 0;
 		const sliders = [
-			{ prop:'width',    label:'Width',    min:0.3, max:isUlt?8:3, step:0.1 },
-			{ prop:'height',   label:'Height',   min:0.3, max:isUlt?8:3, step:0.1 },
+			{ prop:'width',    label:'Width',    min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
+			{ prop:'height',   label:'Height',   min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
 			{ prop:'speed',    label:'Speed',    min:0.3, max:isUlt?5:3, step:0.1 },
-			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.shape==='beam'||ph.shape==='solidify'?30:isUlt?10:5), step:0.1 },
-			{ prop:'power',    label:'Power',    min:0.5, max:isUlt?10:5, step:0.1 },
+			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.behavior==='ground'||ph.shape==='beam'||ph.shape==='solidify'?30:isUlt?10:5), step:0.1 },
+			{ prop:'power',    label:'Power',    min:0.5, max:domainPowerCap?10:(isUlt?20:10), step:0.1 },
 		];
 		for(const sl of sliders){
 			html += `<div class="prow"><label>${sl.label}: ${ph[sl.prop].toFixed(1)}</label>
@@ -1132,13 +2363,58 @@ function renderBuilder(){
 				<input type="range" min="0.5" max="5" step="0.1" value="${ph.orbitDuration}" data-idx="${idx}" data-prop="orbitDuration"/></div>`;
 		}
 
-		// effects
-		html += `<div class="prow"><label>Effects</label><div class="fx-grid">`;
-		for(const [k,v] of Object.entries(EFFECTS)){
-			const active = ph.effects.includes(k);
-			html += `<div class="fx-chip ${active?'active':''}" data-idx="${idx}" data-fx="${k}" title="${v.desc} (ctrl ${v.controlReq}+)">${v.icon} ${v.label}</div>`;
+		// ground-specific settings (radius)
+		if(ph.behavior === 'ground'){
+			if(!ph.groundRadius) ph.groundRadius = 200;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Ground Settings</label></div>`;
+			html += `<div class="prow"><label>Auto Lock-on</label><select data-idx="${idx}" data-prop="groundAutoLock">
+				<option value="true" ${ph.groundAutoLock!==false?'selected':''}>Yes — locks to nearest enemy</option>
+				<option value="false" ${ph.groundAutoLock===false?'selected':''}>No — erupts at your feet</option>
+			</select></div>`;
+			html += `<div class="prow"><label>Lock-on Radius: ${ph.groundRadius}px</label>
+				<input type="range" min="100" max="800" step="50" value="${ph.groundRadius}" data-idx="${idx}" data-prop="groundRadius"/></div>`;
 		}
-		html += `</div></div>`;
+
+		// summon-specific settings (range, health, speed)
+		if(ph.shape === 'summon'){
+			if(ph.summonRange==null) ph.summonRange = 0;
+			if(ph.summonHealth==null) ph.summonHealth = 0;
+			if(ph.summonSpeed==null) ph.summonSpeed = 0;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Summon Upgrades</label></div>`;
+			html += `<div class="prow"><label>+Range: ${ph.summonRange} (${600+ph.summonRange*100}px)</label>
+				<input type="range" min="0" max="10" step="1" value="${ph.summonRange}" data-idx="${idx}" data-prop="summonRange"/></div>`;
+			html += `<div class="prow"><label>+Health: ${ph.summonHealth} (${40+ph.summonHealth*10} HP)</label>
+				<input type="range" min="0" max="10" step="1" value="${ph.summonHealth}" data-idx="${idx}" data-prop="summonHealth"/></div>`;
+			html += `<div class="prow"><label>+Speed: ${ph.summonSpeed} (${(2.5+ph.summonSpeed*0.5).toFixed(1)})</label>
+				<input type="range" min="0" max="10" step="1" value="${ph.summonSpeed}" data-idx="${idx}" data-prop="summonSpeed"/></div>`;
+			html += `<div class="prow"><label>Close Range</label><select data-idx="${idx}" data-prop="summonClose">
+				<option value="false" ${!ph.summonClose?'selected':''}>No — stay at range</option>
+				<option value="true" ${ph.summonClose?'selected':''}>Yes — rush enemies</option>
+			</select></div>`;
+		}
+		} // end if(!isDomainPhase)
+
+		// effects — grouped by category (domain phase only shows domain element, already handled above)
+		if(!isDomainPhase){
+		html += `<div class="prow"><label>Effects</label></div>`;
+		const catOrder = ['elemental','movement','cc','support','buff','utility','store'];
+		for(const cat of catOrder){
+			const catInfo = EFFECT_CATEGORIES[cat];
+			const catEffects = Object.entries(EFFECTS).filter(([k,v])=>v.category===cat);
+			if(!catEffects.length) continue;
+			html += `<div class="prow" style="margin-top:4px"><label style="font-size:.85em;color:var(--accent2)">${catInfo.label}${catInfo.exclusive?' <span style="color:#ff6b6b;font-size:.8em"> (pick one)</span>':''}</label><div class="fx-grid">`;
+			for(const [k,v] of catEffects){
+				const active = ph.effects.includes(k);
+				const vowLocked = vowLockedEffects.has(k);
+				const fxItemReq = EFFECT_ITEM_REQ[k];
+				const fxItemLocked = fxItemReq && !hasItemEquipped(fxItemReq);
+				// check if another exclusive effect in this category is already active
+				const blocked = vowLocked || fxItemLocked || (!active && catInfo.exclusive && catEffects.some(([k2])=>k2!==k && ph.effects.includes(k2)));
+				const lockLabel = vowLocked ? ' 🔒 vow' : (fxItemLocked ? ` 🔒 ${ITEM_DB[fxItemReq]?.name||fxItemReq}` : '');
+				html += `<div class="fx-chip ${active&&!vowLocked&&!fxItemLocked?'active':''} ${blocked?'blocked':''}" data-idx="${idx}" data-fx="${k}" data-cat="${cat}" title="${v.desc} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${vowLocked?' — sacrificed by binding vow' : (fxItemLocked ? ' — requires '+(ITEM_DB[fxItemReq]?.name||fxItemReq) : (blocked ? ' — already have one from this category' : ''))}">${v.icon} ${v.label}${v.dmgNote?' <span style="font-size:9px;color:#ff9;opacity:0.7">['+v.dmgNote+']</span>' : ''}${lockLabel}</div>`;
+			}
+			html += `</div></div>`;
+		}
 
 		// effect intensity settings (for burn/poison/freeze/stun)
 		const tunableEffects = ['burn','poison','freeze','stun'];
@@ -1146,11 +2422,28 @@ function renderBuilder(){
 		if(hasTunable){
 			if(!ph.effectPower) ph.effectPower = 1;
 			if(!ph.effectDuration) ph.effectDuration = 1;
+			const onlyBurnPoison = ph.effects.filter(fx => tunableEffects.includes(fx)).every(fx => fx==='burn'||fx==='poison');
 			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Effect Intensity</label></div>`;
-			html += `<div class="prow"><label>Effect Power: ${ph.effectPower.toFixed(1)}x</label>
-				<input type="range" min="0.5" max="3" step="0.1" value="${ph.effectPower}" data-idx="${idx}" data-prop="effectPower"/></div>`;
+			if(!onlyBurnPoison){
+				html += `<div class="prow"><label>Effect Power: ${ph.effectPower.toFixed(1)}x</label>
+					<input type="range" min="0.5" max="3" step="0.1" value="${ph.effectPower}" data-idx="${idx}" data-prop="effectPower"/></div>`;
+			} else {
+				html += `<div class="prow"><label style="color:#888">Effect Power: N/A (burn/poison use hit damage)</label></div>`;
+			}
 			html += `<div class="prow"><label>Effect Duration: ${ph.effectDuration.toFixed(1)}x</label>
 				<input type="range" min="0.5" max="3" step="0.1" value="${ph.effectDuration}" data-idx="${idx}" data-prop="effectDuration"/></div>`;
+		}
+
+		// damage store percentage (if damageStore effect is active)
+		if(ph.effects.includes('damageStore')){
+			if(ph.damageStorePercent == null) ph.damageStorePercent = 0.5;
+			const dsPct = Math.round(ph.damageStorePercent * 100);
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Damage Store Settings</label></div>`;
+			html += `<div class="prow"><label>Store Percent: ${dsPct}%</label>
+				<div class="range-row">
+					<input type="range" min="0.1" max="1" step="0.05" value="${ph.damageStorePercent}" data-idx="${idx}" data-prop="damageStorePercent"/>
+					<span class="range-val">${dsPct}%</span>
+				</div></div>`;
 		}
 
 		// timed release settings (if timedRelease effect is active)
@@ -1176,14 +2469,40 @@ function renderBuilder(){
 				</div></div>`;
 			html += `<div class="prow"><label>Repeat Casts: ${pfr}</label>
 				<div class="range-row">
-					<input type="range" min="1" max="5" step="1" value="${pfr}" data-idx="${idx}" data-prop="phaseForkRepeats"/>
+					<input type="range" min="1" max="25" step="1" value="${pfr}" data-idx="${idx}" data-prop="phaseForkRepeats"/>
 					<span class="range-val">${pfr}</span>
 				</div></div>`;
 		}
 
-		// color
+		// random delay settings
+		if(ph.effects.includes('randomDelay')){
+			const rdMax = ph.randomDelayMax != null ? ph.randomDelayMax : 0.5;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Random Delay Settings</label></div>`;
+			html += `<div class="prow"><label>Max Delay: ${rdMax.toFixed(1)}s</label>
+				<div class="range-row">
+					<input type="range" min="0.1" max="3" step="0.1" value="${rdMax}" data-idx="${idx}" data-prop="randomDelayMax"/>
+					<span class="range-val">${rdMax.toFixed(1)}</span>
+				</div></div>`;
+		}
+		} // end if(!isDomainPhase) for effects
+
+		// color (available for all phases including domain)
 		html += `<div class="prow"><label>Color</label>
 			<input type="color" value="${ph.color}" data-idx="${idx}" data-prop="color"/></div>`;
+
+		// These options don't apply to domain phase 1
+		if(!isDomainPhase){
+		// noHit toggle — spell doesn't damage enemies/players
+		html += `<div class="prow"><label>No Hit (Harmless)</label><select data-idx="${idx}" data-prop="noHit">
+			<option value="false" ${!ph.noHit?'selected':''}>Off — deals damage normally</option>
+			<option value="true" ${ph.noHit?'selected':''}>On — visual only, no damage</option>
+		</select></div>`;
+
+		// holdDown toggle — hold projectile at player before releasing
+		html += `<div class="prow"><label>Hold Down</label><select data-idx="${idx}" data-prop="holdDown">
+			<option value="false" ${!ph.holdDown?'selected':''}>Off — fires immediately</option>
+			<option value="true" ${ph.holdDown?'selected':''}>On — hold before throwing</option>
+		</select></div>`;
 
 		// trail
 		html += `<div class="prow"><label>Trail</label><select data-idx="${idx}" data-prop="trail">`;
@@ -1191,6 +2510,37 @@ function renderBuilder(){
 			html += `<option value="${t}" ${ph.trail===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`;
 		}
 		html += `</select></div>`;
+
+		// after-hit effect
+		html += `<div class="prow"><label>After-Hit Effect</label><select data-idx="${idx}" data-prop="afterHitEffect">`;
+		for(const [k,v] of Object.entries(AFTER_HIT_EFFECTS)){
+			const sel = (ph.afterHitEffect||'none')===k ? 'selected' : '';
+			html += `<option value="${k}" ${sel}>${v.icon} ${v.label}</option>`;
+		}
+		html += `</select></div>`;
+
+		// polygon-specific settings
+		if(ph.shape === 'polygon'){
+			if(!ph.polygonSides) ph.polygonSides = 6;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Polygon Settings</label></div>`;
+			html += `<div class="prow"><label>Sides: ${ph.polygonSides}</label>
+				<div class="range-row">
+					<input type="range" min="3" max="12" step="1" value="${ph.polygonSides}" data-idx="${idx}" data-prop="polygonSides"/>
+					<span class="range-val">${ph.polygonSides}</span>
+				</div></div>`;
+		}
+
+		// vortex-specific settings
+		if(ph.shape === 'vortex'){
+			const vDur = ph.vortexDuration != null ? ph.vortexDuration : 1;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Vortex Settings</label></div>`;
+			html += `<div class="prow"><label>Duration: ${vDur.toFixed(1)}x</label>
+				<div class="range-row">
+					<input type="range" min="0.5" max="4" step="0.5" value="${vDur}" data-idx="${idx}" data-prop="vortexDuration"/>
+					<span class="range-val">${vDur.toFixed(1)}x</span>
+				</div></div>`;
+		}
+		} // end if(!isDomainPhase) for noHit/trail/etc
 
 		// next trigger (not for last phase)
 		if(!isLast){
@@ -1205,7 +2555,7 @@ function renderBuilder(){
 
 		card.innerHTML = html;
 		wrap.appendChild(card);
-	});
+	}
 
 	// wire up events in phase cards
 	wrap.querySelectorAll('.remove-phase').forEach(btn => {
@@ -1216,7 +2566,11 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('select[data-prop], input[type=color][data-prop]').forEach(el => {
 		el.addEventListener('change', () => {
-			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = el.value;
+			const prop = el.dataset.prop;
+			let val = el.value;
+			if(val === 'true') val = true;
+			else if(val === 'false') val = false;
+			builderSpell.phases[+el.dataset.idx][prop] = val;
 			renderBuilder();
 		});
 	});
@@ -1224,20 +2578,11 @@ function renderBuilder(){
 		el.addEventListener('input', () => {
 			const val = parseFloat(el.value);
 			const prop = el.dataset.prop;
-			if (prop === 'aroundSelfCount') {
-				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
-				renderBuilder(); return;
-			}
-			if (prop === 'aroundSelfRadius') {
-				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
-				renderBuilder(); return;
-			}
-			if (prop === 'rainHeight') {
+			if (prop === 'aroundSelfCount' || prop === 'aroundSelfRadius' || prop === 'rainHeight' || prop === 'polygonSides') {
 				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
 				renderBuilder(); return;
 			}
 			builderSpell.phases[+el.dataset.idx][prop] = val;
-			// update label & val span
 			const row = el.closest('.prow');
 			const valSpan = row.querySelector('.range-val');
 			if(valSpan) valSpan.textContent = val.toFixed ? val.toFixed(1) : val;
@@ -1247,7 +2592,6 @@ function renderBuilder(){
 				const niceLabel = prop.charAt(0).toUpperCase() + prop.slice(1).replace(/([A-Z])/g,' $1');
 				lbl.textContent = `${niceLabel}: ${typeof val==='number'&&val%1!==0?val.toFixed(1):val}${prop.includes('uration')?'s':prop==='spread'?'°':''}`;
 			}
-			// lazy re-render meta only
 			updateBuilderMeta();
 		});
 	});
@@ -1259,10 +2603,24 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('.fx-chip').forEach(el => {
 		el.addEventListener('click', () => {
+			if(el.classList.contains('blocked')) return;
 			const ph = builderSpell.phases[+el.dataset.idx];
 			const fx = el.dataset.fx;
 			const i = ph.effects.indexOf(fx);
-			if(i >= 0) ph.effects.splice(i,1); else ph.effects.push(fx);
+			if(i >= 0){
+				ph.effects.splice(i,1);
+			} else {
+				const cat = EFFECTS[fx]?.category;
+				if(cat && EFFECT_CATEGORIES[cat]?.exclusive){
+					for(const [k2,v2] of Object.entries(EFFECTS)){
+						if(v2.category===cat && k2!==fx){
+							const j = ph.effects.indexOf(k2);
+							if(j>=0) ph.effects.splice(j,1);
+						}
+					}
+				}
+				ph.effects.push(fx);
+			}
 			renderBuilder();
 		});
 	});
@@ -1272,13 +2630,15 @@ function updateBuilderMeta(){
 	const stats = computeStats();
 	const baseCost = calcSpellManaCost(builderSpell);
 	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-	const cost = Math.round(baseCost * controlDiscount);
-	const discountPct = Math.round((1 - controlDiscount) * 100);
+	const _vbMeta = calcVowBoostsForSlot(editingSlot);
+	const vowManaMeta = Math.max(0.1, 1 - (_vbMeta.manaCost||0) * 0.05);
+	const cost = Math.round(baseCost * controlDiscount * vowManaMeta);
+	const totalDiscountPct = Math.round((1 - controlDiscount * vowManaMeta) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const meta = document.getElementById('spellMeta');
 	const chips = meta.querySelectorAll('.meta-chip');
-	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>${discountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${discountPct}% from Control)</span>` : ''}`;
+	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}% discount)</span>` : ''}`;
 	if(chips[1]) chips[1].innerHTML = `Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}`;
 	if(chips[2]) {
 		let total = 1;
@@ -1312,8 +2672,8 @@ function generateSpellDescription(spell){
 			case 'boomerang':   s += 'that returns to you'; break;
 			case 'groundSurge': s += 'surging along the ground'; break;
 			case 'orbit':       s += `orbiting you for ${ph.orbitDuration.toFixed(1)}s then launching`; break;
-			case 'spiral':      s += 'spiraling outward'; break;
 			case 'rain':        s += 'raining from above'; break;
+			case 'ground':      s += 'erupting from the ground'; break;
 			case 'stationary':  s += 'placed at your position'; break;
 			case 'selfCast':    s += 'conjured at your feet'; break;
 		}
@@ -1482,13 +2842,6 @@ function drawPreview(){
 					}
 					break;
 				}
-				case 'spiral': {
-					const angle = localT * Math.PI * 4 + ci * (Math.PI * 2 / ph.count);
-					const r = localT * 120;
-					px = cx + Math.cos(angle) * r + (tx - cx) * localT * 0.3;
-					py = cy - 12 + Math.sin(angle) * r * 0.3;
-					break;
-				}
 				case 'rain': {
 					const spread2 = (tx - cx) * 0.6;
 					const startX = cx + spread2 * 0.3 + ci * (spread2 / Math.max(ph.count-1,1));
@@ -1503,11 +2856,59 @@ function drawPreview(){
 					size *= 0.8;
 					break;
 				}
+				case 'ground': {
+					px = tx;
+					const rise = Math.min(localT * 3, 1);
+					py = groundY - rise * 40 * ph.height;
+					const pulse3 = 1 + Math.sin(localT * Math.PI * 6) * 0.15;
+					size *= pulse3;
+					break;
+				}
 				case 'selfCast': {
 					px = cx;
-					py = groundY - 6;
+					py = cy - 12;
 					const pulse2 = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
 					size *= pulse2;
+					break;
+				}
+				case 'aroundSelf': {
+					const asCount = ph.aroundSelfCount || 4;
+					const asR = (ph.aroundSelfRadius || 50) * 0.4;
+					const asAngle = (ci / asCount) * Math.PI * 2 + previewTime * 2;
+					px = cx + Math.cos(asAngle) * asR;
+					py = cy - 12 + Math.sin(asAngle) * asR * 0.5;
+					break;
+				}
+				case 'underfoot': {
+					px = cx;
+					py = groundY - 6;
+					const pulse4 = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
+					size *= pulse4;
+					break;
+				}
+				case 'barrage': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const bSpread = 60 * (ph.height || 1);
+					px = originX + (tx - originX) * localT;
+					py = cy - 12 + (ci - (ph.count-1)/2) * (bSpread / Math.max(ph.count-1,1));
+					break;
+				}
+				case 'zigzag': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const originY2 = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
+					px = originX + (tx - originX) * localT;
+					py = originY2 + Math.sin(localT * 20) * 15 + (ty - 12 - originY2) * localT;
+					break;
+				}
+				case 'teleport': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const blinks = 4;
+					const blinkPhase = localT * blinks;
+					const blinkFrac = blinkPhase - Math.floor(blinkPhase);
+					const blinkProg = Math.floor(blinkPhase) / blinks;
+					px = originX + (tx - originX) * blinkProg;
+					py = cy - 12;
+					pctx.globalAlpha = blinkFrac < 0.3 ? 0.3 : 0.9;
 					break;
 				}
 				case 'stationary':
@@ -1604,6 +3005,21 @@ function drawPreview(){
 					pctx.fillRect(px - sw/2 + 2, py - sht/2 + 2, sw - 4, 3);
 					break;
 				}
+				case 'spike': {
+					pctx.save();
+					pctx.translate(px, py);
+					const spikeAng = Math.atan2(py - (cy - 12), px - (pi===0?cx+16:(cx+tx)/2)) || 0;
+					pctx.rotate(spikeAng);
+					pctx.beginPath();
+					pctx.moveTo(size * 2, 0);
+					pctx.lineTo(-size, -size * 0.8);
+					pctx.lineTo(-size * 0.3, 0);
+					pctx.lineTo(-size, size * 0.8);
+					pctx.closePath();
+					pctx.fill();
+					pctx.restore();
+					break;
+				}
 				case 'chain': {
 					// draw multiple jump points
 					const jumps = 3;
@@ -1623,6 +3039,102 @@ function drawPreview(){
 							pctx.stroke();
 						}
 					}
+					break;
+				}
+				case 'polygon': {
+					pctx.save();
+					pctx.translate(px, py);
+					pctx.rotate(previewTime * 1.5);
+					const pgR = size * 1.2;
+					const pgS = ph.polygonSides || 6;
+					pctx.beginPath();
+					for(let si = 0; si <= pgS; si++){
+						const a = si * Math.PI * 2 / pgS;
+						if(si===0) pctx.moveTo(Math.cos(a)*pgR, Math.sin(a)*pgR);
+						else pctx.lineTo(Math.cos(a)*pgR, Math.sin(a)*pgR);
+					}
+					pctx.closePath();
+					pctx.fill();
+					pctx.strokeStyle = color;
+					pctx.lineWidth = 1.5;
+					pctx.stroke();
+					pctx.restore();
+					break;
+				}
+				case 'meteor': {
+					pctx.save();
+					pctx.translate(px, py);
+					const mR = size * 1.5;
+					// color cycling
+					const mPhase = (previewTime * 1.5) % 3;
+					const mColors = [['#ff4400','#ffcc00'],['#ff00cc','#ff66ff'],['#4488ff','#88ddff']];
+					const mI = Math.floor(mPhase), mN = (mI+1)%3, mF = mPhase - mI;
+					const mCore = `rgb(${Math.round(parseInt(mColors[mI][0].slice(1,3),16)*(1-mF)+parseInt(mColors[mN][0].slice(1,3),16)*mF)},${Math.round(parseInt(mColors[mI][0].slice(3,5),16)*(1-mF)+parseInt(mColors[mN][0].slice(3,5),16)*mF)},${Math.round(parseInt(mColors[mI][0].slice(5,7),16)*(1-mF)+parseInt(mColors[mN][0].slice(5,7),16)*mF)})`;
+					// body
+					pctx.fillStyle = '#553322';
+					pctx.beginPath(); pctx.arc(0,0,mR,0,Math.PI*2); pctx.fill();
+					pctx.fillStyle = mCore; pctx.globalAlpha = 0.8;
+					pctx.beginPath(); pctx.arc(0,0,mR*0.5,0,Math.PI*2); pctx.fill();
+					// glow
+					pctx.globalAlpha = 0.3;
+					const mg = pctx.createRadialGradient(0,0,mR*0.3,0,0,mR*2);
+					mg.addColorStop(0, mCore); mg.addColorStop(1,'transparent');
+					pctx.fillStyle = mg;
+					pctx.beginPath(); pctx.arc(0,0,mR*2,0,Math.PI*2); pctx.fill();
+					pctx.restore();
+					break;
+				}
+				case 'vortex': {
+					pctx.save();
+					pctx.translate(px, py);
+					const vR = size * 2 * (1 + localT * 0.5);
+					// void body
+					const vg = pctx.createRadialGradient(0,0,0,0,0,vR);
+					vg.addColorStop(0,'rgba(10,0,20,0.8)');
+					vg.addColorStop(0.5, color);
+					vg.addColorStop(1,'transparent');
+					pctx.globalAlpha = 0.6;
+					pctx.fillStyle = vg;
+					pctx.beginPath(); pctx.arc(0,0,vR,0,Math.PI*2); pctx.fill();
+					// spiral arms
+					pctx.lineWidth = 1.5; pctx.strokeStyle = color; pctx.globalAlpha = 0.5;
+					for(let arm = 0; arm < 3; arm++){
+						pctx.beginPath();
+						const baseA = arm * Math.PI * 2 / 3 + previewTime * 3;
+						for(let t2 = 0; t2 < 12; t2++){
+							const a2 = baseA + t2 * 0.3;
+							const r2 = vR * 0.1 + vR * 0.8 * (t2/12);
+							pctx.lineTo(Math.cos(a2)*r2, Math.sin(a2)*r2);
+						}
+						pctx.stroke();
+					}
+					pctx.restore();
+					break;
+				}
+				case 'summon': {
+					pctx.save();
+					pctx.translate(px, py);
+					const sR = size * 1.2;
+					pctx.strokeStyle = color;
+					pctx.lineWidth = 2;
+					pctx.globalAlpha = 0.6 + Math.sin(previewTime * 4) * 0.2;
+					pctx.beginPath(); pctx.arc(0,0,sR,0,Math.PI*2); pctx.stroke();
+					pctx.globalAlpha = 0.4;
+					for(let si = 0; si < 5; si++){
+						const a = si * Math.PI * 2 / 5 - Math.PI/2 + previewTime * 2;
+						pctx.beginPath();
+						pctx.moveTo(0,0);
+						pctx.lineTo(Math.cos(a)*sR*0.8, Math.sin(a)*sR*0.8);
+						pctx.stroke();
+					}
+					pctx.restore();
+					break;
+				}
+				case 'allyOrb': {
+					pctx.fillStyle = '#44ff88';
+					pctx.beginPath();
+					pctx.arc(px, py, size * 1.3, 0, Math.PI * 2);
+					pctx.fill();
 					break;
 				}
 				default: {
@@ -1659,6 +3171,39 @@ function drawPreview(){
 	pctx.fillStyle = '#666';
 	pctx.textAlign = 'left';
 	pctx.fillText('Preview (looping)', 6, 14);
+
+	// Predicted damage output
+	if(builderSpell && builderSpell.phases.length){
+		const stats = computeStats();
+		pctx.font = '10px Arial';
+		pctx.textAlign = 'right';
+		let yOff = 14;
+		for(let pi = 0; pi < builderSpell.phases.length; pi++){
+			const ph = builderSpell.phases[pi];
+			if(ph.noHit || ph.shape === 'allyOrb' || ph.shape === 'summon' || ph.shape === 'solidify') continue;
+			let baseDmg = (ph.power || 1) * 8;
+			// behavior multipliers
+			if(ph.behavior === 'homing') baseDmg *= 0.5;
+			if(ph.behavior === 'lob') baseDmg *= 1.25;
+			if(ph.behavior === 'orbit') baseDmg *= 0.7;
+			if(ph.behavior === 'rain') baseDmg *= 1.5;
+			if(ph.behavior === 'barrage') baseDmg *= 1.35;
+			if(ph.behavior === 'ground') baseDmg *= 1.4;
+			// shape multipliers
+			if(ph.shape === 'beam') baseDmg *= 0.65;
+			if(ph.shape === 'meteor') baseDmg *= 0.75;
+			// effects
+			const hasElem = ph.effects.includes('burn')||ph.effects.includes('freeze')||ph.effects.includes('poison')||ph.effects.includes('stun');
+			if(hasElem) baseDmg *= 1;
+			if(ph.effects.includes('phaseThrough')) baseDmg *= 0.55;
+			// spread bonus
+			if(ph.spread > 0 && ph.count > 1) baseDmg *= 1 + (ph.spread * 0.0025 * ph.count);
+			const totalPerCast = baseDmg * (ph.count || 1);
+			pctx.fillStyle = ph.color || '#4488ff';
+			pctx.fillText(`P${pi+1}: ~${Math.round(baseDmg)} × ${ph.count||1} = ~${Math.round(totalPerCast)} dmg`, W - 6, yOff);
+			yOff += 13;
+		}
+	}
 }
 
 /* =============================================================
@@ -1674,6 +3219,7 @@ function renderAll(){
 	renderEquipment();
 	renderInventory();
 	renderSpellSlots();
+	renderVowSlots();
 }
 
 /* =============================================================
@@ -1686,13 +3232,25 @@ document.getElementById('searchBox').addEventListener('input', e => {
 });
 document.getElementById('prevPage').addEventListener('click', () => { invPage--; renderInventory(); });
 document.getElementById('nextPage').addEventListener('click', () => { invPage++; renderInventory(); });
+
+// Crafting search + filter
+document.getElementById('craftSearchBox').addEventListener('input', e => {
+	craftSearch = e.target.value.trim();
+	renderCraftList();
+});
+document.getElementById('craftFilter').addEventListener('change', e => {
+	craftTypeFilter = e.target.value;
+	renderCraftList();
+});
+
 document.getElementById('testBtn').addEventListener('click', () => {
 	// Clear inventory (not spells)
 	STATE.inventory = [];
 	STATE.equipment = { staff:null, robe:null, relic1:null, relic2:null };
-	// Give one of every item in ITEM_DB
-	for (const id of Object.keys(ITEM_DB)) {
-		STATE.inventory.push({ itemId: id, qty: 1 });
+	// Give one of every item in ITEM_DB (ingredients get extra for crafting)
+	for (const [id, item] of Object.entries(ITEM_DB)) {
+		const qty = item.type === 'ingredient' ? 50 : 1;
+		STATE.inventory.push({ itemId: id, qty });
 	}
 	saveState();
 	renderAll();
@@ -1713,6 +3271,11 @@ document.addEventListener('keydown', e => {
 /* =============================================================
    INIT
    ============================================================= */
+/* Hide the back/menu button when loaded inside an iframe (e.g. open world overlay) */
+if(window.self !== window.top){
+	const bb = document.getElementById('backBtn');
+	if(bb) bb.style.display = 'none';
+}
 renderAll();
 </script>
 </body>
