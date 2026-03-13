@@ -218,9 +218,486 @@
 				font-size: 26px;
 			}
 		}
+
+		/* Settings button */
+		#settingsBtn {
+			position: fixed;
+			top: 16px;
+			right: 16px;
+			z-index: 100;
+			width: 44px;
+			height: 44px;
+			border-radius: 50%;
+			border: 2px solid var(--border);
+			background: rgba(0,0,0,0.5);
+			color: #fff;
+			font-size: 22px;
+			cursor: pointer;
+			transition: background 0.2s, transform 0.2s;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		#settingsBtn:hover {
+			background: rgba(108,92,231,0.5);
+			transform: rotate(30deg);
+		}
+
+		/* Settings modal */
+		#settingsOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 200;
+			background: rgba(0,0,0,0.7);
+			display: none;
+			align-items: center;
+			justify-content: center;
+		}
+		#settingsOverlay.open { display: flex; }
+		#settingsPanel {
+			background: linear-gradient(135deg, #1a1633, #0f1024);
+			border: 2px solid var(--border);
+			border-radius: 14px;
+			padding: 28px 34px;
+			min-width: 340px;
+			max-width: 440px;
+			box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+		}
+		#settingsPanel h2 {
+			margin-bottom: 20px;
+			font-size: 22px;
+			text-align: center;
+		}
+		.setting-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 12px 0;
+			border-bottom: 1px solid rgba(255,255,255,0.1);
+		}
+		.setting-row:last-child { border-bottom: none; }
+		.setting-label {
+			font-size: 15px;
+			color: var(--text);
+		}
+		.setting-desc {
+			font-size: 11px;
+			color: var(--muted);
+			margin-top: 2px;
+		}
+		/* Toggle switch */
+		.toggle {
+			position: relative;
+			width: 48px;
+			height: 26px;
+			flexShrink: 0;
+		}
+		.toggle input { opacity: 0; width: 0; height: 0; }
+		.toggle .slider {
+			position: absolute;
+			inset: 0;
+			background: rgba(255,255,255,0.15);
+			border-radius: 26px;
+			cursor: pointer;
+			transition: background 0.25s;
+		}
+		.toggle .slider::before {
+			content: '';
+			position: absolute;
+			width: 20px;
+			height: 20px;
+			left: 3px;
+			bottom: 3px;
+			background: #fff;
+			border-radius: 50%;
+			transition: transform 0.25s;
+		}
+		.toggle input:checked + .slider {
+			background: #6c5ce7;
+		}
+		.toggle input:checked + .slider::before {
+			transform: translateX(22px);
+		}
+		#settingsClose {
+			margin-top: 18px;
+			width: 100%;
+			padding: 10px;
+			border: none;
+			border-radius: 6px;
+			background: rgba(255,255,255,0.12);
+			color: #fff;
+			font-size: 14px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		#settingsClose:hover { background: rgba(255,255,255,0.22); }
+
+		/* ============ WORLD MAP ============ */
+		#worldMapOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 150;
+			background: rgba(0,0,0,0.85);
+			display: none;
+			align-items: center;
+			justify-content: center;
+			flex-direction: column;
+		}
+		#worldMapOverlay.open { display: flex; }
+
+		#worldMapTitle {
+			font-size: 28px;
+			color: #fff;
+			margin-bottom: 12px;
+			text-shadow: 2px 2px 6px #000;
+			letter-spacing: 1px;
+		}
+
+		#worldMapContainer {
+			position: relative;
+			/* Scale to fit the world-map.jpg (1376×768, ~1.79:1 aspect) */
+			width: min(1100px, 92vw);
+			aspect-ratio: 1376 / 768;
+			max-height: 78vh;
+			border: 3px solid rgba(255,255,255,0.25);
+			border-radius: 14px;
+			overflow: hidden;
+			background: url('images/assests/world-map.jpg') center/cover no-repeat;
+			box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+		}
+
+		/* Hover highlight canvas overlays the entire map */
+		#mapHighlightCanvas {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 3;
+			pointer-events: none;
+		}
+
+		.map-location {
+			position: absolute;
+			transform: translate(-50%, -50%);
+			z-index: 5;
+			cursor: pointer;
+			text-align: center;
+			transition: transform 0.2s, filter 0.2s;
+		}
+		.map-location:hover {
+			transform: translate(-50%, -50%) scale(1.12);
+			filter: brightness(1.3);
+		}
+
+		.map-icon {
+			width: 52px;
+			height: 52px;
+			border-radius: 50%;
+			border: 3px solid;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 24px;
+			margin: 0 auto 4px;
+			box-shadow: 0 0 12px rgba(0,0,0,0.5), 0 0 20px var(--loc-glow);
+			animation: mapPulse 3s ease-in-out infinite;
+		}
+
+		@keyframes mapPulse {
+			0%, 100% { box-shadow: 0 0 12px rgba(0,0,0,0.5), 0 0 16px var(--loc-glow); }
+			50% { box-shadow: 0 0 12px rgba(0,0,0,0.5), 0 0 28px var(--loc-glow); }
+		}
+
+		.map-name {
+			font-size: 12px;
+			font-weight: bold;
+			color: #fff;
+			text-shadow: 1px 1px 3px #000, 0 0 8px rgba(0,0,0,0.8);
+			white-space: nowrap;
+		}
+		.map-sub {
+			font-size: 9px;
+			color: #bbb;
+			text-shadow: 1px 1px 2px #000;
+		}
+
+		/* Locked / coming-soon locations */
+		.map-location.locked {
+			opacity: 0.45;
+			cursor: default;
+			filter: grayscale(0.6);
+		}
+		.map-location.locked:hover {
+			transform: translate(-50%, -50%) scale(1.04);
+			filter: grayscale(0.4) brightness(1.1);
+		}
+		.map-location.locked .map-icon {
+			border-color: #666 !important;
+			box-shadow: 0 0 8px rgba(0,0,0,0.4);
+			animation: none;
+		}
+		.map-locked-tag {
+			font-size: 8px;
+			color: #999;
+			font-style: italic;
+			text-shadow: 1px 1px 2px #000;
+		}
+
+		/* Map roads / paths between locations */
+		#mapPaths {
+			position: absolute;
+			inset: 0;
+			z-index: 2;
+			pointer-events: none;
+		}
+		#mapPaths line {
+			stroke: rgba(255,255,255,0.12);
+			stroke-width: 2;
+			stroke-dasharray: 8 6;
+		}
+
+		/* Compass rose */
+		#mapCompass {
+			position: absolute;
+			bottom: 12px;
+			left: 14px;
+			z-index: 5;
+			color: rgba(255,255,255,0.25);
+			font-size: 11px;
+			text-align: center;
+			pointer-events: none;
+			line-height: 1.4;
+		}
+
+		#worldMapClose {
+			margin-top: 14px;
+			padding: 10px 32px;
+			border: 1px solid rgba(255,255,255,0.25);
+			border-radius: 6px;
+			background: rgba(255,255,255,0.1);
+			color: #fff;
+			font-size: 14px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		#worldMapClose:hover { background: rgba(255,255,255,0.2); }
+
+		/* Location popup / confirm panel */
+		#locPopup {
+			position: fixed;
+			inset: 0;
+			z-index: 160;
+			background: rgba(0,0,0,0.6);
+			display: none;
+			align-items: center;
+			justify-content: center;
+		}
+		#locPopup.open { display: flex; }
+
+		#locPanel {
+			background: linear-gradient(135deg, #1a1633, #0f1024);
+			border: 2px solid var(--border);
+			border-radius: 14px;
+			padding: 26px 32px;
+			min-width: 320px;
+			max-width: 420px;
+			box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+			text-align: center;
+		}
+		#locPanel h3 {
+			font-size: 22px;
+			margin-bottom: 6px;
+		}
+		#locPanel .loc-desc {
+			color: var(--muted);
+			font-size: 13px;
+			margin-bottom: 18px;
+			line-height: 1.4;
+		}
+		.diff-buttons {
+			display: flex;
+			gap: 8px;
+			justify-content: center;
+			margin-bottom: 14px;
+		}
+		.diff-btn {
+			padding: 9px 18px;
+			border: 2px solid rgba(255,255,255,0.2);
+			border-radius: 6px;
+			background: rgba(255,255,255,0.06);
+			color: #fff;
+			font-size: 13px;
+			cursor: pointer;
+			transition: all 0.2s;
+			min-width: 80px;
+		}
+		.diff-btn:hover { background: rgba(255,255,255,0.14); }
+		.diff-btn.selected {
+			border-color: #6c5ce7;
+			background: rgba(108,92,231,0.25);
+		}
+		.diff-btn.easy { border-color: rgba(46,204,113,0.5); }
+		.diff-btn.easy.selected { border-color: #2ecc71; background: rgba(46,204,113,0.2); }
+		.diff-btn.normal { border-color: rgba(241,196,15,0.5); }
+		.diff-btn.normal.selected { border-color: #f1c40f; background: rgba(241,196,15,0.2); }
+		.diff-btn.hard { border-color: rgba(231,76,60,0.5); }
+		.diff-btn.hard.selected { border-color: #e74c3c; background: rgba(231,76,60,0.2); }
+
+		#locTravelBtn {
+			padding: 11px 28px;
+			border: none;
+			border-radius: 6px;
+			background: var(--btn-green);
+			color: #fff;
+			font-size: 15px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: background 0.2s, transform 0.2s;
+			min-width: 160px;
+		}
+		#locTravelBtn:hover {
+			background: var(--btn-green-hover);
+			transform: translateY(-1px);
+		}
+		#locCancelBtn {
+			margin-top: 8px;
+			padding: 8px 20px;
+			border: none;
+			background: none;
+			color: var(--muted);
+			font-size: 13px;
+			cursor: pointer;
+		}
+		.sub-locations {
+			display: flex;
+			gap: 10px;
+			justify-content: center;
+			margin-bottom: 14px;
+		}
+		.sub-loc-btn {
+			padding: 12px 22px;
+			border: 2px solid rgba(108,92,231,0.5);
+			border-radius: 8px;
+			background: rgba(108,92,231,0.12);
+			color: #fff;
+			font-size: 14px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: all 0.2s;
+			min-width: 130px;
+		}
+		.sub-loc-btn:hover {
+			background: rgba(108,92,231,0.3);
+			border-color: #6c5ce7;
+			transform: translateY(-1px);
+		}
+		.sub-loc-btn .sub-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+		.sub-loc-btn .sub-label { font-size: 11px; color: var(--muted); font-weight: normal; }
+		#locCancelBtn:hover { color: #fff; }
 	</style>
 </head>
 <body>
+	<button id="settingsBtn" title="Settings">⚙️</button>
+
+	<div id="settingsOverlay">
+		<div id="settingsPanel">
+			<h2>⚙️ Settings</h2>
+			<div class="setting-row">
+				<div>
+					<div class="setting-label">🧪 Test Mode</div>
+					<div class="setting-desc">Unlock all shapes, behaviors, effects, and max power regardless of rank.</div>
+				</div>
+				<label class="toggle">
+					<input type="checkbox" id="testModeToggle" />
+					<span class="slider"></span>
+				</label>
+			</div>
+			<div class="setting-row">
+				<div>
+					<div class="setting-label">🔄 Reset Quests &amp; Story</div>
+					<div class="setting-desc">Clear all tutorial and city quest progress. This cannot be undone.</div>
+				</div>
+				<button id="resetQuestsBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#e74c3c;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Reset</button>
+			</div>
+			<button id="settingsClose">Close</button>
+		</div>
+	</div>
+
+	<!-- World Map Overlay -->
+	<div id="worldMapOverlay">
+		<div id="worldMapTitle">🗺️ World Map</div>
+		<div id="worldMapContainer">
+			<canvas id="mapHighlightCanvas"></canvas>
+			<svg id="mapPaths" width="100%" height="100%">
+				<!-- EmberFall ↔ CinderWatch -->
+				<line x1="30%" y1="39%" x2="50%" y2="52%"/>
+				<!-- CinderWatch ↔ IronRidge -->
+				<line x1="52%" y1="52%" x2="69%" y2="49%"/>
+				<!-- CinderWatch ↔ Aurorafall -->
+				<line x1="50%" y1="48%" x2="49%" y2="18%"/>
+				<!-- EmberFall ↔ Aurorafall -->
+				<line x1="30%" y1="35%" x2="45%" y2="18%"/>
+			</svg>
+
+			<!-- Storm Islands (locked) — far left -->
+			<div class="map-location locked" style="left:7%;top:50%;--loc-glow:rgba(150,120,200,0.3)" data-loc="storm_islands">
+				<div class="map-icon" style="background:rgba(50,40,70,0.8);border-color:#666">⛈️</div>
+				<div class="map-name">Storm Islands</div>
+				<div class="map-locked-tag">Coming Soon</div>
+			</div>
+
+			<!-- EmberFall (Tutorial) — upper-center-left -->
+			<div class="map-location" style="left:30%;top:39%;--loc-glow:rgba(255,170,50,0.4)" data-loc="emberfall">
+				<div class="map-icon" style="background:rgba(80,50,20,0.8);border-color:#cc8833">🏠</div>
+				<div class="map-name">EmberFall</div>
+				<div class="map-sub">Tutorial</div>
+			</div>
+
+			<!-- Sylvaris Wildes (locked) — below EmberFall -->
+			<div class="map-location locked" style="left:41%;top:61%;--loc-glow:rgba(80,200,120,0.3)" data-loc="sylvaris_wildes">
+				<div class="map-icon" style="background:rgba(30,60,30,0.8);border-color:#666">🌳</div>
+				<div class="map-name">Sylvaris Wildes</div>
+				<div class="map-locked-tag">Coming Soon</div>
+			</div>
+
+			<!-- CinderWatch (Fire Dungeon) — center -->
+			<div class="map-location" style="left:50%;top:52%;--loc-glow:rgba(255,80,30,0.5)" data-loc="cinderwatch">
+				<div class="map-icon" style="background:rgba(100,30,10,0.85);border-color:#e74c3c">🔥</div>
+				<div class="map-name">CinderWatch</div>
+				<div class="map-sub">Fire Dungeon</div>
+			</div>
+
+			<!-- IronRidge (Earth Dungeon) — right of center -->
+			<div class="map-location" style="left:69%;top:49%;--loc-glow:rgba(100,200,80,0.4)" data-loc="ironridge">
+				<div class="map-icon" style="background:rgba(40,60,30,0.85);border-color:#27ae60">🌿</div>
+				<div class="map-name">IronRidge</div>
+				<div class="map-sub">Earth Dungeon</div>
+			</div>
+
+			<!-- Aurorafall (Ice Dungeon) — top center -->
+			<div class="map-location" style="left:49%;top:15%;--loc-glow:rgba(80,170,255,0.5)" data-loc="aurorafall">
+				<div class="map-icon" style="background:rgba(20,40,80,0.85);border-color:#3498db">❄️</div>
+				<div class="map-name">Aurorafall</div>
+				<div class="map-sub">Ice Dungeon</div>
+			</div>
+
+			<div id="mapCompass">N<br>W ✦ E<br>S</div>
+		</div>
+		<button id="worldMapClose">← Back to Menu</button>
+	</div>
+
+	<!-- Location Popup -->
+	<div id="locPopup">
+		<div id="locPanel">
+			<h3 id="locTitle"></h3>
+			<div class="loc-desc" id="locDesc"></div>
+			<div class="diff-buttons" id="locDiffBtns" style="display:none"></div>
+			<div class="sub-locations" id="locSubBtns" style="display:none"></div>
+			<button id="locTravelBtn">Travel</button><br>
+			<button id="locCancelBtn">Cancel</button>
+		</div>
+	</div>
+
 	<main class="menu-screen">
 		<h1>Magic Battle</h1>
 		<p class="subtitle">Choose your mode and begin your next arcane challenge.</p>
@@ -288,7 +765,330 @@
 		document.getElementById('dungeonsBtn').addEventListener('click', () => launchMode('dungeons'));
 		document.getElementById('pvpBtn').addEventListener('click', () => launchMode('pvp'));
 		document.getElementById('raidsBtn').addEventListener('click', () => launchMode('raids'));
-		document.getElementById('openworldBtn').addEventListener('click', () => launchMode('openworld'));
+		document.getElementById('openworldBtn').addEventListener('click', () => openWorldMap());
+
+		/* --- Settings --- */
+		const settingsBtn = document.getElementById('settingsBtn');
+		const settingsOverlay = document.getElementById('settingsOverlay');
+		const testModeToggle = document.getElementById('testModeToggle');
+
+		// Load saved test mode state
+		testModeToggle.checked = localStorage.getItem('magicBattle_testMode') === 'true';
+
+		settingsBtn.addEventListener('click', () => settingsOverlay.classList.add('open'));
+		document.getElementById('settingsClose').addEventListener('click', () => settingsOverlay.classList.remove('open'));
+		settingsOverlay.addEventListener('click', e => { if(e.target === settingsOverlay) settingsOverlay.classList.remove('open'); });
+
+		testModeToggle.addEventListener('change', () => {
+			localStorage.setItem('magicBattle_testMode', testModeToggle.checked);
+		});
+
+		document.getElementById('resetQuestsBtn').addEventListener('click', () => {
+			if(confirm('Are you sure you want to reset all quest and story progress? This cannot be undone.')){
+				localStorage.removeItem('magicBattle_tutorialQuests');
+				localStorage.removeItem('magicBattle_cityQuests');
+				alert('Quest progress has been reset.');
+			}
+		});
+
+		/* ============ WORLD MAP ============ */
+		const MAP_LOCATIONS = {
+			storm_islands: {
+				name: 'Storm Islands',
+				icon: '⛈️',
+				desc: 'Shattered isles wreathed in perpetual storms. The secrets of lightning magic await those brave enough to venture here.',
+				available: false,
+			},
+			emberfall: {
+				name: 'EmberFall',
+				icon: '🏠',
+				desc: 'A quiet village on the frontier — the perfect place to learn the basics of magic. Complete tutorial quests and meet your mentors.',
+				isDungeon: false,
+				subLocations: [
+					{ name: 'Tutorial Grounds', icon: '📖', label: 'Learn the basics', url: 'dungeon.html?mode=openworld' },
+					{ name: 'EmberFall City', icon: '🏰', label: 'Explore the city', url: 'dungeon.html?mode=city' },
+				],
+			},
+			sylvaris_wildes: {
+				name: 'Sylvaris Wildes',
+				icon: '🌳',
+				desc: 'An ancient forest teeming with wild magic and forgotten creatures. What lies within remains a mystery.',
+				available: false,
+			},
+			cinderwatch: {
+				name: 'CinderWatch',
+				icon: '🔥',
+				desc: 'A smoldering fortress built over volcanic vents. Fight through fire-themed enemies and face the Inferno Dragon boss.',
+				isDungeon: true,
+				dungeonType: 'fire',
+			},
+			ironridge: {
+				name: 'IronRidge',
+				icon: '🌿',
+				desc: 'Deep warrens carved through ancient stone. Battle earth elementals, vine crawlers, and the mighty Earth Colossus.',
+				isDungeon: true,
+				dungeonType: 'earth',
+			},
+			aurorafall: {
+				name: 'Aurorafall',
+				icon: '❄️',
+				desc: 'Frozen caverns beneath shimmering northern lights. Face frost wraiths, cryo mages, and the Frost Colossus.',
+				isDungeon: true,
+				dungeonType: 'ice',
+			},
+		};
+
+		const worldMapOverlay = document.getElementById('worldMapOverlay');
+		const locPopup = document.getElementById('locPopup');
+		let selectedLocKey = null;
+		let selectedDifficulty = 'normal';
+
+		function openWorldMap() {
+			worldMapOverlay.classList.add('open');
+		}
+		function closeWorldMap() {
+			worldMapOverlay.classList.remove('open');
+		}
+
+		document.getElementById('worldMapClose').addEventListener('click', closeWorldMap);
+		worldMapOverlay.addEventListener('click', e => {
+			if (e.target === worldMapOverlay) closeWorldMap();
+		});
+
+		// Location clicks
+		document.querySelectorAll('.map-location').forEach(el => {
+			el.addEventListener('click', () => {
+				const key = el.dataset.loc;
+				const loc = MAP_LOCATIONS[key];
+				if (!loc) return;
+				// Locked / coming-soon locations
+				if (loc.available === false) {
+					selectedLocKey = null;
+					document.getElementById('locTitle').textContent = loc.icon + ' ' + loc.name;
+					document.getElementById('locDesc').textContent = loc.desc + '\n\n🔒 This region is not yet available.';
+					document.getElementById('locDiffBtns').style.display = 'none';
+					document.getElementById('locSubBtns').style.display = 'none';
+					document.getElementById('locTravelBtn').textContent = 'Locked';
+					document.getElementById('locTravelBtn').disabled = true;
+					locPopup.classList.add('open');
+					return;
+				}
+				document.getElementById('locTravelBtn').disabled = false;
+				selectedLocKey = key;
+				selectedDifficulty = 'normal';
+
+				document.getElementById('locTitle').textContent = loc.icon + ' ' + loc.name;
+				document.getElementById('locDesc').textContent = loc.desc;
+
+				const diffWrap = document.getElementById('locDiffBtns');
+				const subWrap = document.getElementById('locSubBtns');
+
+				// Sub-locations (e.g., EmberFall has Tutorial + City)
+				if (loc.subLocations) {
+					diffWrap.style.display = 'none';
+					subWrap.style.display = 'flex';
+					subWrap.innerHTML = loc.subLocations.map(sub =>
+						`<button class="sub-loc-btn" data-url="${sub.url}">
+							<span class="sub-icon">${sub.icon}</span>
+							${sub.name}
+							<span class="sub-label">${sub.label}</span>
+						</button>`
+					).join('');
+					subWrap.querySelectorAll('.sub-loc-btn').forEach(btn => {
+						btn.addEventListener('click', () => {
+							window.location.href = btn.dataset.url;
+						});
+					});
+					document.getElementById('locTravelBtn').style.display = 'none';
+				} else if (loc.isDungeon) {
+					subWrap.style.display = 'none';
+					document.getElementById('locTravelBtn').style.display = '';
+					diffWrap.style.display = 'flex';
+					diffWrap.innerHTML = ['easy','normal','hard'].map(d =>
+						`<button class="diff-btn ${d}${d==='normal'?' selected':''}" data-diff="${d}">${d.charAt(0).toUpperCase()+d.slice(1)}</button>`
+					).join('');
+					// Attach diff listeners
+					diffWrap.querySelectorAll('.diff-btn').forEach(btn => {
+						btn.addEventListener('click', () => {
+							selectedDifficulty = btn.dataset.diff;
+							diffWrap.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+							btn.classList.add('selected');
+						});
+					});
+					document.getElementById('locTravelBtn').textContent = 'Enter Dungeon';
+				} else {
+					diffWrap.style.display = 'none';
+					subWrap.style.display = 'none';
+					document.getElementById('locTravelBtn').style.display = '';
+					document.getElementById('locTravelBtn').textContent = 'Travel';
+				}
+
+				locPopup.classList.add('open');
+			});
+		});
+
+		// Travel button
+		document.getElementById('locTravelBtn').addEventListener('click', () => {
+			const loc = MAP_LOCATIONS[selectedLocKey];
+			if (!loc) return;
+			if (loc.isDungeon) {
+				window.location.href = 'dungeon.html?type=' + loc.dungeonType + '&diff=' + selectedDifficulty;
+			} else if (loc.url) {
+				window.location.href = loc.url;
+			}
+		});
+
+		// Cancel / close popup
+		document.getElementById('locCancelBtn').addEventListener('click', () => locPopup.classList.remove('open'));
+		locPopup.addEventListener('click', e => { if (e.target === locPopup) locPopup.classList.remove('open'); });
+
+		/* ============ IMAGE MAP HOVER HIGHLIGHTS ============ */
+		// Define highlight regions for each location (percentages of map container)
+		// Each region is a polygon (array of [x%, y%] points) that outlines the area on the map
+		const MAP_REGIONS = {
+			storm_islands: {
+				color: 'rgba(150,120,200,0.18)',
+				borderColor: 'rgba(150,120,200,0.45)',
+				poly: [[2,28],[2,72],[13,72],[13,28]],
+			},
+			emberfall: {
+				color: 'rgba(255,170,50,0.25)',
+				borderColor: 'rgba(255,170,50,0.6)',
+				poly: [[22,28],[22,50],[37,50],[37,28]],
+			},
+			sylvaris_wildes: {
+				color: 'rgba(80,200,120,0.18)',
+				borderColor: 'rgba(80,200,120,0.45)',
+				poly: [[33,50],[33,72],[48,72],[48,50]],
+			},
+			cinderwatch: {
+				color: 'rgba(255,80,30,0.25)',
+				borderColor: 'rgba(255,80,30,0.6)',
+				poly: [[43,28],[43,72],[62,72],[62,28]],
+			},
+			ironridge: {
+				color: 'rgba(100,200,80,0.25)',
+				borderColor: 'rgba(100,200,80,0.6)',
+				poly: [[58,28],[58,72],[79,72],[79,28]],
+			},
+			aurorafall: {
+				color: 'rgba(80,170,255,0.25)',
+				borderColor: 'rgba(80,170,255,0.6)',
+				poly: [[39,2],[39,28],[59,28],[59,2]],
+			},
+		};
+
+		const hlCanvas = document.getElementById('mapHighlightCanvas');
+		const hlCtx = hlCanvas.getContext('2d');
+		let activeRegion = null;
+
+		function resizeHighlightCanvas() {
+			const container = document.getElementById('worldMapContainer');
+			const rect = container.getBoundingClientRect();
+			hlCanvas.width = rect.width;
+			hlCanvas.height = rect.height;
+		}
+
+		function drawHighlight(regionKey) {
+			const rect = hlCanvas.getBoundingClientRect();
+			hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+			if (!regionKey || !MAP_REGIONS[regionKey]) return;
+			const region = MAP_REGIONS[regionKey];
+			const poly = region.poly;
+			const w = hlCanvas.width, h = hlCanvas.height;
+
+			hlCtx.beginPath();
+			hlCtx.moveTo(poly[0][0]/100*w, poly[0][1]/100*h);
+			for (let i = 1; i < poly.length; i++) {
+				hlCtx.lineTo(poly[i][0]/100*w, poly[i][1]/100*h);
+			}
+			hlCtx.closePath();
+
+			// Fill with translucent color
+			hlCtx.fillStyle = region.color;
+			hlCtx.fill();
+
+			// Border outline
+			hlCtx.strokeStyle = region.borderColor;
+			hlCtx.lineWidth = 2;
+			hlCtx.setLineDash([6, 4]);
+			hlCtx.stroke();
+			hlCtx.setLineDash([]);
+		}
+
+		// Attach hover events to map-location markers
+		document.querySelectorAll('.map-location').forEach(el => {
+			el.addEventListener('mouseenter', () => {
+				const key = el.dataset.loc;
+				if (activeRegion !== key) {
+					activeRegion = key;
+					resizeHighlightCanvas();
+					drawHighlight(key);
+				}
+			});
+			el.addEventListener('mouseleave', () => {
+				activeRegion = null;
+				hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+			});
+		});
+
+		// Also detect mouse position on the map container itself for region-based hover
+		document.getElementById('worldMapContainer').addEventListener('mousemove', (e) => {
+			const container = e.currentTarget;
+			const rect = container.getBoundingClientRect();
+			const mx = ((e.clientX - rect.left) / rect.width) * 100;
+			const my = ((e.clientY - rect.top) / rect.height) * 100;
+
+			// Check which region the mouse is in
+			let found = null;
+			for (const [key, region] of Object.entries(MAP_REGIONS)) {
+				if (pointInPoly(mx, my, region.poly)) {
+					found = key;
+					break;
+				}
+			}
+			if (found !== activeRegion) {
+				activeRegion = found;
+				resizeHighlightCanvas();
+				drawHighlight(found);
+			}
+		});
+
+		document.getElementById('worldMapContainer').addEventListener('mouseleave', () => {
+			activeRegion = null;
+			hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+		});
+
+		// Click on highlighted region (not on a marker) opens that location's popup
+		document.getElementById('worldMapContainer').addEventListener('click', (e) => {
+			// If click was on a .map-location, that handler already fires
+			if (e.target.closest('.map-location')) return;
+			if (!activeRegion) return;
+			// Simulate clicking the matching location marker
+			const marker = document.querySelector(`.map-location[data-loc="${activeRegion}"]`);
+			if (marker) marker.click();
+		});
+
+		// Point-in-polygon test (ray casting, coordinates in percentages)
+		function pointInPoly(px, py, poly) {
+			let inside = false;
+			for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+				const xi = poly[i][0], yi = poly[i][1];
+				const xj = poly[j][0], yj = poly[j][1];
+				if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+					inside = !inside;
+				}
+			}
+			return inside;
+		}
+
+		// Resize canvas when window resizes
+		window.addEventListener('resize', () => {
+			if (worldMapOverlay.classList.contains('open')) {
+				resizeHighlightCanvas();
+				drawHighlight(activeRegion);
+			}
+		});
 	</script>
 </body>
 </html>

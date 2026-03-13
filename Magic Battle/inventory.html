@@ -592,6 +592,42 @@ const TRIGGERS = {
 };
 
 /* =============================================================
+   MAGE RANK SYSTEM (mirror of dungeon.html definitions)
+   ============================================================= */
+const MAGE_RANKS = [
+	{ name:'Novice',          icon:'🔰', color:'#aaaaaa', xpReq:0,     maxPower:2  },
+	{ name:'Apprentice',      icon:'📘', color:'#5dade2', xpReq:50,    maxPower:4  },
+	{ name:'Adept',           icon:'🔮', color:'#8e44ad', xpReq:200,   maxPower:6  },
+	{ name:'Mage',            icon:'⚡', color:'#f39c12', xpReq:600,   maxPower:8  },
+	{ name:'Archmage',        icon:'👑', color:'#e74c3c', xpReq:1500,  maxPower:10 },
+	{ name:'Grand Sorcerer',  icon:'🌟', color:'#ffcc00', xpReq:4000,  maxPower:20 },
+];
+
+const SHAPE_RANK_REQ = {
+	missile:0, orb:0, allyOrb:0, same:0,
+	blade:1, spike:1, polygon:1, solidify:1,
+	beam:2, cone:2, wall:2,
+	ring:3, nova:3, meteor:3,
+	chain:4, vortex:4, summon:4,
+};
+const BEHAVIOR_RANK_REQ = {
+	straight:0, stationary:0, selfCast:0,
+	lob:1, underfoot:1,
+	homing:2, boomerang:2, groundSurge:2,
+	aroundSelf:3, ground:3, zigzag:3,
+	orbit:4, rain:4, barrage:4, teleport:4,
+	domain:5,
+};
+const EFFECT_RANK_REQ = {
+	knockback:0, randomDelay:0, resetProjectiles:0,
+	burn:1, freeze:1, forceJump:1, speedBoost:1, jumpBoost:1,
+	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
+	stun:3, healSelf:3, shield:3, manaRegen:3, phaseFork:3, damageRelease:3, damageHeal:3,
+	lifesteal:4, blind:4, shatter:4, leechMana:4, mark:4, dispel:4,
+	phaseThrough:5, gravityWell:5, ricochet:5,
+};
+
+/* =============================================================
    ITEM DATABASE
    ============================================================= */
 const ITEM_DB = {
@@ -783,10 +819,13 @@ function getVowUnlocks(){
 const SHAPE_ITEM_REQ = {};
 const BEH_ITEM_REQ = {};
 const EFFECT_ITEM_REQ = {};
-/* All spells are unlocked by default — items provide boosts, not unlocks */
-function isShapeUnlocked(key){ return true; }
-function isBehaviorUnlocked(key){ return true; }
-function isEffectUnlocked(key){ return true; }
+/* Rank-gated unlock checks */
+const isTestMode = localStorage.getItem('magicBattle_testMode') === 'true';
+function getPlayerRank(){ return isTestMode ? (MAGE_RANKS.length - 1) : ((STATE && STATE.mageRank != null) ? STATE.mageRank : 0); }
+function getRankMaxPower(){ return MAGE_RANKS[getPlayerRank()]?.maxPower || 2; }
+function isShapeUnlocked(key){ return isTestMode || (SHAPE_RANK_REQ[key] || 0) <= getPlayerRank(); }
+function isBehaviorUnlocked(key){ return isTestMode || (BEHAVIOR_RANK_REQ[key] || 0) <= getPlayerRank(); }
+function isEffectUnlocked(key){ return isTestMode || (EFFECT_RANK_REQ[key] || 0) <= getPlayerRank(); }
 
 /* =============================================================
    CRAFTING RECIPES
@@ -898,7 +937,8 @@ const CRAFTING_RECIPES = [
 function defaultPlayerState(){
 	return {
 		baseStats: { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 },
-		mageRank: 5, // Max rank for now
+		mageRank: 0, // Starting rank — Novice
+		xp: 0, // XP toward next rank
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		/* inventory: array of { itemId, qty } */
 		inventory: [
@@ -965,6 +1005,8 @@ function loadState(){
 			// ensure arrays are correct length
 			if(!s.spells || s.spells.length < 10) s.spells = (s.spells||[]).concat(new Array(10).fill(null)).slice(0,10);
 			if(!s.vows) s.vows = [null, null, null];
+			if(s.mageRank == null) s.mageRank = 0;
+			if(s.xp == null) s.xp = 0;
 			return s;
 		}
 	} catch(e){}
@@ -1215,6 +1257,25 @@ function renderStats(){
 			(bonus > 0 ? ` <span style="color:var(--green)">+${bonus}</span>` : '') +
 			` = <b style="color:${d.color}">${s[d.key]}</b>`;
 	}).join('<br>');
+
+	// Rank display
+	const rank = getPlayerRank();
+	const info = MAGE_RANKS[rank];
+	const xp = STATE.xp || 0;
+	const nextRank = rank < MAGE_RANKS.length - 1 ? MAGE_RANKS[rank + 1] : null;
+	let rankHtml = `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">`;
+	rankHtml += `<span style="font-size:14px;font-weight:bold;color:${info.color}">${info.icon} ${info.name}</span>`;
+	if(nextRank){
+		const pct = Math.max(0, Math.min(100, ((xp - info.xpReq) / (nextRank.xpReq - info.xpReq)) * 100));
+		rankHtml += `<div style="margin-top:4px;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden">
+			<div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#6c5ce7,#a29bfe);border-radius:4px"></div>
+		</div>`;
+		rankHtml += `<div style="font-size:10px;color:var(--muted);margin-top:2px">${xp} / ${nextRank.xpReq} XP — Next: ${nextRank.icon} ${nextRank.name} (max power ${nextRank.maxPower})</div>`;
+	} else {
+		rankHtml += `<div style="font-size:10px;color:var(--muted);margin-top:2px">${xp} XP — MAX RANK (power cap ${info.maxPower})</div>`;
+	}
+	rankHtml += `</div>`;
+	document.getElementById('baseStatsPanel').innerHTML += rankHtml;
 }
 
 /* =============================================================
@@ -1431,8 +1492,96 @@ let craftTypeFilter = 'all';
 function switchTab(tab){
 	document.getElementById('inventoryTab').style.display = tab === 'inventory' ? 'flex' : 'none';
 	document.getElementById('craftingTab').style.display  = tab === 'crafting'  ? 'flex' : 'none';
+	document.getElementById('questTab').style.display     = tab === 'quests'    ? 'flex' : 'none';
 	document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
 	if(tab === 'crafting') renderCraftList();
+	if(tab === 'quests') renderQuestList();
+}
+
+/* ============================================================
+   QUEST TAB — displays tutorial & city quest progress
+   ============================================================ */
+const TUTORIAL_QUEST_DEFS = [
+	{ title:'Speak to Archmage Thalen', desc:'Find the Archmage near the academy entrance.', npc:'Archmage Thalen' },
+	{ title:'Learn to Move', desc:'Walk to the right and jump onto a platform. (WASD/Arrows + SPACE)', npc:null },
+	{ title:'Return to Thalen \u2014 Spells', desc:'Speak to Archmage Thalen to learn about casting spells.', npc:'Archmage Thalen' },
+	{ title:'Cast Your First Spell', desc:'Select a spell (1-0) and cast it (X or Click) at a training dummy.', npc:null },
+	{ title:'Return to Thalen \u2014 Inventory', desc:'Speak to Archmage Thalen to learn about your inventory.', npc:'Archmage Thalen' },
+	{ title:'Talk to Instructor Mira', desc:'Open your Inventory (M) and visit Instructor Mira east of Thalen.', npc:'Instructor Mira' },
+	{ title:'Destroy the Training Dummies', desc:'Defeat all 4 training dummies east of the academy.', npc:null },
+	{ title:'Meet Captain Varn', desc:'Speak with Captain Varn in the eastern training grounds.', npc:'Captain Varn' },
+	{ title:'Defeat 5 Slimes', desc:'Defeat 5 Green Slimes east of Captain Varn.', npc:null },
+	{ title:'Report to Archmage Thalen', desc:'Return to Thalen to complete your training.', npc:'Archmage Thalen' },
+];
+
+const CITY_QUEST_DEFS = [
+	{ title:'Welcome to EmberFall', desc:'Speak with Archmage Thalen at the Mage Academy.', npc:'Archmage Thalen' },
+	{ title:'Visit the Spell Market', desc:'Find Mira the Spell Merchant in the market district.', npc:'Mira the Spell Merchant' },
+	{ title:'Return to Thalen \u2014 New Power', desc:'Report back to Archmage Thalen with your new spell component.', npc:'Archmage Thalen' },
+	{ title:'Meet Captain Dorn', desc:'Speak with Captain Dorn at the Training Arena.', npc:'Captain Dorn' },
+	{ title:'Arena Training', desc:'Destroy 3 training targets in the Training Arena.', npc:null },
+	{ title:'Report to Dorn & Thalen', desc:'Speak with Captain Dorn, then return to Archmage Thalen.', npc:'Archmage Thalen' },
+	{ title:'The Clock Tower Mystery', desc:'Visit the Ancient Clock Tower and speak with Keeper Aldric.', npc:'Keeper Aldric' },
+	{ title:'Report to Thalen \u2014 The Inscription', desc:'Tell Archmage Thalen about the Clock Tower inscription.', npc:'Archmage Thalen' },
+	{ title:'The Outer Forest Gate', desc:'Speak with Ranger Sylva at the Outer Forest Gate.', npc:'Ranger Sylva' },
+	{ title:'Ready for the Wildes', desc:'Speak with Archmage Thalen for your final briefing.', npc:'Archmage Thalen' },
+];
+
+function renderQuestSection(wrap, title, defs, storageKey, slimeQuestIndex){
+	let saved = null;
+	try { saved = JSON.parse(localStorage.getItem(storageKey)); } catch(e){}
+	const currentIndex = saved ? (saved.questIndex || 0) : 0;
+	const slimesKilled = saved ? (saved.slimesKilled || 0) : 0;
+
+	// Section header
+	const header = document.createElement('div');
+	header.style.cssText = 'font-size:14px;font-weight:bold;color:#f1c40f;padding:10px 0 6px 4px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:6px;';
+	header.textContent = title;
+	wrap.appendChild(header);
+
+	for(let i = 0; i < defs.length; i++){
+		const q = defs[i];
+		const isComplete = i < currentIndex;
+		const isCurrent = i === currentIndex;
+
+		const row = document.createElement('div');
+		row.style.cssText = 'padding:10px 12px;margin-bottom:6px;border-radius:8px;border:1px solid ' +
+			(isCurrent ? 'rgba(108,92,231,0.6)' : isComplete ? 'rgba(40,167,69,0.3)' : 'rgba(255,255,255,0.08)') +
+			';background:' + (isCurrent ? 'rgba(108,92,231,0.12)' : isComplete ? 'rgba(40,167,69,0.06)' : 'rgba(255,255,255,0.02)') + ';';
+
+		const icon = isComplete ? '\u2705' : isCurrent ? '\ud83d\udcdc' : '\ud83d\udd12';
+		const titleColor = isComplete ? '#28a745' : isCurrent ? '#f1c40f' : '#666';
+		const descColor = isComplete ? '#5a8a5a' : isCurrent ? '#bbb' : '#555';
+
+		let descText = q.desc;
+		if(slimeQuestIndex >= 0 && i === slimeQuestIndex && isCurrent) descText = q.desc + ' (' + slimesKilled + '/5)';
+
+		row.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">' +
+			'<span style="font-size:18px;">' + icon + '</span>' +
+			'<div style="flex:1;">' +
+			'<div style="font-size:13px;font-weight:bold;color:' + titleColor + ';">' + q.title + '</div>' +
+			'<div style="font-size:11px;color:' + descColor + ';margin-top:2px;">' + descText + '</div>' +
+			(q.npc && isCurrent ? '<div style="font-size:10px;color:#6c5ce7;margin-top:3px;">NPC: ' + q.npc + '</div>' : '') +
+			'</div>' +
+			(isCurrent ? '<span style="font-size:10px;color:#6c5ce7;white-space:nowrap;">IN PROGRESS</span>' : '') +
+			'</div>';
+
+		wrap.appendChild(row);
+	}
+
+	if(currentIndex >= defs.length){
+		const complete = document.createElement('div');
+		complete.style.cssText = 'text-align:center;padding:12px;color:#28a745;font-size:13px;font-weight:bold;margin-top:4px;';
+		complete.textContent = '\ud83c\udf89 All ' + title.toLowerCase() + ' completed!';
+		wrap.appendChild(complete);
+	}
+}
+
+function renderQuestList(){
+	const wrap = document.getElementById('questList');
+	wrap.innerHTML = '';
+	renderQuestSection(wrap, 'Tutorial Quests', TUTORIAL_QUEST_DEFS, 'magicBattle_tutorialQuests', 8);
+	renderQuestSection(wrap, 'City Quests', CITY_QUEST_DEFS, 'magicBattle_cityQuests', -1);
 }
 
 function getIngredientCount(itemId){
@@ -2210,14 +2359,19 @@ function renderBuilder(){
 		if(vowLockedEffects.size) ph.effects = ph.effects.filter(fx => !vowLockedEffects.has(fx));
 		/* Auto-strip item-locked effects from existing phases */
 		ph.effects = ph.effects.filter(fx => !EFFECT_ITEM_REQ[fx] || hasItemEquipped(EFFECT_ITEM_REQ[fx]));
-		if(vowLockedShapes.has(ph.shape) || (SHAPE_ITEM_REQ[ph.shape] && !hasItemEquipped(SHAPE_ITEM_REQ[ph.shape]))){
+		/* Auto-strip rank-locked effects */
+		ph.effects = ph.effects.filter(fx => isEffectUnlocked(fx));
+		if(vowLockedShapes.has(ph.shape) || (SHAPE_ITEM_REQ[ph.shape] && !hasItemEquipped(SHAPE_ITEM_REQ[ph.shape])) || !isShapeUnlocked(ph.shape)){
 			const firstAvail = Object.keys(SHAPES).find(k => !vowLockedShapes.has(k) && isShapeUnlocked(k));
 			if(firstAvail) ph.shape = firstAvail;
 		}
-		if(BEH_ITEM_REQ[ph.behavior] && !hasItemEquipped(BEH_ITEM_REQ[ph.behavior])){
+		if((BEH_ITEM_REQ[ph.behavior] && !hasItemEquipped(BEH_ITEM_REQ[ph.behavior])) || !isBehaviorUnlocked(ph.behavior)){
 			const firstAvailBeh = Object.keys(BEHAVIORS).find(k => isBehaviorUnlocked(k));
 			if(firstAvailBeh) ph.behavior = firstAvailBeh;
 		}
+		/* Clamp power to rank max */
+		const rankPow = getRankMaxPower();
+		if(ph.power > rankPow) ph.power = rankPow;
 		const card = document.createElement('div');
 		card.className = 'phase-card';
 		const isLast = idx === builderSpell.phases.length - 1;
@@ -2234,8 +2388,9 @@ function renderBuilder(){
 			const shLocked = vowLockedShapes.has(k);
 			const itemReq = SHAPE_ITEM_REQ[k];
 			const itemLocked = itemReq && !hasItemEquipped(itemReq);
-			const locked = shLocked || itemLocked;
-			const lockLabel = shLocked ? ' 🔒 vow' : (itemLocked ? ` 🔒 ${ITEM_DB[itemReq]?.name||itemReq}` : '');
+			const rankLocked = !isShapeUnlocked(k);
+			const locked = shLocked || itemLocked || rankLocked;
+			const lockLabel = shLocked ? ' 🔒 vow' : (itemLocked ? ` 🔒 ${ITEM_DB[itemReq]?.name||itemReq}` : (rankLocked ? ` 🔒 ${MAGE_RANKS[SHAPE_RANK_REQ[k]]?.name||'?'}` : ''));
 			html += `<option value="${k}" ${ph.shape===k?'selected':''} ${locked?'disabled':''}>${v.icon} ${v.label} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${lockLabel}  </option>`;
 		}
 		html += `</select></div>`;
@@ -2250,14 +2405,15 @@ function renderBuilder(){
 		for(const [k,v] of Object.entries(BEHAVIORS)){
 			const behItemReq = BEH_ITEM_REQ[k];
 			const behItemLocked = behItemReq && !hasItemEquipped(behItemReq);
+			const behRankLocked = !isBehaviorUnlocked(k);
 			// Domain only available for ultimates on phase 1
 			const domainLocked = v.ultimateOnly && (!isUlt || idx > 0);
 			// If spell has domain and this is phase 2+, behavior is forced to homing
 			const forcedHoming = spellHasDomain && idx > 0 && k !== 'homing';
-			const locked = behItemLocked || domainLocked || forcedHoming;
-			let lockLabel = behItemLocked ? ` 🔒 ${ITEM_DB[behItemReq]?.name||behItemReq}` : '';
-			if(domainLocked && !behItemLocked) lockLabel = ' 🔒 Ult Phase 1 Only';
-			if(forcedHoming && !behItemLocked) lockLabel = ' 🔒 Domain forces Homing';
+			const locked = behItemLocked || behRankLocked || domainLocked || forcedHoming;
+			let lockLabel = behItemLocked ? ` 🔒 ${ITEM_DB[behItemReq]?.name||behItemReq}` : (behRankLocked ? ` 🔒 ${MAGE_RANKS[BEHAVIOR_RANK_REQ[k]]?.name||'?'}` : '');
+			if(domainLocked && !behItemLocked && !behRankLocked) lockLabel = ' 🔒 Ult Phase 1 Only';
+			if(forcedHoming && !behItemLocked && !behRankLocked) lockLabel = ' 🔒 Domain forces Homing';
 			html += `<option value="${k}" ${ph.behavior===k?'selected':''} ${locked?'disabled':''}>${v.label} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${lockLabel}</option>`;
 		}
 		html += `</select></div>`;
@@ -2297,12 +2453,16 @@ function renderBuilder(){
 		const isBigShape = ph.shape === 'solidify' || ph.shape === 'wall';
 		// Domain spells cap power at 10 max on phase 2+
 		const domainPowerCap = spellHasDomain && idx > 0;
+		// Rank caps power output
+		const rankPowerCap = getRankMaxPower();
+		const basePowerMax = domainPowerCap ? 10 : (isUlt ? 20 : 10);
+		const powerMax = Math.min(basePowerMax, rankPowerCap);
 		const sliders = [
 			{ prop:'width',    label:'Width',    min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
 			{ prop:'height',   label:'Height',   min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
 			{ prop:'speed',    label:'Speed',    min:0.3, max:isUlt?5:3, step:0.1 },
 			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.behavior==='ground'||ph.shape==='beam'||ph.shape==='solidify'?30:isUlt?10:5), step:0.1 },
-			{ prop:'power',    label:'Power',    min:0.5, max:domainPowerCap?10:(isUlt?20:10), step:0.1 },
+			{ prop:'power',    label:'Power',    min:0.5, max:powerMax, step:0.1 },
 		];
 		for(const sl of sliders){
 			html += `<div class="prow"><label>${sl.label}: ${ph[sl.prop].toFixed(1)}</label>
@@ -2408,10 +2568,11 @@ function renderBuilder(){
 				const vowLocked = vowLockedEffects.has(k);
 				const fxItemReq = EFFECT_ITEM_REQ[k];
 				const fxItemLocked = fxItemReq && !hasItemEquipped(fxItemReq);
+				const fxRankLocked = !isEffectUnlocked(k);
 				// check if another exclusive effect in this category is already active
-				const blocked = vowLocked || fxItemLocked || (!active && catInfo.exclusive && catEffects.some(([k2])=>k2!==k && ph.effects.includes(k2)));
-				const lockLabel = vowLocked ? ' 🔒 vow' : (fxItemLocked ? ` 🔒 ${ITEM_DB[fxItemReq]?.name||fxItemReq}` : '');
-				html += `<div class="fx-chip ${active&&!vowLocked&&!fxItemLocked?'active':''} ${blocked?'blocked':''}" data-idx="${idx}" data-fx="${k}" data-cat="${cat}" title="${v.desc} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${vowLocked?' — sacrificed by binding vow' : (fxItemLocked ? ' — requires '+(ITEM_DB[fxItemReq]?.name||fxItemReq) : (blocked ? ' — already have one from this category' : ''))}">${v.icon} ${v.label}${v.dmgNote?' <span style="font-size:9px;color:#ff9;opacity:0.7">['+v.dmgNote+']</span>' : ''}${lockLabel}</div>`;
+				const blocked = vowLocked || fxItemLocked || fxRankLocked || (!active && catInfo.exclusive && catEffects.some(([k2])=>k2!==k && ph.effects.includes(k2)));
+				const lockLabel = vowLocked ? ' 🔒 vow' : (fxItemLocked ? ` 🔒 ${ITEM_DB[fxItemReq]?.name||fxItemReq}` : (fxRankLocked ? ` 🔒 ${MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name||'?'}` : ''));
+				html += `<div class="fx-chip ${active&&!vowLocked&&!fxItemLocked&&!fxRankLocked?'active':''} ${blocked?'blocked':''}" data-idx="${idx}" data-fx="${k}" data-cat="${cat}" title="${v.desc} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${vowLocked?' — sacrificed by binding vow' : (fxItemLocked ? ' — requires '+(ITEM_DB[fxItemReq]?.name||fxItemReq) : (fxRankLocked ? ' — requires '+MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name+' rank' : (blocked ? ' — already have one from this category' : '')))}">${v.icon} ${v.label}${v.dmgNote?' <span style="font-size:9px;color:#ff9;opacity:0.7">['+v.dmgNote+']</span>' : ''}${lockLabel}</div>`;
 			}
 			html += `</div></div>`;
 		}
@@ -2555,7 +2716,7 @@ function renderBuilder(){
 
 		card.innerHTML = html;
 		wrap.appendChild(card);
-	}
+	});
 
 	// wire up events in phase cards
 	wrap.querySelectorAll('.remove-phase').forEach(btn => {

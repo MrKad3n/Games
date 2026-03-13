@@ -914,7 +914,7 @@ Use these prompts to generate sprite sheets and backgrounds for the Open World m
 
 #### Emberfall Valley Panorama
 **File target:** `images/backgrounds/ow-valley-bg.png` (3840×1080)
-> Wide parallax side-scroller background, lush green rolling hills, bright blue sky with soft clouds, glowing arcane wildflowers (pink, blue, gold) scattered across meadows, sparkling magical particles in the air, distant stone pathway winding right, small crystal formations growing from the ground, serene and inviting tutorial area, polished 2D game art, no characters, no text.
+> Wide parallax side-scroller background, lush green rolling hills, bright blue sky with soft clouds, glowing arcane wildflowers (pink, blue, gold) scattered across meadows, sparkling magical particles in the air, small crystal formations growing from the ground, serene and inviting tutorial area, polished 2D game art, no characters, no text.
 
 #### Emberfall City
 **File target:** `images/backgrounds/ow-city-bg.png` (3840×1080)

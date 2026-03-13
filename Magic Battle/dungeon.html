@@ -19,18 +19,23 @@ canvas{display:block}
 .hb-dot{width:8px;height:8px;border-radius:50%;margin-bottom:2px}
 .hb-name{font-size:9px;color:#bbb;max-width:48px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hb-mana{font-size:9px;color:#3498db}\n.hb-ult{border-color:rgba(255,170,0,.5);background:rgba(255,170,0,.15)}\n.hb-ult.active{border-color:#ffaa00;background:rgba(255,170,0,.3)}
-#manaWrap{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:260px;z-index:10;pointer-events:none}
+#manaWrap{position:fixed;bottom:80px;right:16px;width:220px;z-index:10;pointer-events:none}
 #manaBarBg{width:100%;height:12px;background:rgba(0,0,0,.5);border:1px solid rgba(52,152,219,.4);border-radius:6px;overflow:hidden}
 #manaBarFill{height:100%;background:linear-gradient(90deg,#2980b9,#3498db);border-radius:6px;transition:width .1s}
 #manaText{text-align:center;font-size:11px;color:#5dade2;text-shadow:1px 1px 2px #000;margin-top:2px}
-#totalManaWrap{position:fixed;bottom:130px;left:50%;transform:translateX(-50%);width:220px;z-index:10;pointer-events:none}
+#totalManaWrap{position:fixed;bottom:142px;right:16px;width:190px;z-index:10;pointer-events:none}
 #totalManaBarBg{width:100%;height:10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,170,0,.4);border-radius:5px;overflow:hidden}
 #totalManaBarFill{height:100%;background:linear-gradient(90deg,#cc8800,#ffaa00);border-radius:5px;transition:width .15s}
 #totalManaText{text-align:center;font-size:10px;color:#ffcc44;text-shadow:1px 1px 2px #000;margin-top:1px}
-#healthWrap{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);width:260px;z-index:10;pointer-events:none}
+#healthWrap{position:fixed;bottom:110px;right:16px;width:220px;z-index:10;pointer-events:none}
 #healthBarBg{width:100%;height:14px;background:rgba(0,0,0,.5);border:1px solid rgba(231,76,60,.4);border-radius:6px;overflow:hidden}
 #healthBarFill{height:100%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:6px;transition:width .15s}
 #healthText{text-align:center;font-size:11px;color:#f1948a;text-shadow:1px 1px 2px #000;margin-top:2px}
+#rankWrap{position:fixed;bottom:170px;right:16px;width:220px;z-index:10;pointer-events:none}
+#rankLabel{font-size:12px;font-weight:bold;text-shadow:1px 1px 2px #000;margin-bottom:2px;text-align:center}
+#rankXpBg{width:100%;height:8px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:4px;overflow:hidden}
+#rankXpFill{height:100%;background:linear-gradient(90deg,#6c5ce7,#a29bfe);border-radius:4px;transition:width .2s}
+#rankXpText{text-align:center;font-size:9px;color:#a29bfe;text-shadow:1px 1px 2px #000;margin-top:1px}
 #dungeonName{position:fixed;top:14px;left:50%;transform:translateX(-50%);color:#fff;font:bold 16px Arial,sans-serif;text-shadow:2px 2px 4px #000;z-index:10;pointer-events:none}
 
 /* === DIALOGUE SYSTEM === */
@@ -57,6 +62,12 @@ canvas{display:block}
 
 /* === TUTORIAL HINTS === */
 #tutorialHint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,15,40,0.95);border:2px solid #6c5ce7;border-radius:12px;padding:20px 30px;color:#fff;font-size:14px;line-height:1.6;text-align:center;z-index:45;display:none;max-width:400px}
+
+/* === QUEST TRACKER === */
+#questTracker{position:fixed;top:12px;right:12px;background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;min-width:220px;max-width:300px;color:#fff;font-size:12px;z-index:10;pointer-events:none;display:none}
+#questTitle{font-weight:bold;color:#f1c40f;margin-bottom:4px;font-size:13px}
+#questDesc{color:#bbb;font-size:11px;line-height:1.4}
+#questProgress{color:#6c5ce7;font-size:10px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -78,6 +89,11 @@ canvas{display:block}
 <div id="totalManaWrap">
 	<div id="totalManaBarBg"><div id="totalManaBarFill" style="width:0%"></div></div>
 	<div id="totalManaText">⚡ Total Mana: 0</div>
+</div>
+<div id="rankWrap">
+	<div id="rankLabel">🔰 Novice</div>
+	<div id="rankXpBg"><div id="rankXpFill" style="width:0%"></div></div>
+	<div id="rankXpText">0 / 50 XP</div>
 </div>
 <div id="damageStoreWrap" style="position:fixed;top:110px;left:12px;font-size:11px;color:#ffcc00;text-shadow:0 0 4px #000;display:none">
 	<span id="damageStoreText">⚔️ Stored: 0</span>
@@ -105,6 +121,13 @@ canvas{display:block}
 
 <!-- Notification -->
 <div id="notification"></div>
+
+<!-- Quest Tracker -->
+<div id="questTracker">
+	<div id="questTitle">—</div>
+	<div id="questDesc"></div>
+	<div id="questProgress"></div>
+</div>
 
 <!-- Tutorial Hint -->
 <div id="tutorialHint"></div>
@@ -179,6 +202,28 @@ const SPRITE_NAME_OVERRIDE = { cryoMage: 'cyro-mage' }; // filename doesn't matc
 /* === PLAYER SPRITE SHEET === */
 const PLAYER_SPRITE = new Image();
 PLAYER_SPRITE.src = 'images/assests/player-sheet.png';
+
+/* === TUTORIAL BACKGROUND === */
+const TUTORIAL_BG = new Image();
+TUTORIAL_BG.src = 'images/backgrounds/tutorial-background.jpg';
+
+/* === NPC PORTRAIT IMAGES === */
+const NPC_IMAGES = {};
+const NPC_IMG_MAP = {
+	thalen:'archmage', thalen_city:'archmage',
+	mira:'mage-student', mira_city:'merchant',
+	captain:'captain-guard', dorn_city:'captain-guard',
+	clockkeeper:'clock-keeper', ranger:'forest-ranger',
+	student1:'artifact-dealer', student2:'apprentice-mage',
+	merchant1:'merchant', merchant2:'scroll-vendor',
+	guard1:'generic-guard', guard2:'generic-guard',
+	innkeeper:'inn-keeper', elder:'eldery-sage',
+	child1:'spellcasting-child', blacksmith:'black-smith',
+};
+Object.entries(NPC_IMG_MAP).forEach(([id, file]) => {
+	if(!NPC_IMAGES[file]){ const img = new Image(); img.src = 'images/NPCS/' + file + '.png'; NPC_IMAGES[file] = img; }
+});
+
 const PLAYER_SPRITE_COLS = 6, PLAYER_SPRITE_ROWS = 4;
 const PLAYER_SPRITE_ROW = { idle: 0, walk: 1, attack: 2, defeat: 3 };
 const PLAYER_SPRITE_FPS = 8;
@@ -271,6 +316,8 @@ try{ const raw=localStorage.getItem('magicBattle_playerData'); playerData=raw?JS
 if(!playerData){
 	playerData={
 		baseStats:{magicPower:10,magicControl:5,manaRegen:100,magicDefence:8},
+		mageRank:0,
+		xp:0,
 		equipment:{staff:null,robe:null,relic1:null,relic2:null},
 		inventory:[],
 		spells:new Array(10).fill(null),
@@ -288,6 +335,71 @@ if(!playerData){
 if(!playerData.vows) playerData.vows = [null,null,null];
 /* --- Ensure spellBoosts array exists (migration) --- */
 if(!playerData.spellBoosts) playerData.spellBoosts = new Array(10).fill(1.0);
+/* --- Ensure rank/xp fields exist (migration) --- */
+if(playerData.mageRank == null) playerData.mageRank = 0;
+if(playerData.xp == null) playerData.xp = 0;
+
+/* =============================================================
+   MAGE RANK SYSTEM
+   ============================================================= */
+const MAGE_RANKS = [
+	{ name:'Novice',          icon:'🔰', color:'#aaaaaa', xpReq:0,     maxPower:2  },
+	{ name:'Apprentice',      icon:'📘', color:'#5dade2', xpReq:50,    maxPower:4  },
+	{ name:'Adept',           icon:'🔮', color:'#8e44ad', xpReq:200,   maxPower:6  },
+	{ name:'Mage',            icon:'⚡', color:'#f39c12', xpReq:600,   maxPower:8  },
+	{ name:'Archmage',        icon:'👑', color:'#e74c3c', xpReq:1500,  maxPower:10 },
+	{ name:'Grand Sorcerer',  icon:'🌟', color:'#ffcc00', xpReq:4000,  maxPower:20 },
+];
+
+// Which rank unlocks each shape (index into MAGE_RANKS)
+const SHAPE_RANK_REQ = {
+	missile:0, orb:0, allyOrb:0, same:0,
+	blade:1, spike:1, polygon:1, solidify:1,
+	beam:2, cone:2, wall:2,
+	ring:3, nova:3, meteor:3,
+	chain:4, vortex:4, summon:4,
+};
+// Which rank unlocks each behavior
+const BEHAVIOR_RANK_REQ = {
+	straight:0, stationary:0, selfCast:0,
+	lob:1, underfoot:1,
+	homing:2, boomerang:2, groundSurge:2,
+	aroundSelf:3, ground:3, zigzag:3,
+	orbit:4, rain:4, barrage:4, teleport:4,
+	domain:5,
+};
+// Which rank unlocks each effect
+const EFFECT_RANK_REQ = {
+	knockback:0, randomDelay:0, resetProjectiles:0,
+	burn:1, freeze:1, forceJump:1, speedBoost:1, jumpBoost:1,
+	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
+	stun:3, healSelf:3, shield:3, manaRegen:3, phaseFork:3, damageRelease:3, damageHeal:3,
+	lifesteal:4, blind:4, shatter:4, leechMana:4, mark:4, dispel:4,
+	phaseThrough:5, gravityWell:5, ricochet:5,
+};
+
+function getMageRank(){ return playerData.mageRank || 0; }
+function getMageRankInfo(){ return MAGE_RANKS[getMageRank()] || MAGE_RANKS[0]; }
+function getXpForNextRank(){
+	const r = getMageRank();
+	if(r >= MAGE_RANKS.length - 1) return null;
+	return MAGE_RANKS[r + 1].xpReq;
+}
+
+function addXp(amount){
+	if(IS_SANDBOX) return; // no XP in sandbox
+	playerData.xp = (playerData.xp || 0) + amount;
+	// Check for rank ups
+	let ranked = false;
+	while(playerData.mageRank < MAGE_RANKS.length - 1 && playerData.xp >= MAGE_RANKS[playerData.mageRank + 1].xpReq){
+		playerData.mageRank++;
+		ranked = true;
+		const info = MAGE_RANKS[playerData.mageRank];
+		notify(`${info.icon} Rank Up! You are now a ${info.name}!`);
+	}
+	localStorage.setItem('magicBattle_playerData', JSON.stringify(playerData));
+	updateRankHUD();
+}
 
 /* Helper to get item boost for a spell slot */
 function getItemBoostForSlot(slot){
@@ -1047,39 +1159,81 @@ const OPENWORLD_CONFIG = {
 		{ x:5400, y:1700, w:200, h:20 },
 		{ x:6000, y:1550, w:180, h:20 },
 	],
-	// Tutorial NPCs
+	// Tutorial NPCs — dialogue depends on quest progress
 	npcs: [
 		{
 			id: 'thalen', name: 'Archmage Thalen', x: 800, icon: '🧙', color: '#4466cc',
 			w: 40, h: 64,
-			dialogues: [
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Welcome, young mage! I am Archmage Thalen of the Mage Academy." },
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Use WASD or Arrow Keys to move. Press SPACE or W to jump!" },
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Press 1-0 to select your spells, then X or Click to cast them." },
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Press M to open your inventory — you can view and customize your spells there." },
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Try attacking the training dummies to the east. They won't fight back!" },
-				{ name: 'Archmage Thalen', icon: '🧙', text: "Once you're ready, venture further east to face actual enemies. Good luck!" },
-			]
+			getDialogue(qi){
+				if(qi === 0) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Welcome, young mage! I am Archmage Thalen of the Mage Academy." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"The world of magic is vast and dangerous. But first, you must learn the basics." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Use WASD or Arrow Keys to move around. Press SPACE or W to jump!" },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Try walking to the right and jumping onto a platform to get started." },
+				];
+				if(qi === 2) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Good, you can move! Now let's talk about spells." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Press keys 1 through 0 to select a spell from your hotbar at the bottom." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Then press X or Click to cast your selected spell!" },
+					{ name:'Archmage Thalen', icon:'🧙', text:"You start with Magic Missile — try casting it at the training dummies east of here." },
+				];
+				if(qi === 4) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Nice casting! Now let me show you something important." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Press M to open your Inventory. There you can customize your spells, equip items, and view quests." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Each spell has Shapes, Behaviors, and Effects — experiment with different combinations!" },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Open your inventory now, then speak to Instructor Mira to the east for more details." },
+				];
+				if(qi === 8 || qi === 9) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Excellent work, young mage! You've completed your basic training." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"You now know how to move, cast spells, manage your inventory, and fight enemies." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"The world beyond these grounds holds many dangers — and many treasures." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Return to the main menu and explore the Dungeons when you're ready for a real challenge!" },
+					{ name:'Archmage Thalen', icon:'🧙', text:"May the arcane winds guide you, mage. Your journey has only just begun." },
+				];
+				return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Keep exploring, young mage. You have much to learn." },
+				];
+			}
 		},
 		{
 			id: 'mira', name: 'Instructor Mira', x: 2200, icon: '📖', color: '#cc6644',
 			w: 36, h: 58,
-			dialogues: [
-				{ name: 'Instructor Mira', icon: '📖', text: "Hello! I teach spell combinations here at the Academy." },
-				{ name: 'Instructor Mira', icon: '📖', text: "Each spell has a Shape, Behavior, and Effects. Different combinations create unique magic!" },
-				{ name: 'Instructor Mira', icon: '📖', text: "Items you find will boost the power of spells that use matching components." },
-				{ name: 'Instructor Mira', icon: '📖', text: "For example, a 'Missile Rune' boosts all spells with the Missile shape!" },
-			]
+			getDialogue(qi){
+				if(qi === 5) return [
+					{ name:'Instructor Mira', icon:'📖', text:"Hello there! Thalen sent you to learn about spell building, did he?" },
+					{ name:'Instructor Mira', icon:'📖', text:"Each spell is built in phases. A phase has a Shape, a Behavior, and Effects." },
+					{ name:'Instructor Mira', icon:'📖', text:"Shapes determine WHAT the spell looks like — Missiles, Orbs, Beams, and more!" },
+					{ name:'Instructor Mira', icon:'📖', text:"Behaviors control HOW it moves — Straight, Homing, Spiral, Rain Down…" },
+					{ name:'Instructor Mira', icon:'📖', text:"Effects add special properties — Burn, Freeze, Knockback, Heal Self, and many others." },
+					{ name:'Instructor Mira', icon:'📖', text:"Open your Inventory with M and click a spell slot to start building! Now go destroy those training dummies." },
+				];
+				if(qi === 6) return [
+					{ name:'Instructor Mira', icon:'📖', text:"Go destroy the training dummies to the east to prove your skills!" },
+				];
+				return [
+					{ name:'Instructor Mira', icon:'📖', text:"Remember — the more creative your spell combinations, the more powerful you become!" },
+					{ name:'Instructor Mira', icon:'📖', text:"Items you find can unlock new shapes and effects. Keep exploring!" },
+				];
+			}
 		},
 		{
 			id: 'captain', name: 'Captain Varn', x: 4500, icon: '⚔️', color: '#888899',
 			w: 44, h: 64,
-			dialogues: [
-				{ name: 'Captain Varn', icon: '⚔️', text: "Halt! I'm Captain Varn, guardian of the training grounds." },
-				{ name: 'Captain Varn', icon: '⚔️', text: "Slimes have been spawning east of here. They're good for practice!" },
-				{ name: 'Captain Varn', icon: '⚔️', text: "Be careful — they may be weak, but they still hurt if they land on you." },
-				{ name: 'Captain Varn', icon: '⚔️', text: "Defeat them to gain experience and improve your magic!" },
-			]
+			getDialogue(qi){
+				if(qi === 7) return [
+					{ name:'Captain Varn', icon:'⚔️', text:"Halt! I'm Captain Varn, guardian of the training grounds." },
+					{ name:'Captain Varn', icon:'⚔️', text:"So you've beaten the dummies, eh? Let's see how you do against real monsters." },
+					{ name:'Captain Varn', icon:'⚔️', text:"Green Slimes have been spawning east of here. Defeat 5 of them to prove your worth!" },
+					{ name:'Captain Varn', icon:'⚔️', text:"They hop toward you when you get close — dodge and cast!" },
+					{ name:'Captain Varn', icon:'⚔️', text:"Once you're done, head back to Archmage Thalen. He'll have more for you." },
+				];
+				if(qi === 8) return [
+					{ name:'Captain Varn', icon:'⚔️', text:"Great work defeating those slimes! Report back to the Archmage." },
+				];
+				return [
+					{ name:'Captain Varn', icon:'⚔️', text:"Stay sharp, mage. The roads aren't as safe as they used to be." },
+				];
+			}
 		},
 	],
 	// Training dummies (don't attack)
@@ -1112,20 +1266,338 @@ const SLIME_TYPE = {
 };
 
 /* =============================================================
+   EMBERFALL CITY CONFIG
+   ============================================================= */
+const CITY_CONFIG = {
+	name: 'EmberFall City',
+	worldW: 14000,
+	worldH: 2800,
+	bgColor: '#1a1a3e',
+	bgColor2: '#2a2a5e',
+	groundY: 2200,
+	playerStart: { x: 1200, y: 2140 },
+	platforms: [
+		// Elevated walkways & balconies
+		{ x:2600, y:2000, w:300, h:20 },
+		{ x:4000, y:1900, w:250, h:20 },
+		{ x:5800, y:2050, w:200, h:20 },
+		{ x:7200, y:1950, w:280, h:20 },
+		{ x:8600, y:2000, w:200, h:20 },
+		{ x:9400, y:1850, w:250, h:20 },
+		{ x:10800, y:2050, w:200, h:20 },
+		{ x:11600, y:1900, w:250, h:20 },
+	],
+	// Buildings define the city architecture
+	buildings: [
+		// === CITY GATE (entrance) ===
+		{ x:200, y:1900, w:400, h:300, color:'#3a3040', roof:'#5a3a4a', name:'City Gate', type:'gate' },
+
+		// === MAGE ACADEMY DISTRICT (x: 1600-3600) ===
+		{ x:1600, y:1800, w:500, h:400, color:'#2a3050', roof:'#4466aa', name:'Mage Academy', type:'academy', glow:'#4488ff' },
+		{ x:2200, y:1950, w:200, h:250, color:'#2a2a44', roof:'#3355aa', name:'Lecture Hall', type:'building' },
+		{ x:2500, y:2000, w:180, h:200, color:'#2a2a44', roof:'#3a4a6a', name:'Student Quarters', type:'building' },
+		{ x:2800, y:1900, w:160, h:300, color:'#2a3060', roof:'#4466cc', name:'East Tower', type:'tower', glow:'#6688ee' },
+		{ x:3100, y:2050, w:200, h:150, color:'#2a2a40', roof:'#3a4a5a', name:'Library', type:'building' },
+
+		// === SPELL MARKET DISTRICT (x: 3800-5800) ===
+		{ x:3800, y:2020, w:230, h:180, color:'#3a2a2a', roof:'#cc6644', name:'Potion Shop', type:'shop' },
+		{ x:4100, y:2000, w:280, h:200, color:'#3a2a30', roof:'#dd7744', name:'Spell Market', type:'market', glow:'#ff9944' },
+		{ x:4500, y:2050, w:200, h:150, color:'#3a2a2a', roof:'#bb5533', name:'Rune Forge', type:'shop' },
+		{ x:4800, y:2000, w:240, h:200, color:'#3a2a2a', roof:'#cc6644', name:'Scroll Emporium', type:'shop' },
+		{ x:5100, y:2050, w:180, h:150, color:'#3a2a30', roof:'#aa5544', name:'Enchanter', type:'shop' },
+		{ x:5400, y:2030, w:200, h:170, color:'#38302a', roof:'#bb6633', name:'Tavern', type:'building' },
+
+		// === TRAINING ARENA DISTRICT (x: 6200-8000) ===
+		{ x:6200, y:1900, w:600, h:300, color:'#3a3a3a', roof:'#6a6a7a', name:'Training Arena', type:'arena', glow:'#88aacc' },
+		{ x:6900, y:2050, w:200, h:150, color:'#3a3a40', roof:'#5a5a6a', name:'Armory', type:'building' },
+		{ x:7200, y:2000, w:250, h:200, color:'#3a3a44', roof:'#5a5a7a', name:'Barracks', type:'building' },
+		{ x:7500, y:2050, w:180, h:150, color:'#3a3a3a', roof:'#5a5a6a', name:'Guard Post', type:'building' },
+
+		// === ANCIENT CLOCK TOWER (x: 8400-9200) ===
+		{ x:8400, y:1500, w:250, h:700, color:'#2a2a3a', roof:'#8866aa', name:'Ancient Clock Tower', type:'clocktower', glow:'#aa88dd' },
+		{ x:8700, y:2050, w:200, h:150, color:'#2a2a3a', roof:'#5a4a6a', name:'Clockwork Museum', type:'building' },
+		{ x:9000, y:2000, w:240, h:200, color:'#2a2a3a', roof:'#6a5a7a', name:'Chrono Archive', type:'building' },
+
+		// === RESIDENTIAL QUARTER (x: 9600-11200) ===
+		{ x:9600, y:2050, w:180, h:150, color:'#2a3030', roof:'#4a5a5a', name:'House', type:'house' },
+		{ x:9900, y:2030, w:200, h:170, color:'#2a3030', roof:'#4a5a5a', name:'House', type:'house' },
+		{ x:10200, y:2050, w:160, h:150, color:'#2a3030', roof:'#4a5a5a', name:'House', type:'house' },
+		{ x:10450, y:2020, w:220, h:180, color:'#2a3030', roof:'#4a5a5a', name:'Inn', type:'building' },
+		{ x:10750, y:2050, w:180, h:150, color:'#2a3030', roof:'#4a5a5a', name:'House', type:'house' },
+		{ x:11000, y:2030, w:200, h:170, color:'#2a3030', roof:'#4a5a5a', name:'House', type:'house' },
+
+		// === OUTER FOREST GATE (x: 11600-13000) ===
+		{ x:11600, y:1900, w:350, h:300, color:'#3a3040', roof:'#5a4a3a', name:'Outer Gate', type:'gate' },
+		{ x:12100, y:2050, w:200, h:150, color:'#3a4030', roof:'#5a6040', name:'Ranger Outpost', type:'building' },
+	],
+	// Floating runic lanterns placed along the city streets
+	lanterns: [
+		{ x:500, y:1950 }, { x:900, y:1950 }, { x:1400, y:1950 },
+		{ x:1900, y:1850 }, { x:2400, y:1950 }, { x:2900, y:1900 },
+		{ x:3400, y:1950 }, { x:3900, y:1950 }, { x:4300, y:1950 },
+		{ x:4700, y:1950 }, { x:5100, y:1950 }, { x:5600, y:1950 },
+		{ x:6000, y:1950 }, { x:6500, y:1900 }, { x:7000, y:1950 },
+		{ x:7400, y:1950 }, { x:7800, y:1950 }, { x:8200, y:1950 },
+		{ x:8600, y:1800 }, { x:9100, y:1950 }, { x:9500, y:1950 },
+		{ x:9800, y:1950 }, { x:10300, y:1950 }, { x:10700, y:1950 },
+		{ x:11100, y:1950 }, { x:11500, y:1950 }, { x:12000, y:1900 },
+	],
+	// City NPCs — main quest NPCs + ambient townsfolk
+	npcs: [
+		// === MAIN QUEST NPCs ===
+		{
+			id: 'thalen_city', name: 'Archmage Thalen', x: 1900, icon: '🧙', color: '#4466cc',
+			w: 40, h: 64, district: 'Mage Academy',
+			getDialogue(qi){
+				if(qi === 0) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Ah, welcome to EmberFall City, young mage! It's good to see you here." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"This city has been the heart of magical learning for centuries." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"I've been receiving troubling reports from beyond our walls..." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"But first — explore the city. Visit the Spell Market, the Training Arena, and speak with the people." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"When you're ready for your first real mission, come find me again." },
+				];
+				if(qi === 1) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Have you explored the city yet? Visit the Spell Market to the east — Mira has something for you." },
+				];
+				if(qi === 3) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Mira gave you a new spell component? Excellent." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Now head to the Training Arena. Captain Dorn will test your combat readiness." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"You'll need to be strong for what lies ahead..." },
+				];
+				if(qi === 5) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Captain Dorn says you show real promise. Good." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Now, there is something I must show you. Visit the Ancient Clock Tower to the east." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"There are inscriptions there that... trouble me. I need a fresh pair of eyes." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"You remind me of someone… though I cannot remember who." },
+				];
+				if(qi === 7) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"You read the inscription at the Clock Tower? 'A force that bends time to shape destiny'..." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Those words have haunted me for decades. I don't know what they mean, but I feel their weight." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Reports from the Outer Gate are growing worse. Creatures from the Sylvaris Wildes are stirring." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Speak with the rangers at the Outer Forest Gate. They may need your help." },
+				];
+				if(qi >= 9) return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"The Sylvaris Wildes... something ancient awakens there." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"You've proven yourself in this city. When you're ready, the Wildes await." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"But be warned — the forest does not forgive the unprepared." },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Return to the World Map when you're ready to venture beyond EmberFall." },
+				];
+				return [
+					{ name:'Archmage Thalen', icon:'🧙', text:"Keep exploring the city, young mage. There is much to discover." },
+				];
+			}
+		},
+		{
+			id: 'mira_city', name: 'Mira the Spell Merchant', x: 4200, icon: '🔮', color: '#cc6644',
+			w: 36, h: 58, district: 'Spell Market',
+			getDialogue(qi){
+				if(qi === 1) return [
+					{ name:'Mira', icon:'🔮', text:"Hey there! Welcome to my shop — well, my corner of the market anyway!" },
+					{ name:'Mira', icon:'🔮', text:"I'm Mira. I travel the world collecting spell fragments and rare components." },
+					{ name:'Mira', icon:'🔮', text:"Here — take this Burn effect scroll. It'll add fire damage to your spells!" },
+					{ name:'Mira', icon:'🔮', text:"Open your inventory with M and experiment with your spell builds." },
+					{ name:'Mira', icon:'🔮', text:"I've been to so many places... sometimes I feel like I've visited this world many times before." },
+					{ name:'Mira', icon:'🔮', text:"Strange feeling, isn't it? Anyway — go show Thalen what you've learned!" },
+				];
+				if(qi === 2) return [
+					{ name:'Mira', icon:'🔮', text:"Make sure you try out that Burn effect! Then go talk to Thalen." },
+				];
+				return [
+					{ name:'Mira', icon:'🔮', text:"Come back anytime! I always have new spell fragments to share." },
+					{ name:'Mira', icon:'🔮', text:"The more creative your spell combinations, the more powerful you become!" },
+				];
+			}
+		},
+		{
+			id: 'dorn_city', name: 'Captain Dorn', x: 6500, icon: '⚔️', color: '#888899',
+			w: 44, h: 64, district: 'Training Arena',
+			getDialogue(qi){
+				if(qi === 3) return [
+					{ name:'Captain Dorn', icon:'⚔️', text:"So, Thalen sent the new recruit. I'm Captain Dorn, commander of the city guard." },
+					{ name:'Captain Dorn', icon:'⚔️', text:"See this scar? Got it fighting a dragon twenty years ago. Don't want the same for you." },
+					{ name:'Captain Dorn', icon:'⚔️', text:"Head into the Training Arena behind me. Destroy the practice targets to prove your skill." },
+					{ name:'Captain Dorn', icon:'⚔️', text:"There are 3 targets inside. Blast them all, then report back." },
+				];
+				if(qi === 4) return [
+					{ name:'Captain Dorn', icon:'⚔️', text:"Destroy all 3 training targets in the arena! Show me what you've got." },
+				];
+				if(qi === 5) return [
+					{ name:'Captain Dorn', icon:'⚔️', text:"Not bad, mage! You've got potential." },
+					{ name:'Captain Dorn', icon:'⚔️', text:"Monsters have been appearing in greater numbers across the land lately. Stay sharp." },
+					{ name:'Captain Dorn', icon:'⚔️', text:"Report back to Thalen — he'll have your next assignment." },
+				];
+				return [
+					{ name:'Captain Dorn', icon:'⚔️', text:"Stay vigilant, mage. The roads beyond these walls aren't safe." },
+				];
+			}
+		},
+		// === CLOCK TOWER NPC ===
+		{
+			id: 'clockkeeper', name: 'Keeper Aldric', x: 8500, icon: '⏰', color: '#8866aa',
+			w: 38, h: 60, district: 'Clock Tower',
+			getDialogue(qi){
+				if(qi === 5 || qi === 6) return [
+					{ name:'Keeper Aldric', icon:'⏰', text:"Welcome to the Ancient Clock Tower. I am Aldric, its keeper." },
+					{ name:'Keeper Aldric', icon:'⏰', text:"This tower has stood for over a thousand years. The clock still ticks... though time itself seems uncertain." },
+					{ name:'Keeper Aldric', icon:'⏰', text:"Read the inscription on the wall behind me. It speaks of forces beyond our understanding." },
+					{ name:'Keeper Aldric', icon:'⏰', text:"'A force that bends time to shape destiny.' Does that mean something to you?" },
+				];
+				return [
+					{ name:'Keeper Aldric', icon:'⏰', text:"The clock still ticks. But I wonder sometimes... does time truly flow forward?" },
+				];
+			}
+		},
+		// === OUTER GATE RANGER ===
+		{
+			id: 'ranger', name: 'Ranger Sylva', x: 11800, icon: '🏹', color: '#5a7a4a',
+			w: 38, h: 60, district: 'Outer Gate',
+			getDialogue(qi){
+				if(qi === 7 || qi === 8) return [
+					{ name:'Ranger Sylva', icon:'🏹', text:"Halt! You shouldn't go beyond these gates without preparation." },
+					{ name:'Ranger Sylva', icon:'🏹', text:"The Sylvaris Wildes have become dangerous. Strange creatures roam the forest." },
+					{ name:'Ranger Sylva', icon:'🏹', text:"We've lost contact with our scouts. Something is corrupting the wildlife." },
+					{ name:'Ranger Sylva', icon:'🏹', text:"If you want to help, speak with Thalen first. We need a plan, not a martyr." },
+				];
+				if(qi >= 9) return [
+					{ name:'Ranger Sylva', icon:'🏹', text:"So Thalen's given you the green light? Be careful out there." },
+					{ name:'Ranger Sylva', icon:'🏹', text:"The Sylvaris Wildes are not yet accessible from this gate. Return to the World Map to venture there." },
+				];
+				return [
+					{ name:'Ranger Sylva', icon:'🏹', text:"The forest is quiet today... too quiet." },
+				];
+			}
+		},
+		// === AMBIENT TOWNSFOLK NPCs ===
+		{
+			id: 'student1', name: 'Academy Student', x: 2300, icon: '📚', color: '#5566aa',
+			w: 32, h: 52, district: 'Mage Academy',
+			getDialogue(){ return [
+				{ name:'Academy Student', icon:'📚', text:"I'm studying Frost magic this semester. It's harder than it looks!" },
+				{ name:'Academy Student', icon:'📚', text:"Archmage Thalen's lectures are incredible. Don't miss them!" },
+			]; }
+		},
+		{
+			id: 'student2', name: 'Apprentice Mage', x: 3200, icon: '✨', color: '#6677bb',
+			w: 32, h: 52, district: 'Mage Academy',
+			getDialogue(){ return [
+				{ name:'Apprentice Mage', icon:'✨', text:"Did you hear? Something stirred in the volcanic region to the east..." },
+				{ name:'Apprentice Mage', icon:'✨', text:"Rumors say an ancient dragon has awakened. Scary stuff." },
+			]; }
+		},
+		{
+			id: 'merchant1', name: 'Artifact Trader', x: 4700, icon: '💎', color: '#aa8844',
+			w: 34, h: 56, district: 'Spell Market',
+			getDialogue(){ return [
+				{ name:'Artifact Trader', icon:'💎', text:"Looking for rare artifacts? I've got crystals from the Frostveil Expanse!" },
+				{ name:'Artifact Trader', icon:'💎', text:"Well... I might have them. Business has been slow with all these monsters about." },
+			]; }
+		},
+		{
+			id: 'merchant2', name: 'Scroll Vendor', x: 5200, icon: '📜', color: '#99774a',
+			w: 32, h: 54, district: 'Spell Market',
+			getDialogue(){ return [
+				{ name:'Scroll Vendor', icon:'📜', text:"Spell scrolls! Fresh spell scrolls! Best prices in EmberFall!" },
+				{ name:'Scroll Vendor', icon:'📜', text:"I hear Mira sells some exclusive stuff. Can't compete with that woman..." },
+			]; }
+		},
+		{
+			id: 'guard1', name: 'City Guard', x: 7300, icon: '🛡️', color: '#777888',
+			w: 38, h: 60, district: 'Training Arena',
+			getDialogue(){ return [
+				{ name:'City Guard', icon:'🛡️', text:"Captain Dorn had us training since dawn. That man doesn't rest." },
+				{ name:'City Guard', icon:'🛡️', text:"Stay out of trouble, mage. The arena is for practice, not brawling." },
+			]; }
+		},
+		{
+			id: 'guard2', name: 'City Guard', x: 7700, icon: '🛡️', color: '#777888',
+			w: 38, h: 60, district: 'Training Arena',
+			getDialogue(){ return [
+				{ name:'City Guard', icon:'🛡️', text:"You see that Clock Tower? Gives me the creeps. Ticking all day and night." },
+				{ name:'City Guard', icon:'🛡️', text:"Some say time itself is broken there. I don't want to know." },
+			]; }
+		},
+		{
+			id: 'innkeeper', name: 'Innkeeper Bram', x: 10500, icon: '🍺', color: '#886644',
+			w: 36, h: 58, district: 'Residential',
+			getDialogue(){ return [
+				{ name:'Innkeeper Bram', icon:'🍺', text:"Welcome to the Wanderer's Rest! Best ale in EmberFall." },
+				{ name:'Innkeeper Bram', icon:'🍺', text:"We've had lots of travelers lately, all fleeing from trouble in the wilds." },
+				{ name:'Innkeeper Bram', icon:'🍺', text:"Something bad is coming. I can feel it in my bones." },
+			]; }
+		},
+		{
+			id: 'elder', name: 'Elder Maris', x: 9700, icon: '👵', color: '#7a6a8a',
+			w: 34, h: 56, district: 'Residential',
+			getDialogue(){ return [
+				{ name:'Elder Maris', icon:'👵', text:"I've lived in EmberFall for eighty years. This city has never felt so... unsettled." },
+				{ name:'Elder Maris', icon:'👵', text:"The Clock Tower's bells ring at odd hours now. That hasn't happened in decades." },
+				{ name:'Elder Maris', icon:'👵', text:"Be careful, young one. The world is changing, and not for the better." },
+			]; }
+		},
+		{
+			id: 'child1', name: 'Young Mage', x: 10100, icon: '🧒', color: '#6688aa',
+			w: 28, h: 44, district: 'Residential',
+			getDialogue(){ return [
+				{ name:'Young Mage', icon:'🧒', text:"When I grow up, I'm going to be an Archmage just like Thalen!" },
+				{ name:'Young Mage', icon:'🧒', text:"Can you show me a spell? Pleeease?" },
+			]; }
+		},
+		{
+			id: 'blacksmith', name: 'Forge Master Kael', x: 6950, icon: '🔨', color: '#996633',
+			w: 40, h: 62, district: 'Training Arena',
+			getDialogue(){ return [
+				{ name:'Forge Master Kael', icon:'🔨', text:"Need repairs? I keep the guard's weapons and armor in top shape." },
+				{ name:'Forge Master Kael', icon:'🔨', text:"I've been working overtime forging new swords. Captain Dorn's orders." },
+				{ name:'Forge Master Kael', icon:'🔨', text:"Whatever's out there in the Wildes, it's got the captain worried. And that man fears nothing." },
+			]; }
+		},
+	],
+	// Training dummies in the arena area
+	dummies: [
+		{ x: 6400, y: 2140 },
+		{ x: 6600, y: 2140 },
+		{ x: 6800, y: 2140 },
+	],
+	// No slimes in the city
+	slimeSpawns: [],
+	// Ambient walker configs (townsfolk that pace back and forth)
+	walkers: [
+		{ x:1000, minX:600, maxX:1600, speed:0.4, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:3500, minX:3200, maxX:3800, speed:0.3, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:4500, minX:4200, maxX:5000, speed:0.5, icon:'👤', color:'#555566', name:'Shopper' },
+		{ x:5500, minX:5200, maxX:5800, speed:0.3, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:7500, minX:7200, maxX:7800, speed:0.4, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:9200, minX:8900, maxX:9600, speed:0.3, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:10300, minX:10000, maxX:10600, speed:0.4, icon:'👤', color:'#555566', name:'Citizen' },
+		{ x:11200, minX:11000, maxX:11500, speed:0.3, icon:'👤', color:'#555566', name:'Citizen' },
+	],
+};
+
+/* =============================================================
    MODE SELECTION & MAP LOADING
    ============================================================= */
 const IS_SANDBOX = GAME_MODE === 'sandbox';
 const IS_RAID = GAME_MODE === 'raid';
 const IS_OPENWORLD = GAME_MODE === 'openworld';
-const IS_DUNGEON = !IS_SANDBOX && !IS_RAID && !IS_OPENWORLD;
+const IS_CITY = GAME_MODE === 'city';
+const IS_DUNGEON = !IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY;
+
+// Helper to pick config value for current mode
+function modeVal(sb, rd, ow, city, def){
+	if(IS_SANDBOX) return sb;
+	if(IS_RAID) return rd;
+	if(IS_OPENWORLD) return ow;
+	if(IS_CITY) return city;
+	return def;
+}
 
 // Create dungeon object (real dungeon for dungeon mode, stub for other modes)
 const dungeon = IS_DUNGEON ? (DUNGEONS[DUNGEON_TYPE] || DUNGEONS.fire) : {
-	name: IS_SANDBOX ? 'Sandbox' : IS_RAID ? RAID_CONFIG.name : IS_OPENWORLD ? OPENWORLD_CONFIG.name : 'Open World',
-	worldW: IS_SANDBOX ? SANDBOX_CONFIG.worldW : IS_RAID ? RAID_CONFIG.worldW : IS_OPENWORLD ? OPENWORLD_CONFIG.worldW : 4000,
-	worldH: IS_SANDBOX ? SANDBOX_CONFIG.worldH : IS_RAID ? RAID_CONFIG.worldH : IS_OPENWORLD ? OPENWORLD_CONFIG.worldH : 2400,
-	bgColor: IS_SANDBOX ? SANDBOX_CONFIG.bgColor : IS_RAID ? RAID_CONFIG.bgColor : IS_OPENWORLD ? OPENWORLD_CONFIG.bgColor : '#1a1a2e',
-	airColor: IS_SANDBOX ? SANDBOX_CONFIG.bgColor2 : IS_RAID ? RAID_CONFIG.bgColor2 : IS_OPENWORLD ? OPENWORLD_CONFIG.bgColor2 : '#16213e',
+	name: modeVal('Sandbox', RAID_CONFIG.name, OPENWORLD_CONFIG.name, CITY_CONFIG.name, 'Open World'),
+	worldW: modeVal(SANDBOX_CONFIG.worldW, RAID_CONFIG.worldW, OPENWORLD_CONFIG.worldW, CITY_CONFIG.worldW, 4000),
+	worldH: modeVal(SANDBOX_CONFIG.worldH, RAID_CONFIG.worldH, OPENWORLD_CONFIG.worldH, CITY_CONFIG.worldH, 2400),
+	bgColor: modeVal(SANDBOX_CONFIG.bgColor, RAID_CONFIG.bgColor, OPENWORLD_CONFIG.bgColor, CITY_CONFIG.bgColor, '#1a1a2e'),
+	airColor: modeVal(SANDBOX_CONFIG.bgColor2, RAID_CONFIG.bgColor2, OPENWORLD_CONFIG.bgColor2, CITY_CONFIG.bgColor2, '#16213e'),
 	wallColor: '#3a3a4a',
 	wallColor2: '#4a4a5a',
 	wallEdge: '#5a5a6a',
@@ -1134,8 +1606,8 @@ const dungeon = IS_DUNGEON ? (DUNGEONS[DUNGEON_TYPE] || DUNGEONS.fire) : {
 	decorations: [],
 	enemies: [],
 	corridors: [],
-	spawnX: IS_SANDBOX ? SANDBOX_CONFIG.playerStart.x : IS_RAID ? RAID_CONFIG.playerStart.x : IS_OPENWORLD ? OPENWORLD_CONFIG.playerStart.x : 200,
-	spawnY: IS_SANDBOX ? SANDBOX_CONFIG.playerStart.y : IS_RAID ? RAID_CONFIG.playerStart.y : IS_OPENWORLD ? OPENWORLD_CONFIG.playerStart.y : 2200,
+	spawnX: modeVal(SANDBOX_CONFIG.playerStart.x, RAID_CONFIG.playerStart.x, OPENWORLD_CONFIG.playerStart.x, CITY_CONFIG.playerStart.x, 200),
+	spawnY: modeVal(SANDBOX_CONFIG.playerStart.y, RAID_CONFIG.playerStart.y, OPENWORLD_CONFIG.playerStart.y, CITY_CONFIG.playerStart.y, 2200),
 };
 const diffLabel = DIFFICULTY.charAt(0).toUpperCase() + DIFFICULTY.slice(1);
 const diffColors = { easy:'#44dd88', normal:'#66aaff', hard:'#ff5555' };
@@ -1150,6 +1622,9 @@ if(IS_SANDBOX){
 } else if(IS_OPENWORLD){
 	document.getElementById('dungeonName').innerHTML = OPENWORLD_CONFIG.name + ' <span style="font-size:12px;color:#66aaff;">(Tutorial)</span>';
 	document.getElementById('backBtn').href = 'index.html';
+} else if(IS_CITY){
+	document.getElementById('dungeonName').innerHTML = CITY_CONFIG.name + ' <span style="font-size:12px;color:#f1c40f;">(City)</span>';
+	document.getElementById('backBtn').href = 'index.html';
 } else {
 	document.getElementById('dungeonName').innerHTML = dungeon.name + ' <span style="font-size:12px;color:' + diffColors[DIFFICULTY] + ';">(' + diffLabel + ')</span>';
 }
@@ -1157,13 +1632,13 @@ if(IS_SANDBOX){
 /* =============================================================
    TILEMAP GENERATION
    ============================================================= */
-const WORLD_W = IS_SANDBOX ? SANDBOX_CONFIG.worldW : IS_RAID ? RAID_CONFIG.worldW : IS_OPENWORLD ? OPENWORLD_CONFIG.worldW : dungeon.worldW;
-const WORLD_H = IS_SANDBOX ? SANDBOX_CONFIG.worldH : IS_RAID ? RAID_CONFIG.worldH : IS_OPENWORLD ? OPENWORLD_CONFIG.worldH : dungeon.worldH;
+const WORLD_W = modeVal(SANDBOX_CONFIG.worldW, RAID_CONFIG.worldW, OPENWORLD_CONFIG.worldW, CITY_CONFIG.worldW, dungeon.worldW);
+const WORLD_H = modeVal(SANDBOX_CONFIG.worldH, RAID_CONFIG.worldH, OPENWORLD_CONFIG.worldH, CITY_CONFIG.worldH, dungeon.worldH);
 const MAP_COLS = Math.ceil(WORLD_W / TILE);
 const MAP_ROWS = Math.ceil(WORLD_H / TILE);
 
 // Ground level for sandbox/raid (open-sky maps)
-const GROUND_Y = IS_SANDBOX ? SANDBOX_CONFIG.groundY : IS_RAID ? RAID_CONFIG.groundY : IS_OPENWORLD ? OPENWORLD_CONFIG.groundY : WORLD_H;
+const GROUND_Y = modeVal(SANDBOX_CONFIG.groundY, RAID_CONFIG.groundY, OPENWORLD_CONFIG.groundY, CITY_CONFIG.groundY, WORLD_H);
 const GROUND_THICK = IS_SANDBOX ? SANDBOX_CONFIG.groundThick : 60;
 
 // Platforms for open-sky modes (sandbox/raid)
@@ -1188,6 +1663,14 @@ if(IS_SANDBOX){
 	sandboxPlatforms = [
 		{ x:0, y:OPENWORLD_CONFIG.groundY, w:WORLD_W, h:200 }, // Main ground
 		...OPENWORLD_CONFIG.platforms,
+		// Side walls
+		{ x:-50, y:0, w:50, h:WORLD_H },
+		{ x:WORLD_W, y:0, w:50, h:WORLD_H },
+	];
+} else if(IS_CITY){
+	sandboxPlatforms = [
+		{ x:0, y:CITY_CONFIG.groundY, w:WORLD_W, h:200 }, // Main ground
+		...CITY_CONFIG.platforms,
 		// Side walls
 		{ x:-50, y:0, w:50, h:WORLD_H },
 		{ x:WORLD_W, y:0, w:50, h:WORLD_H },
@@ -1221,14 +1704,14 @@ if(IS_DUNGEON && dungeon){
 
 function isSolid(col, row){
 	// No tilemap in sandbox/raid/openworld modes
-	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD) return false;
+	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY) return false;
 	if(row < 0 || row >= MAP_ROWS || col < 0 || col >= MAP_COLS) return true;
 	return tileMap[row][col] === 0;
 }
 
 // Platform collision for open-sky modes
 function checkPlatformCollision(x, y, w, h){
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD) return null;
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY) return null;
 	for(const p of sandboxPlatforms){
 		if(x + w > p.x && x < p.x + p.w && y + h > p.y && y < p.y + p.h){
 			return p;
@@ -1239,7 +1722,7 @@ function checkPlatformCollision(x, y, w, h){
 
 // One-way platform check (landing from above)
 function checkPlatformLanding(x, y, w, h, vy){
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD) return null;
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY) return null;
 	for(const p of sandboxPlatforms){
 		// Only collide if falling and feet are above/at platform top
 		if(vy >= 0 && x + w > p.x && x < p.x + p.w){
@@ -1383,7 +1866,8 @@ function releaseHeldProjectiles(){
 // Get spawn point based on game mode
 const playerSpawn = IS_SANDBOX ? SANDBOX_CONFIG.playerStart 
 	: IS_RAID ? { x: 2000, y: 1790 } // center arena
-	: IS_OPENWORLD ? { x: 300, y: 1940 }
+	: IS_OPENWORLD ? OPENWORLD_CONFIG.playerStart
+	: IS_CITY ? CITY_CONFIG.playerStart
 	: dungeon.playerStart;
 
 const player = {
@@ -1436,6 +1920,25 @@ function updateHealthHUD(){
 	document.getElementById('healthText').textContent = `${Math.ceil(health)} / ${maxHealth}`;
 }
 updateHealthHUD();
+
+function updateRankHUD(){
+	const rank = getMageRank();
+	const info = getMageRankInfo();
+	const nextXp = getXpForNextRank();
+	const xp = playerData.xp || 0;
+	document.getElementById('rankLabel').textContent = `${info.icon} ${info.name}`;
+	document.getElementById('rankLabel').style.color = info.color;
+	if(nextXp != null){
+		const prevXp = info.xpReq;
+		const pct = Math.max(0, Math.min(100, ((xp - prevXp) / (nextXp - prevXp)) * 100));
+		document.getElementById('rankXpFill').style.width = pct + '%';
+		document.getElementById('rankXpText').textContent = `${xp} / ${nextXp} XP`;
+	} else {
+		document.getElementById('rankXpFill').style.width = '100%';
+		document.getElementById('rankXpText').textContent = `${xp} XP — MAX RANK`;
+	}
+}
+updateRankHUD();
 
 /* Player buffs */
 const playerBuffs = { speedTimer:0, speedMult:1, jumpTimer:0, jumpMult:1, manaRegenTimer:0, manaRegenMult:1 };
@@ -1513,8 +2016,31 @@ const bossStepSpots = [];
 let bossStepSpotTimer = 0;
 const BOSS_STEP_SPOT_INTERVAL = 480; // spawn new spots every 8 seconds
 
+/* --- Fire boss room tablet (must interact to trigger boss) --- */
+let bossTablet = null;
+if(IS_DUNGEON && DUNGEON_TYPE === 'fire'){
+	// Tablet sits on center platform (x:860,y:3640,w:520) — center of that platform
+	bossTablet = {
+		x: 1095, y: 3640 - 50, // on top of center platform
+		w: 50, h: 50,
+		name: 'Ancient Tablet',
+		icon: '📜',
+		color: '#aa8844',
+		interacted: false,
+		glowTimer: 0,
+	};
+}
+
+/* Clock rewind cinematic state (plays before fire boss cutscene) */
+const clockRewind = {
+	active: false,
+	timer: 0,
+	duration: 300, // 5 seconds at 60fps
+	angle: 0,      // clock hand angle — rewinds
+};
+
 function startBossCutscene(){
-	if(bossState.phase !== 'inactive') return;
+	if(bossState.phase !== 'inactive' && bossState.phase !== 'waiting_tablet') return;
 	bossState.phase = 'cutscene';
 	bossState.timer = 0;
 	// Boss spawns after cutscene — use saved spawn position for camera target
@@ -1523,8 +2049,8 @@ function startBossCutscene(){
 		bossState.bossCx = bossSpawnDef.x + (bt ? bt.w/2 : 160);
 		bossState.bossCy = bossSpawnDef.y + (bt ? bt.h/2 : 120);
 	}
-	// Seal the entrance — add solid tiles
-	if(BOSS_LOCK_WALL){
+	// Seal the entrance — add solid tiles (skip if already sealed during waiting_tablet)
+	if(BOSS_LOCK_WALL && !bossState.lockWall){
 	bossState.lockWall = { ...BOSS_LOCK_WALL };
 	const lx = Math.floor(BOSS_LOCK_WALL.x / TILE);
 	const ly = Math.floor(BOSS_LOCK_WALL.y / TILE);
@@ -2056,12 +2582,13 @@ if(IS_SANDBOX){
 	}
 }
 
-// Openworld training dummies
-if(IS_OPENWORLD){
-	for(let i = 0; i < OPENWORLD_CONFIG.dummies.length; i++){
-		const d = OPENWORLD_CONFIG.dummies[i];
+// Openworld / city training dummies
+const _dummyCfg = IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
+if(_dummyCfg){
+	for(let i = 0; i < _dummyCfg.dummies.length; i++){
+		const d = _dummyCfg.dummies[i];
 		dummies.push({
-			x: d.x, y: OPENWORLD_CONFIG.groundY - 48,
+			x: d.x, y: _dummyCfg.groundY - 48,
 			w: 28, h: 48,
 			hp: 200, maxHp: 200,
 			flash: 0,
@@ -2076,12 +2603,13 @@ if(IS_OPENWORLD){
 	}
 }
 
-// Slime enemies for openworld tutorial
+// Slime enemies for openworld / city
 const slimes = [];
-if(IS_OPENWORLD){
-	for(const spawn of OPENWORLD_CONFIG.slimeSpawns){
+const _slimeCfg = IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
+if(_slimeCfg && _slimeCfg.slimeSpawns.length > 0){
+	for(const spawn of _slimeCfg.slimeSpawns){
 		slimes.push({
-			x: spawn.x, y: OPENWORLD_CONFIG.groundY - SLIME_TYPE.h,
+			x: spawn.x, y: _slimeCfg.groundY - SLIME_TYPE.h,
 			w: SLIME_TYPE.w, h: SLIME_TYPE.h,
 			hp: SLIME_TYPE.hp, maxHp: SLIME_TYPE.maxHp,
 			vx: 0, vy: 0,
@@ -2098,15 +2626,33 @@ if(IS_OPENWORLD){
 	}
 }
 
-// NPCs for openworld tutorial
+// NPCs for openworld / city
 const npcs = [];
-if(IS_OPENWORLD){
-	for(const npc of OPENWORLD_CONFIG.npcs){
+const _npcCfg = IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
+if(_npcCfg){
+	for(const npc of _npcCfg.npcs){
 		npcs.push({
 			...npc,
-			y: OPENWORLD_CONFIG.groundY - npc.h,
+			y: _npcCfg.groundY - npc.h,
 		});
 	}
+}
+
+// Initialize ambient walkers for city mode
+const cityWalkers = [];
+if(IS_CITY && CITY_CONFIG.walkers){
+	for(const w of CITY_CONFIG.walkers){
+		cityWalkers.push({
+			...w,
+			y: CITY_CONFIG.groundY - 52,
+			dir: 1,
+		});
+	}
+}
+
+// Initialize quest tracker display on load
+if(IS_OPENWORLD || IS_CITY){
+	setTimeout(() => updateQuestTracker(), 100);
 }
 
 // Dialogue system state
@@ -2125,6 +2671,203 @@ let inventoryOpen = false;
 // Notification state
 let notifyTimer = 0;
 let notifyMsg = '';
+
+/* ============================================================
+   TUTORIAL QUEST SYSTEM (openworld mode)
+   ============================================================
+   Linear quest chain that teaches the player basic mechanics.
+   Quest progress is saved to localStorage. */
+let tutorialQuestIndex = 0;
+let tutorialQuestFlags = {};
+let slimesKilledCount = 0;
+
+// Load saved quest progress
+if(IS_OPENWORLD || IS_CITY){
+	try {
+		const saved = JSON.parse(localStorage.getItem(IS_CITY ? 'magicBattle_cityQuests' : 'magicBattle_tutorialQuests'));
+		if(saved){
+			tutorialQuestIndex = saved.questIndex || 0;
+			tutorialQuestFlags = saved.flags || {};
+			slimesKilledCount = saved.slimesKilled || 0;
+		}
+	} catch(e){}
+}
+
+function saveTutorialQuests(){
+	const key = IS_CITY ? 'magicBattle_cityQuests' : 'magicBattle_tutorialQuests';
+	localStorage.setItem(key, JSON.stringify({
+		questIndex: tutorialQuestIndex,
+		flags: tutorialQuestFlags,
+		slimesKilled: slimesKilledCount
+	}));
+}
+
+const TUTORIAL_QUESTS = [
+	/* 0 */ {
+		title: 'Speak to Archmage Thalen',
+		desc: 'Find the Archmage near the academy entrance (to the right).',
+		check(){ return tutorialQuestFlags.spokeThalen0; },
+		onComplete(){ notify('Quest complete! Now try moving and jumping.'); }
+	},
+	/* 1 */ {
+		title: 'Learn to Move',
+		desc: 'Walk to the right and jump onto a platform. (WASD/Arrows + SPACE)',
+		check(){ return player.hasMoved && player.hasJumped; },
+		onComplete(){ notify('Great movement! Return to Thalen to learn about spells.'); }
+	},
+	/* 2 */ {
+		title: 'Return to Thalen — Spells',
+		desc: 'Speak to Archmage Thalen to learn about casting spells.',
+		check(){ return tutorialQuestFlags.spokeThalen2; },
+		onComplete(){ notify('Now try casting a spell at a training dummy!'); }
+	},
+	/* 3 */ {
+		title: 'Cast Your First Spell',
+		desc: 'Select a spell (1-0) and cast it (X or Click) at a training dummy.',
+		check(){ return player.hasCast; },
+		onComplete(){ notify('Nice cast! Talk to Thalen about your inventory.'); }
+	},
+	/* 4 */ {
+		title: 'Return to Thalen — Inventory',
+		desc: 'Speak to Archmage Thalen to learn about your inventory.',
+		check(){ return tutorialQuestFlags.spokeThalen4; },
+		onComplete(){ notify('Open your inventory with M, then talk to Instructor Mira!'); }
+	},
+	/* 5 */ {
+		title: 'Talk to Instructor Mira',
+		desc: 'Open your Inventory (M) and visit Instructor Mira east of Thalen.',
+		check(){ return tutorialQuestFlags.spokeMira && player.hasOpenedInventory; },
+		onComplete(){ notify('Now destroy the training dummies to prove your skills!'); }
+	},
+	/* 6 */ {
+		title: 'Destroy the Training Dummies',
+		desc: 'Defeat all 4 training dummies east of the academy.',
+		check(){ return dummies.every(d => d.dead); },
+		onComplete(){ notify('Dummies destroyed! Talk to Captain Varn further east.'); }
+	},
+	/* 7 */ {
+		title: 'Meet Captain Varn',
+		desc: 'Speak with Captain Varn in the eastern training grounds.',
+		check(){ return tutorialQuestFlags.spokeVarn; },
+		onComplete(){ notify('Defeat 5 slimes to complete your combat training!'); }
+	},
+	/* 8 */ {
+		title: 'Defeat 5 Slimes',
+		desc: 'Defeat 5 Green Slimes east of Captain Varn. (' + 0 + '/5)',
+		check(){ return slimesKilledCount >= 5; },
+		onComplete(){ notify('Slimes defeated! Return to Archmage Thalen.'); }
+	},
+	/* 9 */ {
+		title: 'Report to Archmage Thalen',
+		desc: 'Return to Thalen at the academy to complete your training.',
+		check(){ return tutorialQuestFlags.spokeThalen8; },
+		onComplete(){ notify('🎉 Tutorial Complete! You are ready to explore Dungeons!'); }
+	},
+];
+
+/* =============================================================
+   CITY QUEST SYSTEM (city mode)
+   ============================================================= */
+const CITY_QUESTS = [
+	/* 0 */ {
+		title: 'Welcome to EmberFall',
+		desc: 'Speak with Archmage Thalen at the Mage Academy.',
+		check(){ return tutorialQuestFlags.spokeThalen_city0; },
+		onComplete(){ notify('Explore the city! Visit the Spell Market to the east.'); }
+	},
+	/* 1 */ {
+		title: 'Visit the Spell Market',
+		desc: 'Find Mira the Spell Merchant in the market district.',
+		check(){ return tutorialQuestFlags.spokeMira_city1; },
+		onComplete(){ notify('You received a Burn scroll! Return to Thalen.'); }
+	},
+	/* 2 */ {
+		title: 'Return to Thalen — New Power',
+		desc: 'Report back to Archmage Thalen with your new spell component.',
+		check(){ return tutorialQuestFlags.spokeThalen_city3; },
+		onComplete(){ notify('Head to the Training Arena! Captain Dorn awaits.'); }
+	},
+	/* 3 */ {
+		title: 'Meet Captain Dorn',
+		desc: 'Speak with Captain Dorn at the Training Arena.',
+		check(){ return tutorialQuestFlags.spokeDorn_city3; },
+		onComplete(){ notify('Destroy 3 training targets in the arena!'); }
+	},
+	/* 4 */ {
+		title: 'Arena Training',
+		desc: 'Destroy 3 training targets in the Training Arena.',
+		check(){ return dummies.every(d => d.dead); },
+		onComplete(){ notify('Targets destroyed! Talk to Captain Dorn.'); }
+	},
+	/* 5 */ {
+		title: 'Report to Dorn & Thalen',
+		desc: 'Speak with Captain Dorn, then return to Archmage Thalen.',
+		check(){ return tutorialQuestFlags.spokeThalen_city5; },
+		onComplete(){ notify('Visit the Ancient Clock Tower to the east!'); }
+	},
+	/* 6 */ {
+		title: 'The Clock Tower Mystery',
+		desc: 'Visit the Ancient Clock Tower and speak with Keeper Aldric.',
+		check(){ return tutorialQuestFlags.spokeAldric_city6; },
+		onComplete(){ notify('Strange inscriptions... Report to Thalen.'); }
+	},
+	/* 7 */ {
+		title: 'Report to Thalen — The Inscription',
+		desc: 'Tell Archmage Thalen about the Clock Tower inscription.',
+		check(){ return tutorialQuestFlags.spokeThalen_city7; },
+		onComplete(){ notify('Trouble at the Outer Gate! Speak with Ranger Sylva.'); }
+	},
+	/* 8 */ {
+		title: 'The Outer Forest Gate',
+		desc: 'Speak with Ranger Sylva at the Outer Forest Gate.',
+		check(){ return tutorialQuestFlags.spokeRanger_city8; },
+		onComplete(){ notify('Report back to Thalen for your final briefing.'); }
+	},
+	/* 9 */ {
+		title: 'Ready for the Wildes',
+		desc: 'Speak with Archmage Thalen for your final briefing.',
+		check(){ return tutorialQuestFlags.spokeThalen_city9; },
+		onComplete(){ notify('🎉 EmberFall City quests complete! The Sylvaris Wildes await on the World Map.'); }
+	},
+];
+
+// Select the active quest list based on mode
+const ACTIVE_QUESTS = IS_CITY ? CITY_QUESTS : TUTORIAL_QUESTS;
+
+function updateQuestTracker(){
+	if(!IS_OPENWORLD && !IS_CITY) return;
+	const tracker = document.getElementById('questTracker');
+	if(tutorialQuestIndex >= ACTIVE_QUESTS.length){
+		tracker.style.display = 'block';
+		document.getElementById('questTitle').textContent = IS_CITY ? '✅ City Quests Complete' : '✅ Tutorial Complete';
+		document.getElementById('questDesc').textContent = IS_CITY
+			? 'The Sylvaris Wildes await! Return to the World Map.'
+			: 'Return to the main menu to explore Dungeons!';
+		document.getElementById('questProgress').textContent = '';
+		return;
+	}
+	const q = ACTIVE_QUESTS[tutorialQuestIndex];
+	tracker.style.display = 'block';
+	document.getElementById('questTitle').textContent = '📜 ' + q.title;
+	if(!IS_CITY && tutorialQuestIndex === 8){
+		document.getElementById('questDesc').textContent = 'Defeat 5 Green Slimes east of Captain Varn. (' + slimesKilledCount + '/5)';
+	} else {
+		document.getElementById('questDesc').textContent = q.desc;
+	}
+	document.getElementById('questProgress').textContent = 'Quest ' + (tutorialQuestIndex + 1) + ' of ' + ACTIVE_QUESTS.length;
+}
+
+function checkQuestCompletion(){
+	if(!IS_OPENWORLD && !IS_CITY) return;
+	if(tutorialQuestIndex >= ACTIVE_QUESTS.length) return;
+	const q = ACTIVE_QUESTS[tutorialQuestIndex];
+	if(q.check()){
+		if(q.onComplete) q.onComplete();
+		tutorialQuestIndex++;
+		saveTutorialQuests();
+		updateQuestTracker();
+	}
+}
 
 // Tutorial hint state - hints disappear when action is completed
 let tutorialHints = IS_OPENWORLD ? [
@@ -2289,7 +3032,7 @@ function dist(x1,y1,x2,y2){return Math.sqrt((x2-x1)**2+(y2-y1)**2);}
 function getAllTargets(){
 	if(IS_SANDBOX) return dummies;
 	if(IS_RAID && raidBoss && !raidBoss.dead) return [raidBoss];
-	if(IS_OPENWORLD) return [...dummies, ...slimes.filter(s => !s.dead)];
+	if(IS_OPENWORLD || IS_CITY) return [...dummies.filter(d => !d.dead), ...slimes.filter(s => !s.dead)];
 	return enemies;
 }
 
@@ -2301,7 +3044,7 @@ function getTargetHitRect(target){
 	if(IS_RAID && target === raidBoss){
 		return { x: target.x, y: target.y, w: target.w, h: target.h };
 	}
-	if(IS_OPENWORLD){
+	if(IS_OPENWORLD || IS_CITY){
 		return { x: target.x, y: target.y, w: target.w, h: target.h };
 	}
 	return getVisualHitRect(target);
@@ -2310,7 +3053,7 @@ function getTargetHitRect(target){
 /* Tilemap collision for an entity — stepped to prevent tunneling */
 function moveEntityTile(ent){
 	// Open-sky modes (sandbox/raid/openworld) use platform collision instead of tilemap
-	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD){
+	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY){
 		moveEntitySandbox(ent);
 		return;
 	}
@@ -4134,7 +4877,7 @@ function updateProjectiles(){
 				// Find closest target from all enemy types: enemies, dummies, slimes, raidBoss
 				let cl=null,cd2=Infinity;
 				for(const e of enemies){if(e.dead)continue;const dd=dist(p.x,p.y,e.x+e.w/2,e.y+e.h/2);if(dd<cd2){cd2=dd;cl=e;}}
-				for(const d of dummies){const dd=dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);if(dd<cd2){cd2=dd;cl=d;}}
+				for(const d of dummies){if(d.dead)continue;const dd=dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);if(dd<cd2){cd2=dd;cl=d;}}
 				for(const s of slimes){if(s.dead)continue;const dd=dist(p.x,p.y,s.x+s.w/2,s.y+s.h/2);if(dd<cd2){cd2=dd;cl=s;}}
 				if(raidBoss&&!raidBoss.dead){const dd=dist(p.x,p.y,raidBoss.x+raidBoss.w/2,raidBoss.y+raidBoss.h/2);if(dd<cd2){cd2=dd;cl=raidBoss;}}
 				if(cl){
@@ -4171,7 +4914,7 @@ function updateProjectiles(){
 					// Find target from all enemy types
 					let tgt=null,td=Infinity;
 					for(const e of enemies){if(e.dead)continue;const dd=dist(p.x,p.y,e.x+e.w/2,e.y+e.h/2);if(dd<td){td=dd;tgt=e;}}
-					for(const d of dummies){const dd=dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);if(dd<td){td=dd;tgt=d;}}
+					for(const d of dummies){if(d.dead)continue;const dd=dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);if(dd<td){td=dd;tgt=d;}}
 					for(const s of slimes){if(s.dead)continue;const dd=dist(p.x,p.y,s.x+s.w/2,s.y+s.h/2);if(dd<td){td=dd;tgt=s;}}
 					if(raidBoss&&!raidBoss.dead){const dd=dist(p.x,p.y,raidBoss.x+raidBoss.w/2,raidBoss.y+raidBoss.h/2);if(dd<td){td=dd;tgt=raidBoss;}}
 					const spd2=(p.phase.speed||1)*9;
@@ -4314,7 +5057,7 @@ function updateProjectiles(){
 				const rainMult=p.behavior==='rain'?1.5:1; // rain: 50% damage bonus
 				const barrageMult=p.behavior==='barrage'?1.35:1; // barrage: 35% damage bonus
 				const hitNum=(p.castId>=0&&spellHitCounts[p.castId]!=null)?spellHitCounts[p.castId]++:0;
-				const dimMult=1/(1+hitNum*0.08); // lower diminishing returns (was 0.15)
+				const dimMult=p._fromDomain?1:1/(1+hitNum*0.04); // no diminishing for domain; halved for others (was 0.08)
 				const beamMult=p.shape==='beam'?0.65:1; // beam: less harsh penalty (was 0.5)
 				// Damage release bonus
 				const releaseMult=p.effects.includes('damageRelease')?(1+damageStored/500):1;
@@ -4441,7 +5184,7 @@ function updateProjectiles(){
 		/* wall collision — tilemap for dungeons, ground/platforms for open-sky modes */
 		const skipWall=p.shape==='nova'||p.shape==='vortex'||p.effects.includes('phaseThrough')||p._fromDomain||p.behavior==='stationary'||p.behavior==='selfCast'||p.behavior==='underfoot'||p.behavior==='aroundSelf'||p.behavior==='ground'||(p.behavior==='orbit'&&p.age<p.orbitDur);
 		/* Ground/platform collision in open-sky modes */
-		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&(IS_SANDBOX||IS_RAID||IS_OPENWORLD)){
+		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&(IS_SANDBOX||IS_RAID||IS_OPENWORLD||IS_CITY)){
 			let groundHit=false;
 			// Ground collision
 			if(p.y>=GROUND_Y){ groundHit=true; p.y=GROUND_Y-1; }
@@ -4461,7 +5204,7 @@ function updateProjectiles(){
 				if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
 			}
 		}
-		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD){
+		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY){
 			let wallHit=false;
 			let wallNormalX=0, wallNormalY=0; // for ricochet bounce direction
 			const tc=Math.floor(p.x/TILE),tr2=Math.floor(p.y/TILE);
@@ -4661,7 +5404,8 @@ function updateEnemyProjectiles(){
    ============================================================= */
 function damagePlayer(amount,effects){
 	if(player.iFrames>0)return;
-	const defReduction = 1 - (stats.magicDefence * 0.008);
+	const defPercent = Math.min(stats.magicDefence, 80) / 100;
+	const defReduction = 1 - defPercent;
 	const vowDefMult = Math.max(0.3, 1 - vowDefenseBonus * 0.05);
 	if(shield>0){const blocked=Math.min(shield,amount);shield-=blocked;amount-=blocked;dmgNumbers.push({x:player.x+player.w/2,y:player.y-30,text:'🛡️ -'+Math.round(blocked),age:0,color:'#88bbff'});}
 	const dmg = amount * Math.max(0.2, defReduction) * vowDefMult;
@@ -4851,7 +5595,7 @@ function updateGravityWells(){
 
 /* Update training dummies (sandbox and openworld mode) */
 function updateDummies(){
-	if(!IS_SANDBOX && !IS_OPENWORLD) return;
+	if(!IS_SANDBOX && !IS_OPENWORLD && !IS_CITY) return;
 	const now = Date.now();
 	for(let i = 0; i < dummies.length; i++){
 		const d = dummies[i];
@@ -4886,7 +5630,18 @@ function updateDummies(){
 			}
 		}
 		
-		// Auto respawn HP after 2 seconds of no damage
+		// In openworld, dummies die permanently (for quest); in sandbox they auto-respawn
+		if((IS_OPENWORLD || IS_CITY) && d.hp <= 0 && !d.dead){
+			d.dead = true;
+			d.deathTimer = 0;
+			d.dots = [];
+			addXp(5);
+			dmgNumbers.push({x: d.x + d.w/2, y: d.y - 30, text: '+5 XP', age: 0, color: '#ffcc00'});
+			continue;
+		}
+		if(d.dead) continue; // skip dead openworld dummies
+
+		// Auto respawn HP after 2 seconds of no damage (sandbox only)
 		if(d.hp <= 0 || d.hp < d.maxHp){
 			const lastDmgTime = dummyDmgAccum[i].length > 0 ? dummyDmgAccum[i][dummyDmgAccum[i].length - 1].time : 0;
 			if(now - lastDmgTime > 2000){
@@ -4901,14 +5656,15 @@ function updateDummies(){
 
 /* Update slimes (openworld tutorial enemies) */
 function updateSlimes(){
-	if(!IS_OPENWORLD) return;
+	if(!IS_OPENWORLD && !IS_CITY) return;
+	const _slGround = IS_CITY ? CITY_CONFIG.groundY : OPENWORLD_CONFIG.groundY;
 	for(const s of slimes){
 		if(s.dead){
 			s.deathTimer++;
 			if(s.deathTimer > 180){
 				// Respawn at original location
 				s.x = s.spawnX;
-				s.y = OPENWORLD_CONFIG.groundY - s.h;
+				s.y = _slGround - s.h;
 				s.hp = s.maxHp;
 				s.dead = false;
 				s.deathTimer = 0;
@@ -4940,7 +5696,11 @@ function updateSlimes(){
 		if(s.hp <= 0){
 			s.dead = true;
 			s.deathTimer = 0;
+			// Track slime kills for tutorial quest
+			slimesKilledCount++;
+			saveTutorialQuests();
 			// XP/loot
+			addXp(SLIME_TYPE.xp);
 			dmgNumbers.push({x: s.x + s.w/2, y: s.y - 30, text: '+' + SLIME_TYPE.xp + ' XP', age: 0, color: '#ffcc00'});
 			for(let v = 0; v < 15; v++){
 				particles.push({x: s.x + s.w/2, y: s.y + s.h/2,
@@ -5002,16 +5762,26 @@ function updateSlimes(){
 	}
 }
 
-/* Update NPCs (openworld) */
+/* Update NPCs (openworld + boss tablet) */
 function updateNpcs(){
-	if(!IS_OPENWORLD) return;
 	nearbyNpc = null;
-	for(const npc of npcs){
-		const dx = Math.abs((player.x + player.w/2) - (npc.x + npc.w/2));
-		const dy = Math.abs((player.y + player.h/2) - (npc.y + npc.h/2));
+	// Openworld / City NPCs
+	if(IS_OPENWORLD || IS_CITY){
+		for(const npc of npcs){
+			const dx = Math.abs((player.x + player.w/2) - (npc.x + npc.w/2));
+			const dy = Math.abs((player.y + player.h/2) - (npc.y + npc.h/2));
+			if(dx < 80 && dy < 80){
+				nearbyNpc = npc;
+				break;
+			}
+		}
+	}
+	// Boss tablet (fire dungeon, waiting for interaction)
+	if(bossTablet && !bossTablet.interacted && bossState.phase === 'waiting_tablet' && !clockRewind.active){
+		const dx = Math.abs((player.x + player.w/2) - (bossTablet.x + bossTablet.w/2));
+		const dy = Math.abs((player.y + player.h/2) - (bossTablet.y + bossTablet.h/2));
 		if(dx < 80 && dy < 80){
-			nearbyNpc = npc;
-			break;
+			nearbyNpc = bossTablet;
 		}
 	}
 	// Show/hide interact prompt
@@ -5020,6 +5790,43 @@ function updateNpcs(){
 		prompt.style.display = 'block';
 	} else {
 		prompt.style.display = 'none';
+	}
+}
+
+/* Update boss tablet clock rewind animation */
+function updateBossTablet(){
+	if(bossTablet) bossTablet.glowTimer++;
+	if(!clockRewind.active) return;
+	clockRewind.timer++;
+	// Rewind clock hand — spins backwards, accelerating
+	const prog = clockRewind.timer / clockRewind.duration;
+	const accel = 1 + prog * 8; // accelerates as it goes
+	clockRewind.angle -= 0.08 * accel;
+	// Screen shake at key moments
+	if(clockRewind.timer === 30 || clockRewind.timer === 150) bossState.shakeTimer = 5;
+	// Spawn time particles
+	if(clockRewind.timer % 4 === 0){
+		const cx = player.x + player.w/2, cy = player.y - 120;
+		const a = Math.random() * Math.PI * 2;
+		const r = 80 + Math.random() * 60;
+		particles.push({x:cx+Math.cos(a)*r, y:cy+Math.sin(a)*r,
+			vx:(Math.random()-0.5)*2, vy:(Math.random()-0.5)*2,
+			life:30+Math.random()*20, color:{r:180+Math.random()*75|0, g:160+Math.random()*60|0, b:50+Math.random()*40|0}});
+	}
+	// End clock rewind — trigger boss cinematic
+	if(clockRewind.timer >= clockRewind.duration){
+		clockRewind.active = false;
+		startBossCutscene();
+	}
+}
+
+/* Update city ambient walkers */
+function updateCityWalkers(){
+	if(!IS_CITY) return;
+	for(const w of cityWalkers){
+		w.x += w.speed * w.dir;
+		if(w.x <= w.minX){ w.dir = 1; }
+		if(w.x >= w.maxX){ w.dir = -1; }
 	}
 }
 
@@ -5096,10 +5903,65 @@ function updateTypewriter(){
 	}
 }
 
-/* NPC interaction */
+/* NPC interaction — quest-aware dialogue */
 function tryInteractNpc(){
 	if(!nearbyNpc || dialogueActive) return;
-	startDialogue(nearbyNpc.dialogues);
+	const npc = nearbyNpc; // capture reference for callback
+
+	// Boss tablet interaction (fire dungeon)
+	if(bossTablet && npc === bossTablet && !bossTablet.interacted){
+		bossTablet.interacted = true;
+		startDialogue([
+			{ name: 'Ancient Tablet', icon: '\ud83d\udcdc', text: 'The stone surface is weathered and cracked. Ancient runes pulse faintly with a warm, golden light...' },
+			{ name: 'Ancient Tablet', icon: '\ud83d\udcdc', text: '"A force that bends time to shape destiny."' },
+			{ name: 'Ancient Tablet', icon: '\u231a', text: 'The runes flare brilliantly \u2014 a deep rumble shakes the chamber. Time itself begins to unravel...' },
+		], () => {
+			// Start clock rewind animation
+			clockRewind.active = true;
+			clockRewind.timer = 0;
+			clockRewind.angle = 0;
+		});
+		return;
+	}
+
+	// If NPC has quest-aware dialogue, use it
+	if(npc.getDialogue){
+		const qi = tutorialQuestIndex;
+		const lines = npc.getDialogue(qi);
+		startDialogue(lines, () => {
+			// Set quest flags based on which NPC was spoken to and current quest
+			if(IS_CITY){
+				// City mode quest flags
+				if(npc.id === 'thalen_city'){
+					if(qi === 0) tutorialQuestFlags.spokeThalen_city0 = true;
+					if(qi === 2) tutorialQuestFlags.spokeThalen_city3 = true;
+					if(qi === 5) tutorialQuestFlags.spokeThalen_city5 = true;
+					if(qi === 7) tutorialQuestFlags.spokeThalen_city7 = true;
+					if(qi === 9) tutorialQuestFlags.spokeThalen_city9 = true;
+				}
+				if(npc.id === 'mira_city' && qi === 1) tutorialQuestFlags.spokeMira_city1 = true;
+				if(npc.id === 'dorn_city' && qi === 3) tutorialQuestFlags.spokeDorn_city3 = true;
+				if(npc.id === 'dorn_city' && qi === 4) tutorialQuestFlags.spokeDorn_city5 = true;
+				if(npc.id === 'clockkeeper' && (qi === 5 || qi === 6)) tutorialQuestFlags.spokeAldric_city6 = true;
+				if(npc.id === 'ranger' && (qi === 7 || qi === 8)) tutorialQuestFlags.spokeRanger_city8 = true;
+			} else {
+				// Tutorial mode quest flags
+				if(npc.id === 'thalen'){
+					if(qi === 0) tutorialQuestFlags.spokeThalen0 = true;
+					if(qi === 2) tutorialQuestFlags.spokeThalen2 = true;
+					if(qi === 4) tutorialQuestFlags.spokeThalen4 = true;
+					if(qi === 8 || qi === 9) tutorialQuestFlags.spokeThalen8 = true;
+				}
+				if(npc.id === 'mira' && qi === 5) tutorialQuestFlags.spokeMira = true;
+				if(npc.id === 'captain' && qi === 7) tutorialQuestFlags.spokeVarn = true;
+			}
+			saveTutorialQuests();
+			checkQuestCompletion();
+		});
+	} else {
+		// Fallback for NPCs with static dialogues
+		startDialogue(npc.dialogues);
+	}
 }
 
 /* Inventory popup functions */
@@ -5194,6 +6056,7 @@ function updateRaidBoss(){
 	if(raidBoss.hp <= 0){
 		raidBoss.dead = true;
 		raidBoss.deathTimer = 0;
+		addXp(200);
 		dmgNumbers.push({x: raidBoss.x + raidBoss.w/2, y: raidBoss.y - 40, text: '💀 DEFEATED!', age: 0, color: '#ffcc00'});
 		for(let v = 0; v < 50; v++){
 			particles.push({x: raidBoss.x + Math.random() * raidBoss.w, y: raidBoss.y + Math.random() * raidBoss.h,
@@ -5715,6 +6578,7 @@ function updateEnemies(){
 
 		// Death check
 		if(en.hp<=0){en.dead=true;en.deathTimer=0;
+			addXp(en.typeDef.isBoss ? 100 : (en.typeDef.xp || 10));
 			spawnImpact(en.x+en.w/2,en.y+en.h/2,en.typeDef.color);
 			/* SHATTER: on death, explode into damaging fragments that hit nearby enemies */
 			if(en._shatterColor){
@@ -6017,6 +6881,17 @@ function updateEnemies(){
    ============================================================= */
 let castPressed = false;
 function update(){
+	/* Clock rewind animation — freeze gameplay but update animation */
+	if(clockRewind.active){
+		updateBossTablet();
+		// Update particles for visual effect
+		for(let i=particles.length-1;i>=0;i--){
+			const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.06;p.vx*=0.97;p.life--;
+			if(p.life<=0)particles.splice(i,1);
+		}
+		return;
+	}
+
 	/* Boss cutscene — freeze gameplay during cutscene */
 	if(bossState.phase === 'cutscene'){
 		updateBossCutscene();
@@ -6032,8 +6907,26 @@ function update(){
 
 	/* Boss room trigger — check if player enters boss area */
 	if(bossState.phase === 'inactive' && bossSpawnDef){
-		if(DUNGEON_TYPE === 'fire' && player.y > BOSS_ROOM_TRIGGER_Y && player.x > BOSS_ROOM_RECT.x - 50){
-			startBossCutscene();
+		if(DUNGEON_TYPE === 'fire' && bossState.phase === 'inactive' && player.y > BOSS_ROOM_TRIGGER_Y && player.x > BOSS_ROOM_RECT.x - 50){
+			// Fire dungeon: seal room but wait for tablet interaction
+			bossState.phase = 'waiting_tablet';
+			// Seal the entrance
+			if(BOSS_LOCK_WALL){
+				bossState.lockWall = { ...BOSS_LOCK_WALL };
+				const lx = Math.floor(BOSS_LOCK_WALL.x / TILE);
+				const ly = Math.floor(BOSS_LOCK_WALL.y / TILE);
+				const rx = Math.ceil((BOSS_LOCK_WALL.x + BOSS_LOCK_WALL.w) / TILE);
+				const ry = Math.ceil((BOSS_LOCK_WALL.y + BOSS_LOCK_WALL.h) / TILE);
+				for(let r = ly; r < ry; r++){
+					for(let c = lx; c < rx; c++){
+						if(r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS){
+							tileMap[r][c] = 0;
+						}
+					}
+				}
+				computeTileEdges();
+			}
+			if(BOSS_ROOM_RECT && player.x < BOSS_ROOM_RECT.x + 80) player.x = BOSS_ROOM_RECT.x + 80;
 		} else if(DUNGEON_TYPE === 'ice' && player.x > BOSS_ROOM_TRIGGER_X && player.y > BOSS_ROOM_RECT.y && player.y < BOSS_ROOM_RECT.y + BOSS_ROOM_RECT.h){
 			startBossCutscene();
 		} else if(DUNGEON_TYPE === 'earth' && BOSS_ROOM_TRIGGER_X && player.x > BOSS_ROOM_TRIGGER_X && player.y > BOSS_ROOM_TRIGGER_Y){
@@ -6339,8 +7232,12 @@ function update(){
 	updateDummies();
 	updateSlimes();
 	updateNpcs();
+	updateCityWalkers();
+	updateBossTablet();
 	updateTutorialHints();
 	updateTypewriter();
+	checkQuestCompletion();
+	updateQuestTracker();
 	updateRaidBoss();
 	updateEnemies();
 	updateGravityWells();
@@ -6422,6 +7319,7 @@ function render(){
 		// Draw training dummies
 		for(let i = 0; i < dummies.length; i++){
 			const d = dummies[i];
+			if(d.dead) continue;
 			const dx = d.x - camera.x, dy = d.y - camera.y;
 			if(dx + d.w < -50 || dx > canvas.width + 50) continue;
 			
@@ -6617,12 +7515,24 @@ function render(){
 			ctx.globalAlpha = 1;
 		}
 	} else if(IS_OPENWORLD){
-		// Gradient sky for openworld tutorial
-		const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-		grad.addColorStop(0, OPENWORLD_CONFIG.bgColor);
-		grad.addColorStop(1, OPENWORLD_CONFIG.bgColor2);
-		ctx.fillStyle = grad;
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		// Background image for openworld tutorial
+		if(TUTORIAL_BG.complete && TUTORIAL_BG.naturalWidth > 0){
+			// Draw the background image covering the visible area, parallax scroll
+			const bgScale = Math.max(canvas.width / TUTORIAL_BG.naturalWidth, canvas.height / TUTORIAL_BG.naturalHeight) * 1.2;
+			const bgW = TUTORIAL_BG.naturalWidth * bgScale;
+			const bgH = TUTORIAL_BG.naturalHeight * bgScale;
+			const parallaxX = -(camera.x * 0.3) % bgW;
+			const parallaxY = -(camera.y * 0.15);
+			ctx.drawImage(TUTORIAL_BG, parallaxX, parallaxY, bgW, bgH);
+			if(parallaxX + bgW < canvas.width) ctx.drawImage(TUTORIAL_BG, parallaxX + bgW, parallaxY, bgW, bgH);
+		} else {
+			// Fallback gradient while image loads
+			const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+			grad.addColorStop(0, OPENWORLD_CONFIG.bgColor);
+			grad.addColorStop(1, OPENWORLD_CONFIG.bgColor2);
+			ctx.fillStyle = grad;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 		
 		// Draw ground
 		const groundScreenY = OPENWORLD_CONFIG.groundY - camera.y;
@@ -6653,28 +7563,69 @@ function render(){
 			ctx.ellipse(nx + npc.w/2, ny + npc.h, npc.w/2, 6, 0, 0, Math.PI * 2);
 			ctx.fill();
 			
-			// NPC body
-			ctx.fillStyle = npc.color;
-			ctx.fillRect(nx + 4, ny + 16, npc.w - 8, npc.h - 16);
-			
-			// NPC head
-			ctx.fillStyle = '#ffddbb';
-			ctx.fillRect(nx + 8, ny, npc.w - 16, 20);
-			
-			// Icon
-			ctx.font = '20px Arial';
-			ctx.textAlign = 'center';
-			ctx.fillText(npc.icon, nx + npc.w/2, ny + 40);
+			// NPC image or fallback
+			const npcImgFile = NPC_IMG_MAP[npc.id];
+			const npcImg = npcImgFile && NPC_IMAGES[npcImgFile];
+			if(npcImg && npcImg.complete && npcImg.naturalWidth > 0){
+				ctx.drawImage(npcImg, nx, ny, npc.w, npc.h);
+			} else {
+				ctx.fillStyle = npc.color;
+				ctx.fillRect(nx + 4, ny + 16, npc.w - 8, npc.h - 16);
+				ctx.fillStyle = '#ffddbb';
+				ctx.fillRect(nx + 8, ny, npc.w - 16, 20);
+				ctx.font = '20px Arial';
+				ctx.textAlign = 'center';
+				ctx.fillText(npc.icon, nx + npc.w/2, ny + 40);
+			}
 			
 			// Name plate
 			ctx.fillStyle = '#f1c40f';
 			ctx.font = 'bold 11px Arial';
 			ctx.fillText(npc.name, nx + npc.w/2, ny - 8);
 		}
+
+		// Draw boss tablet (fire dungeon)
+		if(bossTablet && !bossTablet.interacted && bossState.phase === 'waiting_tablet'){
+			const tx = bossTablet.x - camera.x, ty = bossTablet.y - camera.y;
+			if(tx + bossTablet.w > -50 && tx < canvas.width + 50){
+				// Glow aura
+				const gPulse = 0.4 + Math.sin(bossTablet.glowTimer * 0.04) * 0.2;
+				const glow = ctx.createRadialGradient(tx+bossTablet.w/2, ty+bossTablet.h/2, 5, tx+bossTablet.w/2, ty+bossTablet.h/2, 50);
+				glow.addColorStop(0, `rgba(255,200,80,${gPulse})`);
+				glow.addColorStop(1, 'transparent');
+				ctx.fillStyle = glow;
+				ctx.beginPath(); ctx.arc(tx+bossTablet.w/2, ty+bossTablet.h/2, 50, 0, Math.PI*2); ctx.fill();
+
+				// Tablet stone base
+				ctx.fillStyle = '#665544';
+				ctx.fillRect(tx+5, ty+10, bossTablet.w-10, bossTablet.h-10);
+				// Tablet top (carved stone look)
+				ctx.fillStyle = '#887766';
+				ctx.fillRect(tx+3, ty+8, bossTablet.w-6, 6);
+				// Rune markings
+				ctx.fillStyle = `rgba(255,200,80,${0.5+Math.sin(bossTablet.glowTimer*0.06)*0.3})`;
+				ctx.fillRect(tx+12, ty+20, 8, 2);
+				ctx.fillRect(tx+24, ty+20, 8, 2);
+				ctx.fillRect(tx+16, ty+26, 12, 2);
+				ctx.fillRect(tx+14, ty+32, 16, 2);
+
+				// Icon floating above
+				ctx.font = '18px Arial';
+				ctx.textAlign = 'center';
+				const bob = Math.sin(bossTablet.glowTimer * 0.05) * 3;
+				ctx.fillText('\ud83d\udcdc', tx+bossTablet.w/2, ty - 6 + bob);
+
+				// Name plate
+				ctx.fillStyle = '#ffcc44';
+				ctx.font = 'bold 10px Arial';
+				ctx.fillText('Ancient Tablet', tx+bossTablet.w/2, ty - 16);
+			}
+		}
 		
 		// Draw training dummies
 		for(let i = 0; i < dummies.length; i++){
 			const d = dummies[i];
+			if(d.dead) continue;
 			const dx = d.x - camera.x, dy = d.y - camera.y;
 			if(dx + d.w < -50 || dx > canvas.width + 50) continue;
 			
@@ -6736,13 +7687,329 @@ function render(){
 			ctx.fillStyle = hpPct > 0.5 ? '#44ff88' : hpPct > 0.25 ? '#ffaa44' : '#ff4444';
 			ctx.fillRect(sx - 2, sy - 10, (s.w + 4) * hpPct, 5);
 		}
+	} else if(IS_CITY){
+		// ===== EMBERFALL CITY RENDERING =====
+		
+		// Sky gradient
+		const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		skyGrad.addColorStop(0, '#0a0a2a');
+		skyGrad.addColorStop(0.6, '#1a1a4a');
+		skyGrad.addColorStop(1, '#2a2a5e');
+		ctx.fillStyle = skyGrad;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// Stars
+		ctx.fillStyle = 'rgba(255,255,255,0.4)';
+		for(let i = 0; i < 80; i++){
+			const sx2 = ((i * 137 + 50) % 1400) - (camera.x * 0.05) % 1400;
+			const sy2 = ((i * 97 + 30) % 500);
+			ctx.fillRect(sx2, sy2, 1.5, 1.5);
+		}
+
+		// Moon
+		const moonX = canvas.width * 0.75 - camera.x * 0.02;
+		ctx.fillStyle = '#dde8ff';
+		ctx.beginPath();
+		ctx.arc(moonX, 120, 40, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.fillStyle = '#0a0a2a';
+		ctx.beginPath();
+		ctx.arc(moonX + 12, 112, 35, 0, Math.PI * 2);
+		ctx.fill();
+
+		const groundScreenY = CITY_CONFIG.groundY - camera.y;
+
+		// Draw buildings behind everything
+		for(const b of CITY_CONFIG.buildings){
+			const bx = b.x - camera.x, by = b.y - camera.y;
+			if(bx + b.w < -50 || bx > canvas.width + 50) continue;
+
+			// Building body
+			ctx.fillStyle = b.color;
+			ctx.fillRect(bx, by, b.w, b.h);
+
+			// Stone texture lines
+			ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+			ctx.lineWidth = 1;
+			for(let row = 0; row < b.h; row += 20){
+				ctx.beginPath();
+				ctx.moveTo(bx, by + row);
+				ctx.lineTo(bx + b.w, by + row);
+				ctx.stroke();
+			}
+			for(let col = 0; col < b.w; col += 30){
+				ctx.beginPath();
+				ctx.moveTo(bx + col, by);
+				ctx.lineTo(bx + col, by + b.h);
+				ctx.stroke();
+			}
+
+			// Roof (triangular for towers, flat for others)
+			if(b.type === 'tower' || b.type === 'clocktower'){
+				ctx.fillStyle = b.roof;
+				ctx.beginPath();
+				ctx.moveTo(bx - 10, by);
+				ctx.lineTo(bx + b.w / 2, by - 60);
+				ctx.lineTo(bx + b.w + 10, by);
+				ctx.closePath();
+				ctx.fill();
+			} else {
+				ctx.fillStyle = b.roof;
+				ctx.fillRect(bx - 8, by - 12, b.w + 16, 16);
+				// Roof ridge
+				ctx.fillStyle = 'rgba(255,255,255,0.1)';
+				ctx.fillRect(bx - 8, by - 12, b.w + 16, 3);
+			}
+
+			// Windows (golden glow)
+			const winRows = Math.floor(b.h / 60);
+			const winCols = Math.floor(b.w / 50);
+			for(let wr = 0; wr < winRows; wr++){
+				for(let wc = 0; wc < winCols; wc++){
+					const wx = bx + 15 + wc * 50;
+					const wy = by + 25 + wr * 60;
+					ctx.fillStyle = 'rgba(255,200,80,0.6)';
+					ctx.fillRect(wx, wy, 20, 25);
+					ctx.fillStyle = 'rgba(255,220,100,0.3)';
+					ctx.fillRect(wx - 2, wy - 2, 24, 29);
+					// Window frame
+					ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+					ctx.lineWidth = 1;
+					ctx.strokeRect(wx, wy, 20, 25);
+					// Window cross
+					ctx.beginPath();
+					ctx.moveTo(wx + 10, wy); ctx.lineTo(wx + 10, wy + 25);
+					ctx.moveTo(wx, wy + 12); ctx.lineTo(wx + 20, wy + 12);
+					ctx.stroke();
+				}
+			}
+
+			// Glow effect for magical buildings
+			if(b.glow){
+				ctx.fillStyle = b.glow;
+				ctx.globalAlpha = 0.08 + Math.sin(Date.now() * 0.002 + b.x) * 0.04;
+				ctx.fillRect(bx - 5, by - 5, b.w + 10, b.h + 10);
+				ctx.globalAlpha = 1;
+			}
+
+			// Door
+			if(b.type !== 'gate'){
+				ctx.fillStyle = '#1a1a1a';
+				ctx.fillRect(bx + b.w / 2 - 12, by + b.h - 35, 24, 35);
+				ctx.fillStyle = '#553311';
+				ctx.fillRect(bx + b.w / 2 - 10, by + b.h - 33, 20, 33);
+				// Door handle
+				ctx.fillStyle = '#ffcc44';
+				ctx.fillRect(bx + b.w / 2 + 5, by + b.h - 18, 3, 3);
+			}
+
+			// Gate arch for gate type
+			if(b.type === 'gate'){
+				ctx.fillStyle = '#1a1a1a';
+				ctx.beginPath();
+				ctx.arc(bx + b.w / 2, by + b.h - 80, 50, Math.PI, 0);
+				ctx.lineTo(bx + b.w / 2 + 50, by + b.h);
+				ctx.lineTo(bx + b.w / 2 - 50, by + b.h);
+				ctx.closePath();
+				ctx.fill();
+			}
+
+			// Building name
+			ctx.fillStyle = 'rgba(255,255,255,0.5)';
+			ctx.font = '10px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(b.name, bx + b.w / 2, by - (b.type === 'tower' || b.type === 'clocktower' ? 65 : 18));
+
+			// Clock face for clock tower
+			if(b.type === 'clocktower'){
+				const clockX = bx + b.w / 2;
+				const clockY = by + 80;
+				const clockR = 30;
+				// Clock face
+				ctx.fillStyle = '#221133';
+				ctx.beginPath();
+				ctx.arc(clockX, clockY, clockR, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.strokeStyle = '#aa88dd';
+				ctx.lineWidth = 2;
+				ctx.stroke();
+				// Hour markers
+				for(let h = 0; h < 12; h++){
+					const a = h * Math.PI / 6 - Math.PI / 2;
+					ctx.fillStyle = '#aa88dd';
+					ctx.fillRect(clockX + Math.cos(a) * (clockR - 6) - 1, clockY + Math.sin(a) * (clockR - 6) - 1, 3, 3);
+				}
+				// Hands (animated)
+				const now = Date.now() / 1000;
+				const hourAngle = (now / 3600) * Math.PI * 2 - Math.PI / 2;
+				const minAngle = (now / 60) * Math.PI * 2 - Math.PI / 2;
+				ctx.strokeStyle = '#ddbbff';
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo(clockX, clockY);
+				ctx.lineTo(clockX + Math.cos(hourAngle) * 15, clockY + Math.sin(hourAngle) * 15);
+				ctx.stroke();
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				ctx.moveTo(clockX, clockY);
+				ctx.lineTo(clockX + Math.cos(minAngle) * 22, clockY + Math.sin(minAngle) * 22);
+				ctx.stroke();
+			}
+
+			// Arcane runes on mage buildings
+			if(b.type === 'academy' || b.type === 'tower'){
+				ctx.fillStyle = b.glow || '#4488ff';
+				ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.003 + b.x * 0.1) * 0.15;
+				ctx.font = '16px Arial';
+				ctx.textAlign = 'center';
+				const runes = ['✦', '◆', '✧', '⬡', '⟡'];
+				for(let ri = 0; ri < 3; ri++){
+					const rx = bx + 20 + ri * (b.w - 40) / 2;
+					const ry = by + b.h - 50;
+					ctx.fillText(runes[ri % runes.length], rx, ry);
+				}
+				ctx.globalAlpha = 1;
+			}
+		}
+
+		// Ground
+		ctx.fillStyle = '#2a3a2a';
+		ctx.fillRect(0, groundScreenY, canvas.width, canvas.height - groundScreenY + 200);
+		// Cobblestone path
+		ctx.fillStyle = '#3a3a3a';
+		ctx.fillRect(0, groundScreenY, canvas.width, 4);
+		ctx.fillStyle = '#444444';
+		for(let sx = -((camera.x % 40) | 0); sx < canvas.width + 40; sx += 40){
+			ctx.fillRect(sx, groundScreenY + 4, 18, 8);
+			ctx.fillRect(sx + 20, groundScreenY + 14, 18, 8);
+		}
+
+		// Draw floating runic lanterns
+		for(const lantern of CITY_CONFIG.lanterns){
+			const lx = lantern.x - camera.x;
+			const ly = lantern.y - camera.y + Math.sin(Date.now() * 0.002 + lantern.x) * 3;
+			if(lx < -30 || lx > canvas.width + 30) continue;
+
+			// Glow
+			const glowR = 20 + Math.sin(Date.now() * 0.004 + lantern.x * 0.5) * 5;
+			const glowGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, glowR);
+			glowGrad.addColorStop(0, 'rgba(255,180,60,0.5)');
+			glowGrad.addColorStop(1, 'rgba(255,180,60,0)');
+			ctx.fillStyle = glowGrad;
+			ctx.fillRect(lx - glowR, ly - glowR, glowR * 2, glowR * 2);
+
+			// Lantern body
+			ctx.fillStyle = '#ffbb44';
+			ctx.fillRect(lx - 4, ly - 5, 8, 10);
+			ctx.fillStyle = '#ffdd88';
+			ctx.fillRect(lx - 2, ly - 3, 4, 6);
+		}
+
+		// Draw platforms (elevated walkways)
+		for(const plat of sandboxPlatforms){
+			if(plat.y === CITY_CONFIG.groundY) continue;
+			const px = plat.x - camera.x, py = plat.y - camera.y;
+			if(px + plat.w < -50 || px > canvas.width + 50) continue;
+			ctx.fillStyle = '#4a4a5a';
+			ctx.fillRect(px, py, plat.w, plat.h);
+			ctx.fillStyle = '#5a5a6a';
+			ctx.fillRect(px, py, plat.w, 3);
+		}
+
+		// Draw ambient walkers
+		for(const w of cityWalkers){
+			const wx = w.x - camera.x, wy = w.y - camera.y;
+			if(wx < -40 || wx > canvas.width + 40) continue;
+			// Shadow
+			ctx.fillStyle = 'rgba(0,0,0,0.2)';
+			ctx.beginPath();
+			ctx.ellipse(wx + 16, wy + 52, 12, 4, 0, 0, Math.PI * 2);
+			ctx.fill();
+			// Body
+			ctx.fillStyle = w.color;
+			ctx.fillRect(wx + 4, wy + 16, 24, 36);
+			// Head
+			ctx.fillStyle = '#ddccbb';
+			ctx.fillRect(wx + 8, wy, 16, 18);
+			// Icon
+			ctx.font = '14px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(w.icon, wx + 16, wy + 38);
+		}
+
+		// Draw NPCs
+		for(const npc of npcs){
+			const nx = npc.x - camera.x, ny = npc.y - camera.y;
+			if(nx + npc.w < -50 || nx > canvas.width + 50) continue;
+
+			// NPC shadow
+			ctx.fillStyle = 'rgba(0,0,0,0.3)';
+			ctx.beginPath();
+			ctx.ellipse(nx + npc.w/2, ny + npc.h, npc.w/2, 6, 0, 0, Math.PI * 2);
+			ctx.fill();
+
+			// NPC image or fallback
+			const npcImgFile = NPC_IMG_MAP[npc.id];
+			const npcImg = npcImgFile && NPC_IMAGES[npcImgFile];
+			if(npcImg && npcImg.complete && npcImg.naturalWidth > 0){
+				ctx.drawImage(npcImg, nx, ny, npc.w, npc.h);
+			} else {
+				ctx.fillStyle = npc.color;
+				ctx.fillRect(nx + 4, ny + 16, npc.w - 8, npc.h - 16);
+				ctx.fillStyle = '#ffddbb';
+				ctx.fillRect(nx + 8, ny, npc.w - 16, 20);
+				ctx.font = '20px Arial';
+				ctx.textAlign = 'center';
+				ctx.fillText(npc.icon, nx + npc.w/2, ny + 40);
+			}
+
+			// Name plate
+			ctx.fillStyle = '#f1c40f';
+			ctx.font = 'bold 11px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(npc.name, nx + npc.w/2, ny - 8);
+
+			// Quest indicator
+			if(npc.getDialogue){
+				const qi = tutorialQuestIndex;
+				const lines = npc.getDialogue(qi);
+				if(lines && lines.length > 1){
+					ctx.fillStyle = '#ffcc00';
+					ctx.font = 'bold 16px Arial';
+					ctx.fillText('!', nx + npc.w/2, ny - 20);
+				}
+			}
+		}
+
+		// Draw training dummies (in arena area)
+		for(const d of dummies){
+			if(d.dead) continue;
+			const dx = d.x - camera.x, dy = d.y - camera.y;
+			if(dx + d.w < -50 || dx > canvas.width + 50) continue;
+
+			ctx.fillStyle = d.flash > 0 ? '#ffffff' : '#cc8844';
+			ctx.fillRect(dx, dy, d.w, d.h);
+			ctx.strokeStyle = '#442211';
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.moveTo(dx + 6, dy + 12); ctx.lineTo(dx + 12, dy + 18);
+			ctx.moveTo(dx + 12, dy + 12); ctx.lineTo(dx + 6, dy + 18);
+			ctx.moveTo(dx + 16, dy + 12); ctx.lineTo(dx + 22, dy + 18);
+			ctx.moveTo(dx + 22, dy + 12); ctx.lineTo(dx + 16, dy + 18);
+			ctx.stroke();
+
+			const hpPct = Math.max(0, d.hp / d.maxHp);
+			ctx.fillStyle = 'rgba(0,0,0,0.6)';
+			ctx.fillRect(dx - 5, dy - 12, d.w + 10, 6);
+			ctx.fillStyle = hpPct > 0.5 ? '#44ff88' : hpPct > 0.25 ? '#ffaa44' : '#ff4444';
+			ctx.fillRect(dx - 5, dy - 12, (d.w + 10) * hpPct, 6);
+		}
 	} else {
-		ctx.fillStyle=dungeon.bgColor;
 		ctx.fillRect(0,0,canvas.width,canvas.height);
 	}
 
 	/* Render tilemap (only visible tiles) - skip for sandbox/raid/openworld */
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD){
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY){
 		const startCol=Math.max(0,Math.floor(camera.x/TILE));
 		const endCol=Math.min(MAP_COLS-1,Math.ceil((camera.x+canvas.width)/TILE));
 		const startRow=Math.max(0,Math.floor(camera.y/TILE));
@@ -7311,8 +8578,124 @@ function render(){
 		}
 	}
 
-	/* Boss arena sealed indicator */
-	if(bossState.phase === 'active' && bossState.lockWall){
+	/* Clock rewind overlay (fire dungeon tablet interaction) */
+	if(clockRewind.active){
+		ctx.save();
+		ctx.setTransform(1,0,0,1,0,0);
+		const prog = clockRewind.timer / clockRewind.duration;
+
+		// Dark overlay that deepens over time
+		ctx.fillStyle = `rgba(0,0,0,${0.3 + prog * 0.4})`;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// Golden radial glow in center
+		const gcx = canvas.width/2, gcy = canvas.height/2 - 30;
+		const glowR = 140 + prog * 60;
+		const glow = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, glowR);
+		glow.addColorStop(0, `rgba(255,200,60,${0.15 + prog * 0.2})`);
+		glow.addColorStop(0.6, `rgba(255,160,40,${0.08 + prog * 0.1})`);
+		glow.addColorStop(1, 'transparent');
+		ctx.fillStyle = glow;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// Giant clock face
+		const clockR = 110;
+		ctx.strokeStyle = `rgba(255,210,100,${0.6 + prog * 0.3})`;
+		ctx.lineWidth = 4;
+		ctx.beginPath();
+		ctx.arc(gcx, gcy, clockR, 0, Math.PI*2);
+		ctx.stroke();
+
+		// Clock tick marks (12 hours)
+		for(let i = 0; i < 12; i++){
+			const a = (i / 12) * Math.PI * 2 - Math.PI/2;
+			const inner = clockR - 12, outer = clockR - 3;
+			ctx.strokeStyle = `rgba(255,220,120,${0.5 + prog * 0.4})`;
+			ctx.lineWidth = i % 3 === 0 ? 3 : 1.5;
+			ctx.beginPath();
+			ctx.moveTo(gcx + Math.cos(a) * inner, gcy + Math.sin(a) * inner);
+			ctx.lineTo(gcx + Math.cos(a) * outer, gcy + Math.sin(a) * outer);
+			ctx.stroke();
+		}
+
+		// Roman numeral markers at 12,3,6,9
+		ctx.font = 'bold 16px serif';
+		ctx.fillStyle = `rgba(255,220,140,${0.5 + prog * 0.4})`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText('XII', gcx, gcy - clockR + 22);
+		ctx.fillText('III', gcx + clockR - 22, gcy);
+		ctx.fillText('VI', gcx, gcy + clockR - 22);
+		ctx.fillText('IX', gcx - clockR + 22, gcy);
+
+		// Rewinding hour hand
+		const handLen = clockR * 0.55;
+		const ha = clockRewind.angle - Math.PI/2;
+		ctx.strokeStyle = `rgba(255,230,150,${0.8 + prog * 0.2})`;
+		ctx.lineWidth = 4;
+		ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.moveTo(gcx, gcy);
+		ctx.lineTo(gcx + Math.cos(ha) * handLen, gcy + Math.sin(ha) * handLen);
+		ctx.stroke();
+
+		// Minute hand (spins faster)
+		const mLen = clockR * 0.78;
+		const ma = clockRewind.angle * 3.5 - Math.PI/2;
+		ctx.strokeStyle = `rgba(255,240,180,${0.6 + prog * 0.3})`;
+		ctx.lineWidth = 2.5;
+		ctx.beginPath();
+		ctx.moveTo(gcx, gcy);
+		ctx.lineTo(gcx + Math.cos(ma) * mLen, gcy + Math.sin(ma) * mLen);
+		ctx.stroke();
+
+		// Center pin
+		ctx.fillStyle = '#ffdd88';
+		ctx.beginPath();
+		ctx.arc(gcx, gcy, 6, 0, Math.PI*2);
+		ctx.fill();
+
+		// Spinning time rune particles around clock
+		for(let i = 0; i < 8; i++){
+			const ra = clockRewind.angle * 0.4 + (i/8) * Math.PI * 2;
+			const rd = clockR + 26 + Math.sin(clockRewind.timer * 0.06 + i) * 10;
+			const rx = gcx + Math.cos(ra) * rd, ry = gcy + Math.sin(ra) * rd;
+			ctx.fillStyle = `rgba(255,200,80,${0.3 + Math.sin(clockRewind.timer*0.08+i)*0.2})`;
+			ctx.beginPath();
+			ctx.arc(rx, ry, 3, 0, Math.PI*2);
+			ctx.fill();
+		}
+
+		// Text overlay
+		const textAlpha = prog < 0.1 ? prog / 0.1 : prog > 0.85 ? (1 - prog) / 0.15 : 1;
+		ctx.globalAlpha = textAlpha;
+		ctx.font = 'italic 20px serif';
+		ctx.fillStyle = '#ffd866';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'alphabetic';
+		ctx.shadowColor = '#ff8800';
+		ctx.shadowBlur = 15;
+		ctx.fillText('Time reverses...', gcx, gcy + clockR + 50);
+		if(prog > 0.5){
+			ctx.font = 'bold 16px Arial';
+			ctx.fillStyle = '#ff6633';
+			ctx.shadowColor = '#ff2200';
+			ctx.fillText('Something ancient awakens', gcx, gcy + clockR + 78);
+		}
+		ctx.shadowBlur = 0;
+		ctx.globalAlpha = 1;
+
+		// Screen shake effect
+		if(bossState.shakeTimer > 0){
+			const shk = bossState.shakeTimer;
+			ctx.setTransform(1,0,0,1,(Math.random()-0.5)*shk*2,(Math.random()-0.5)*shk*2);
+		}
+
+		ctx.restore();
+	}
+
+	/* Boss arena sealed indicator — show during waiting_tablet too */
+	if((bossState.phase === 'active' || bossState.phase === 'waiting_tablet') && bossState.lockWall){
 		const lw = bossState.lockWall;
 		const lwx = lw.x - camera.x, lwy = lw.y - camera.y;
 		const isIce = DUNGEON_TYPE === 'ice';
