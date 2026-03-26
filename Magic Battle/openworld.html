@@ -896,8 +896,24 @@ const WORLD_OBJECTS = [
 		]);
 	  }
 	},
-	/* Fire Dungeon Entrance — Temple of Cinders */
-	{ id:'fire_dungeon_gate', x:28000, y:GROUND_Y_BASE-90, w:50, h:90,
+	/* Iron Forge Entrance — Temple of Cinders */
+	{ id:'iron_forge_gate', x:28000, y:GROUND_Y_BASE-90, w:50, h:90,
+	  icon:'⚒️', label:'Iron Forge',
+	  type:'portal',
+	  condition(){ return parseInt(localStorage.getItem('magicBattle_graveyardStage')||'0') >= 5; },
+	  onInteract(){
+		startDialogue([
+			{ name:'Iron Gate', icon:'⚒️', text:'A massive iron gate, covered in ancient runes. The metal groans as if something stirs within.' },
+			{ name:'You', icon:'💭', text:'This must be the Iron Forge that Elder Maris mentioned. The colosses were sealed here long ago...' },
+			{ name:'Iron Gate', icon:'⚒️', text:'The gate shudders... and slowly begins to open.' },
+		], ()=>{
+			saveOW();
+			location.href = 'dungeon.html?type=iron&diff=normal';
+		});
+	  }
+	},
+	/* Fire Dungeon Entrance — east of Iron Forge */
+	{ id:'fire_dungeon_gate', x:28200, y:GROUND_Y_BASE-90, w:50, h:90,
 	  icon:'🔥', label:'Fire Dungeon Entrance',
 	  type:'portal',
 	  onInteract(){

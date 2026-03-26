@@ -16,6 +16,7 @@
 	--slot-bg:rgba(255,255,255,.04);--slot-hover:rgba(255,255,255,.1);
 	--rarity-common:#aaa;--rarity-uncommon:#2ecc71;--rarity-rare:#3498db;
 	--rarity-epic:#9b59b6;--rarity-legendary:#f39c12;--rarity-mythical:#cc44ff;
+	--rarity-mythic:#ffd700;
 }
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
@@ -122,6 +123,7 @@ input,select{font-family:inherit}
 .inv-cell[data-rarity=epic]{border-color:var(--rarity-epic)}
 .inv-cell[data-rarity=legendary]{border-color:var(--rarity-legendary)}
 .inv-cell[data-rarity=mythical]{border-color:var(--rarity-mythical);box-shadow:0 0 8px rgba(204,68,255,0.4)}
+.inv-cell[data-rarity=mythic]{border-color:var(--rarity-mythic);box-shadow:0 0 10px rgba(255,215,0,0.5),0 0 20px rgba(255,215,0,0.2)}
 
 /* item tooltip */
 .tooltip{
@@ -301,6 +303,35 @@ input,select{font-family:inherit}
 .tab-btn:hover:not(.active){background:rgba(255,255,255,.1)}
 
 /* ============================================================
+   SPELL DICTIONARY
+   ============================================================ */
+.dict-cat-btn{
+	padding:6px 14px;font-size:12px;font-weight:600;
+	background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;
+	color:var(--muted);cursor:pointer;transition:background .2s,color .2s;
+}
+.dict-cat-btn.active{background:var(--accent2);color:#111;border-color:var(--accent2)}
+.dict-cat-btn:hover:not(.active){background:rgba(255,255,255,.12)}
+.dict-card{
+	background:var(--slot-bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+}
+.dict-card h4{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:6px}
+.dict-card .dict-tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.dict-tag{
+	padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;
+	background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+}
+.dict-tag.mana{color:#5dade2;border-color:rgba(93,173,226,.3)}
+.dict-tag.ctrl{color:#f39c12;border-color:rgba(243,156,18,.3)}
+.dict-tag.rank{color:#8e44ad;border-color:rgba(142,68,173,.3)}
+.dict-tag.dmg-up{color:#2ecc71;border-color:rgba(46,204,113,.3)}
+.dict-tag.dmg-down{color:#e74c3c;border-color:rgba(231,76,60,.3)}
+.dict-tag.ult{color:#ffcc00;border-color:rgba(255,204,0,.3);background:rgba(255,204,0,.1)}
+.dict-detail{font-size:12px;color:var(--muted);line-height:1.5;margin:4px 0}
+.dict-detail b{color:#ddd}
+.dict-section-title{font-size:16px;font-weight:700;color:var(--accent2);margin:8px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+
+/* ============================================================
    CRAFTING
    ============================================================ */
 .craft-card{
@@ -339,6 +370,18 @@ input,select{font-family:inherit}
 	0%{opacity:1;transform:translate(-50%,-50%) scale(1)}
 	100%{opacity:0;transform:translate(-50%,-80%) scale(1.1)}
 }
+.st-chapter{margin-bottom:6px}
+.st-chapter-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(204,102,68,0.25);background:rgba(204,102,68,0.08);cursor:pointer;user-select:none;transition:background .15s}
+.st-chapter-head:hover{background:rgba(204,102,68,0.16)}
+.st-chapter-head .st-arrow{transition:transform .2s;font-size:10px;color:#cc6644}
+.st-chapter-head.open .st-arrow{transform:rotate(90deg)}
+.st-chapter-head .st-ch-title{flex:1;font-size:13px;font-weight:bold;color:#cc6644}
+.st-chapter-head .st-ch-prog{font-size:11px;color:var(--muted)}
+.st-chapter-body{display:none;padding:4px 0 0 18px}
+.st-chapter-head.open+.st-chapter-body{display:block}
+.st-chapter.all-done .st-chapter-head{border-color:rgba(40,167,69,0.3);background:rgba(40,167,69,0.06)}
+.st-chapter.all-done .st-ch-title{color:#28a745}
+.st-chapter.all-done .st-arrow{color:#28a745}
 </style>
 </head>
 <body>
@@ -368,10 +411,12 @@ input,select{font-family:inherit}
 	<!-- CENTER: Inventory Grid + Crafting -->
 	<div id="centerCol">
 		<!-- Tab bar -->
-		<div style="display:flex;gap:4px;margin-bottom:4px">
+		<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap">
 			<button class="tab-btn active" data-tab="inventory" onclick="switchTab('inventory')">📦 Inventory</button>
 			<button class="tab-btn" data-tab="crafting" onclick="switchTab('crafting')">🔨 Crafting</button>
 			<button class="tab-btn" data-tab="quests" onclick="switchTab('quests')">🗺️ Quests</button>
+			<button class="tab-btn" data-tab="bestiary" onclick="switchTab('bestiary')">📖 Bestiary</button>
+			<button class="tab-btn" data-tab="dictionary" onclick="switchTab('dictionary')">📚 Spell Dictionary</button>
 		</div>
 
 		<!-- Inventory Tab -->
@@ -406,6 +451,26 @@ input,select{font-family:inherit}
 		<div id="questTab" class="panel" style="flex:1;display:none;flex-direction:column">
 			<h3>Quests</h3>
 			<div id="questList"></div>
+		</div>
+
+		<!-- Bestiary Tab -->
+		<div id="bestiaryTab" class="panel" style="flex:1;display:none;flex-direction:column;overflow-y:auto">
+			<h3>Bestiary <span id="bestiaryCount" style="font-size:12px;color:var(--muted);font-weight:normal"></span></h3>
+			<div id="bestiaryList" style="display:flex;flex-direction:column;gap:6px"></div>
+		</div>
+
+		<!-- Spell Dictionary Tab -->
+		<div id="dictionaryTab" class="panel" style="flex:1;display:none;flex-direction:column;overflow-y:auto">
+			<h3>📚 Spell Dictionary</h3>
+			<div class="dict-toolbar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+				<button class="dict-cat-btn active" data-cat="shapes" onclick="renderDictSection('shapes')">🔷 Shapes</button>
+				<button class="dict-cat-btn" data-cat="behaviors" onclick="renderDictSection('behaviors')">🎯 Behaviors</button>
+				<button class="dict-cat-btn" data-cat="effects" onclick="renderDictSection('effects')">✨ Effects</button>
+				<button class="dict-cat-btn" data-cat="domains" onclick="renderDictSection('domains')">⚡ Domains</button>
+				<button class="dict-cat-btn" data-cat="ultimates" onclick="renderDictSection('ultimates')">🌟 Ultimates</button>
+				<button class="dict-cat-btn" data-cat="phases" onclick="renderDictSection('phases')">🔗 Phases &amp; Triggers</button>
+			</div>
+			<div id="dictContent" style="display:flex;flex-direction:column;gap:8px"></div>
 		</div>
 	</div>
 
@@ -498,6 +563,7 @@ const SHAPES = {
 	summon:   { label:'Summon',   icon:'👾', controlReq:8,  manaCost:20, desc:'Summons minions — increase range/health/speed for mana. Fires next spell phase.', dmgNote:'indirect' },
 	meteor:   { label:'Meteor',   icon:'☄️', controlReq:6,  manaCost:16, desc:'Blazing comet: +distance dmg, AoE explosion on impact/expire (50% splash)', dmgNote:'-25% dmg' },
 	vortex:   { label:'Vortex',   icon:'🌀', controlReq:7,  manaCost:18, desc:'Slow-moving void that pulls enemies in and deals DoT (30%)', dmgNote:'30% DoT' },
+	slash:    { label:'Slash',    icon:'🌙', controlReq:2,  manaCost:7,  desc:'Curved crescent arc projectile', dmgNote:'' },
 	same:     { label:'Same',     icon:'🔄', controlReq:0,  manaCost:0,  desc:'Re-uses the previous phase shape — allows different behavior on same projectile', dmgNote:'' },
 
 };
@@ -535,7 +601,7 @@ const BEHAVIORS = {
 };
 
 /* Elemental effects that can be used with Domain for buffing */
-const DOMAIN_ELEMENTS = ['burn','freeze','poison','stun'];
+const DOMAIN_ELEMENTS = ['burn','freeze','poison','stun','lifesteal'];
 
 /* -- Effects catalogue -- */
 const EFFECTS = {
@@ -549,10 +615,7 @@ const EFFECTS = {
 	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target', category:'elemental', dmgNote:'' },
 	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit', category:'support', dmgNote:'' },
 	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
-	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:8, desc:'Drains life on hit', category:'support', dmgNote:'' },
-	speedBoost: { label:'Speed Boost', icon:'🏃', controlReq:3, manaCost:4, desc:'Temp. speed boost on hit', category:'buff', dmgNote:'' },
-	jumpBoost:  { label:'Jump Boost',  icon:'⬆️', controlReq:3, manaCost:4, desc:'Temp. jump boost on hit', category:'buff', dmgNote:'' },
-	manaRegen:  { label:'Mana Regen',  icon:'💧', controlReq:4, manaCost:5, desc:'Temp. mana regen boost', category:'buff', dmgNote:'' },
+	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:6, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
 	randomDelay:{ label:'Random Delay',icon:'🎲', controlReq:1, manaCost:2, desc:'Each projectile spawns after a random delay', category:'utility', dmgNote:'' },
 	phaseThrough:{ label:'Phase',   icon:'👻', controlReq:6, manaCost:20, desc:'Projectile passes through walls', category:'utility', dmgNote:'-45% dmg' },
 	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay', category:'utility', dmgNote:'' },
@@ -564,7 +627,6 @@ const EFFECTS = {
 	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:8, desc:'Destroys enemy projectiles and magic walls on contact', category:'utility', dmgNote:'' },
 	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Reduces enemy detection range temporarily', category:'cc', dmgNote:'' },
 	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'On kill, enemy explodes into damaging fragments', category:'elemental', dmgNote:'on-kill AoE' },
-	leechMana:    { label:'Leech Mana', icon:'💧', controlReq:5, manaCost:7, desc:'Restores mana on hit', category:'support', dmgNote:'' },
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
 	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
 	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
@@ -603,6 +665,18 @@ const MAGE_RANKS = [
 	{ name:'Grand Sorcerer',  icon:'🌟', color:'#ffcc00', xpReq:4000,  maxPower:20 },
 ];
 
+/* =============================================================
+   MAGE CLASS SYSTEM
+   ============================================================= */
+const MAGE_CLASSES = [
+	{ id:'none',       name:'Unspecialized', icon:'⚪', color:'#aaaaaa', desc:'No specialization chosen. A balanced mage with no class bonuses.' },
+	{ id:'necromancer', name:'Necromancer',  icon:'💀', color:'#8e44ad', desc:'Masters of death magic. Summon behavior lets you raise defeated enemies from the bestiary. Costs total mana. Max 3 necro-summons.' },
+	{ id:'dominion',    name:'Dominion Master', icon:'👁️', color:'#e74c3c', desc:'Controllers of the battlefield. Domain range +30%, domain damage +40%. Greater control over the arena.' },
+	{ id:'ranger',      name:'Ranger',       icon:'🏹', color:'#27ae60', desc:'Swift and precise. Spells gain massive range and deal more damage the farther they travel. Slightly reduced max HP.' },
+	{ id:'warrior',     name:'Warrior',      icon:'⚔️', color:'#f39c12', desc:'Close-range combat specialist. Bonus melee damage, reduced spell range. Press F for Spell Blade to reflect projectiles. Speed & defence buffed.' },
+	{ id:'healer',      name:'Healer',       icon:'💚', color:'#2ecc71', desc:'Masters of restoration. Incoming damage reduced. All positive effects on the player are strengthened.' },
+];
+
 const SHAPE_RANK_REQ = {
 	missile:0, orb:0, allyOrb:0, same:0,
 	blade:1, spike:1, polygon:1, solidify:1,
@@ -620,10 +694,10 @@ const BEHAVIOR_RANK_REQ = {
 };
 const EFFECT_RANK_REQ = {
 	knockback:0, randomDelay:0, resetProjectiles:0,
-	burn:1, freeze:1, forceJump:1, speedBoost:1, jumpBoost:1,
+	burn:1, freeze:1, forceJump:1,
 	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
-	stun:3, healSelf:3, shield:3, manaRegen:3, phaseFork:3, damageRelease:3, damageHeal:3,
-	lifesteal:4, blind:4, shatter:4, leechMana:4, mark:4, dispel:4,
+	stun:3, healSelf:3, shield:3, phaseFork:3, damageRelease:3, damageHeal:3,
+	lifesteal:4, blind:4, shatter:4, mark:4, dispel:4,
 	phaseThrough:5, gravityWell:5, ricochet:5,
 };
 
@@ -636,6 +710,7 @@ const ITEM_DB = {
 	crystal_staff:   { name:'Crystal Staff',   type:'staff', icon:'🔮', rarity:'uncommon',  stats:{magicPower:5,magicControl:2},desc:'Resonates with arcane energy.' },
 	void_staff:      { name:'Void Staff',      type:'staff', icon:'🌑', rarity:'epic',      stats:{magicPower:12,magicControl:5},desc:'Channels the emptiness between stars.' },
 	elder_staff:     { name:'Elder Staff',      type:'staff', icon:'✨', rarity:'legendary', stats:{magicPower:18,magicControl:8,manaRegen:20},desc:'Carved from the First Tree.' },
+	lightstep_blade: { name:'Lightstep Blade',  type:'staff', icon:'⚔️', rarity:'mythic',   stats:{magicPower:25,magicControl:12,manaRegen:30},desc:'A blade of severed light from Seraphel. Warriors gain Backstep anchors on melee attacks — press B to warp back.' },
 
 	/* -- robes -- */
 	linen_robe:      { name:'Linen Robe',      type:'robe',  icon:'👘', rarity:'common',    stats:{magicDefence:2},             desc:'Basic apprentice robe.' },
@@ -697,6 +772,8 @@ const ITEM_DB = {
 	titan_shard:     { name:'Titan Shard',      type:'ingredient', icon:'⛰️', rarity:'epic',     stats:{}, desc:'A fragment of the Stone Titan.' },
 	ancient_amber:   { name:'Ancient Amber',    type:'ingredient', icon:'🟠', rarity:'uncommon', stats:{}, desc:'Hardened tree resin from deep underground.' },
 	void_heart:      { name:'Void Heart',       type:'ingredient', icon:'💜', rarity:'mythical', stats:{}, desc:'The still-pulsing core of the Void Arbiter. Radiates abyssal energy.' },
+	void_nullification:{ name:'Void Nullification', type:'relic', icon:'🌑', rarity:'mythic', stats:{magicPower:30,magicControl:15,manaRegen:40,magicDefence:12}, desc:'A mythic relic forged from the defeated Void Arbiter\'s essence. Nullifies void energy around the wielder.' },
+	chrono_shard:{ name:'Chrono Shard', type:'relic', icon:'⏳', rarity:'mythic', stats:{magicPower:25,magicControl:20,manaRegen:35,magicDefence:10}, desc:'A fragment of shattered time torn from the Chrono Tyrant. Grants temporal power to your spells.' },
 };
 
 /* =============================================================
@@ -707,12 +784,13 @@ const ITEM_BOOSTS = {
 	/* --- Staves --- */
 	stardust_staff: { shapes:['meteor'], boost:1.3, desc:'+30% Meteor spell damage' },
 	void_staff:     { shapes:['vortex'], boost:1.25, desc:'+25% Vortex spell damage' },
-	blood_staff:    { effects:['lifesteal','leechMana'], boost:1.35, desc:'+35% Lifesteal/Leech Mana effectiveness' },
+	blood_staff:    { effects:['lifesteal'], boost:1.35, desc:'+35% Lifesteal effectiveness' },
 	elder_staff:    { shapes:['chain'], boost:1.25, desc:'+25% Chain spell damage' },
 	crystal_staff:  { shapes:['orb','missile'], boost:1.1, desc:'+10% Orb/Missile damage' },
 	bone_staff:     { effects:['burn','poison'], boost:1.15, desc:'+15% DoT damage' },
 	storm_staff:    { behaviors:['arc','zigzag'], boost:1.2, desc:'+20% Arc/Zigzag damage' },
 	prism_staff:    { shapes:['spray','cone'], boost:1.15, desc:'+15% Spray/Cone damage' },
+	lightstep_blade:{ shapes:['blade','missile'], boost:1.35, desc:'+35% Blade/Missile damage' },
 
 	/* --- Robes --- */
 	shadow_robe:    { effects:['blind'], boost:1.4, desc:'+40% Blind duration' },
@@ -730,6 +808,8 @@ const ITEM_BOOSTS = {
 	dragon_heart:   { shapes:['blade'], effects:['shatter'], boost:1.3, desc:'+30% Blade/Shatter damage' },
 	world_seed:     { effects:['gravityWell'], behaviors:['groundSurge'], boost:1.25, desc:'+25% Gravity Well/Ground Surge damage' },
 	eye_of_eternity:{ effects:['phaseFork','mark'], boost:1.3, desc:'+30% Phase Fork/Mark damage' },
+	void_nullification:{ shapes:['vortex','nova'], effects:['gravityWell'], boost:1.4, desc:'+40% Vortex/Nova/Gravity Well damage' },
+	chrono_shard:   { shapes:['meteor','chain'], behaviors:['homing','arc'], boost:1.35, desc:'+35% Meteor/Chain/Homing/Arc damage' },
 	ember_charm:    { effects:['burn'], boost:1.15, desc:'+15% Burn damage' },
 	frost_charm:    { effects:['slow','freeze'], boost:1.15, desc:'+15% Slow/Freeze effectiveness' },
 };
@@ -939,6 +1019,7 @@ function defaultPlayerState(){
 		baseStats: { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 },
 		mageRank: 0, // Starting rank — Novice
 		xp: 0, // XP toward next rank
+		mageClass: 'none', // current class specialization
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		/* inventory: array of { itemId, qty } */
 		inventory: [
@@ -959,6 +1040,7 @@ function defaultPlayerState(){
 		],
 		spells: new Array(10).fill(null),  // each slot: null or spell object
 		vows: [null, null, null],  // 3 vow slots
+		domainVow: null,  // 4th special domain vow slot
 	};
 }
 
@@ -1005,8 +1087,10 @@ function loadState(){
 			// ensure arrays are correct length
 			if(!s.spells || s.spells.length < 10) s.spells = (s.spells||[]).concat(new Array(10).fill(null)).slice(0,10);
 			if(!s.vows) s.vows = [null, null, null];
+			if(s.domainVow === undefined) s.domainVow = null;
 			if(s.mageRank == null) s.mageRank = 0;
 			if(s.xp == null) s.xp = 0;
+			if(!s.mageClass) s.mageClass = 'none';
 			return s;
 		}
 	} catch(e){}
@@ -1052,7 +1136,7 @@ function computeStats(){
    VOW SYSTEM — sacrifice health/slots/mana for boosts
    ============================================================= */
 const VOW_SACRIFICES = {
-	health:    { label:'Health',      icon:'❤️', desc:'Reduce max health' },
+	health:    { label:'Health',      icon:'❤️', desc:'Sacrifice a % of max health' },
 	spellSlot: { label:'Spell Slots', icon:'🔒', desc:'Lock spell slots (more slots = more points)' },
 	maxMana:   { label:'Max Mana',    icon:'💧', desc:'Reduce max mana pool (scales up to 40pts at 1200)' },
 	effects:   { label:'Effects',     icon:'✨', desc:'Give up spell effects (0.5pts each, 1pt for elemental)' },
@@ -1069,12 +1153,12 @@ const VOW_BOOST_TYPES = {
 	duration:   { label:'Duration',     icon:'⏱️', desc:'+10% spell duration per point' },
 	effects:    { label:'Effect Pwr',   icon:'✨', desc:'+15% effect strength per point' },
 	phases:     { label:'Extra Phase',  icon:'🔗', desc:'+1 max phase per point' },
-	maxHealth:  { label:'Max Health',   icon:'💗', desc:'+8 max health per point (global)' },
+	maxHealth:  { label:'Max Health',   icon:'💗', desc:'+8% max health per point (global)' },
 	manaCost:   { label:'Mana Cost',    icon:'💧', desc:'-5% mana cost per point' },
 	cooldown:   { label:'Cooldown',     icon:'⏳', desc:'-8% cooldown per point' },
 	jumpHeight: { label:'Jump Height',  icon:'⬆️', desc:'+8% jump height per point (global)' },
 	playerSpeed:{ label:'Move Speed',   icon:'🏃', desc:'+8% move speed per point (global)' },
-	defense:    { label:'Defense',      icon:'🛡️', desc:'+6% damage reduction per point (global)' },
+	defense:    { label:'Defense',      icon:'🛡️', desc:'+6 max health per defence point (global)' },
 	elementalDmg:{ label:'Elemental Dmg',icon:'🔥', desc:'+7% damage for spells with elemental effects per point' },
 	critChance: { label:'Crit Chance',  icon:'🎯', desc:'+5% chance for 2x damage per point (global)' },
 	spellVamp:  { label:'Spell Vamp',   icon:'🩸', desc:'+3% of spell damage returned as health per point (global)' },
@@ -1082,10 +1166,36 @@ const VOW_BOOST_TYPES = {
 	manaEfficiency:{ label:'Mana Efficiency',icon:'💎', desc:'-2.5% mana cost on ALL spells per point (global, half of per-slot manaCost)' },
 };
 
+/* Domain Vow boost types — special buffs only available in the 4th (domain) vow slot */
+const DOMAIN_VOW_BUFFS = {
+	domainSlow:       { label:'Oppressive Field',     icon:'🐌', desc:'Enemies in domain are slowed by 8% per point' },
+	domainRange:      { label:'Expanded Territory',   icon:'🌐', desc:'+12% domain size per point' },
+	domainPower:      { label:'Domain Fury',          icon:'💥', desc:'+15% damage for domain attacks per point' },
+	domainPlayerPow:  { label:'Empowered Caster',     icon:'⚡', desc:'+10% player spell damage while inside domain per point' },
+	domainPlayerSpd:  { label:'Domain Haste',         icon:'🏃', desc:'+10% player movement speed while inside domain per point' },
+	domainSummonPow:  { label:'Empowered Servitors',  icon:'💀', desc:'+20% summon damage inside domain per point' },
+	domainDuration:   { label:'Eternal Domain',       icon:'⏳', desc:'+8% domain duration per point' },
+	domainEnemyPow:   { label:'Hubris Curse',         icon:'👹', desc:'Enemy attacks deal +10% more — but domain attacks gain +18% per point' },
+	domainDotDmg:     { label:'Corrosive Domain',     icon:'☠️', desc:'Enemies in domain take 2% max HP as DoT per second per point' },
+	domainCooldown:   { label:'Quick Expansion',      icon:'🔄', desc:'-6% domain spell cooldown per point' },
+	domainManaRegen:  { label:'Mana Wellspring',      icon:'💧', desc:'+5 flat mana regen per second while domain is active per point' },
+	domainDefense:    { label:'Sanctuary',             icon:'🛡️', desc:'-8% damage taken by player while inside domain per point' },
+	mobileDomain:     { label:'Mobile Domain',        icon:'🚶', desc:'Domain follows the player (platforms are NOT removed)', binary:true, cost:5 },
+	domainTP:         { label:'Domain Warp',          icon:'🌀', desc:'Teleport within your domain using F key (15s cooldown)', binary:true, cost:4 },
+};
+
+/* Domain-specific sacrifices — only affect player while domain is active */
+const DOMAIN_SACRIFICES = {
+	domProjectiles:  { label:'Seal Projectiles',  icon:'🚫', desc:'Domain cannot fire wave projectiles while active', pts:8 },
+	domPlayerPower:  { label:'Weaken Self',        icon:'💔', desc:'Reduce player spell damage in domain (2 pts per 10%)', max:50, step:10, ptsPerStep:2 },
+	domRange:        { label:'Compressed Domain',  icon:'📐', desc:'Reduce domain size (0.5 pts per 5%)', max:95, step:5, ptsPerStep:0.5 },
+	domDestroyPlats: { label:'Shatter Ground',     icon:'💥', desc:'Domain expansion destroys platforms within its area', pts:3 },
+};
+
 /* Points earned per sacrifice — vowIdx enables cumulative scaling across vows */
 function calcVowPoints(vow, vowIdx){
 	if(!vow) return 0;
-	if(vow.sacrifice === 'health') return Math.floor(vow.amount / 10); // 10 hp = 1 point
+	if(vow.sacrifice === 'health') return Math.floor(vow.amount / 5); // 5% = 1 point
 	if(vow.sacrifice === 'maxMana'){
 		// Scaling: more points the more you sacrifice, up to 40 at 1200
 		const amt = vow.amount || 0;
@@ -1276,6 +1386,57 @@ function renderStats(){
 	}
 	rankHtml += `</div>`;
 	document.getElementById('baseStatsPanel').innerHTML += rankHtml;
+
+	// Mage class display
+	const cls = MAGE_CLASSES.find(c => c.id === (STATE.mageClass || 'none')) || MAGE_CLASSES[0];
+	let classHtml = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">`;
+	classHtml += `<div style="display:flex;align-items:center;justify-content:space-between">`;
+	classHtml += `<span style="font-size:14px;font-weight:bold;color:${cls.color}">${cls.icon} ${cls.name}</span>`;
+	classHtml += `<button onclick="openClassSelect()" style="font-size:10px;padding:2px 8px;background:rgba(255,255,255,.1);border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer">Change</button>`;
+	classHtml += `</div>`;
+	classHtml += `<div style="font-size:10px;color:var(--muted);margin-top:2px">${cls.desc}</div>`;
+	classHtml += `</div>`;
+	document.getElementById('baseStatsPanel').innerHTML += classHtml;
+}
+
+/* =============================================================
+   MAGE CLASS SELECTION
+   ============================================================= */
+function openClassSelect(){
+	// remove existing modal if any
+	let old = document.getElementById('classSelectModal');
+	if(old) old.remove();
+
+	const overlay = document.createElement('div');
+	overlay.id = 'classSelectModal';
+	overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999';
+	overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+
+	let html = `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:360px;width:90%">`;
+	html += `<div style="font-size:16px;font-weight:bold;color:#fff;margin-bottom:12px;text-align:center">Choose Mage Class</div>`;
+	for(const cls of MAGE_CLASSES){
+		if(cls.id === 'none') continue; // skip unspecialized from list
+		const isActive = STATE.mageClass === cls.id;
+		const border = isActive ? `2px solid ${cls.color}` : '1px solid var(--border)';
+		const bg = isActive ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
+		html += `<div onclick="selectMageClass('${cls.id}')" style="cursor:pointer;padding:10px;margin-bottom:6px;border-radius:6px;border:${border};background:${bg}">`;
+		html += `<span style="font-size:14px;font-weight:bold;color:${cls.color}">${cls.icon} ${cls.name}</span>`;
+		html += `<div style="font-size:11px;color:var(--muted);margin-top:2px">${cls.desc}</div>`;
+		html += `</div>`;
+	}
+	html += `<div onclick="selectMageClass('none')" style="cursor:pointer;padding:8px;text-align:center;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:11px;color:var(--muted)">⚪ Remove Specialization</div>`;
+	html += `</div>`;
+
+	overlay.innerHTML = html;
+	document.body.appendChild(overlay);
+}
+
+function selectMageClass(id){
+	STATE.mageClass = id;
+	saveState();
+	const modal = document.getElementById('classSelectModal');
+	if(modal) modal.remove();
+	renderStats();
 }
 
 /* =============================================================
@@ -1484,6 +1645,355 @@ function removeFromInventory(itemId, qty){
 }
 
 /* =============================================================
+   SPELL DICTIONARY SYSTEM
+   ============================================================= */
+
+/* --- Extra detail maps for the dictionary --- */
+const DICT_SHAPE_DETAILS = {
+	missile:  { phaseNote:'Standard projectile — works with all behaviors.', domainNote:'Default domain shape. Sub-phase projectiles spawn at random positions inside domain with forced homing.', extraNote:'' },
+	orb:      { phaseNote:'Larger hitbox than missile. Good for hitting multiple enemies.', domainNote:'Same as default domain. Random spawn positions with homing.', extraNote:'' },
+	blade:    { phaseNote:'Narrow slashing hitbox, visually rotates in flight direction.', domainNote:'Random spawn positions with forced homing.', extraNote:'' },
+	beam:     { phaseNote:'Continuous beam — hits every frame but with −35% damage per tick. Great for sustained DPS on slow targets.', domainNote:'Random spawn beams with homing.', extraNote:'Damage multiplier: ×0.65' },
+	ring:     { phaseNote:'Expanding ring that grows outward from spawn point.', domainNote:'Sub-phase projectiles spawn from domain center outward (tight cluster at center).', extraNote:'' },
+	cone:     { phaseNote:'Fan-shaped blast in the aimed direction.', domainNote:'Random spawn positions with forced homing.', extraNote:'' },
+	nova:     { phaseNote:'Expands outward from a point equally in all directions.', domainNote:'Fires a massive shockwave on domain activation that damages and knocks back all enemies. Also applies per-frame slow to all enemies inside.', extraNote:'Nova shockwave: power × 5 × (1 + magicPower × 0.08)' },
+	chain:    { phaseNote:'Jumps between targets. Can stun each target if Chain Stun Time > 0 (costs extra mana).', domainNote:'Per-frame stun applied to all grounded enemies inside domain.', extraNote:'Chain stun mana: +25 per stun-second' },
+	wall:     { phaseNote:'Stationary barrier. Can block enemy projectiles. Use dispel to destroy enemy walls.', domainNote:'Domain is 50% larger (×1.5 width and height). Extra thick pulsing border.', extraNote:'Wall domain bonus: ×1.5 size multiplier' },
+	solidify: { phaseNote:'Creates a solid platform you can stand on. Deals no damage.', domainNote:'Random spawn positions with homing (but no damage since platform).', extraNote:'No damage — utility only' },
+	spike:    { phaseNote:'Pointed projectile that faces its movement direction. Pierces through targets.', domainNote:'Spike domain projectiles erupt from the ground upward instead of homing. Uses straight behavior.', extraNote:'Spawns at ground level, shoots upward' },
+	polygon:  { phaseNote:'Customizable polygon — set any number of sides. Visual variety.', domainNote:'Per-frame push effect — enemies inside domain are pushed away from center.', extraNote:'Push strength: 1.2' },
+	allyOrb:  { phaseNote:'Heals you or allies instead of damaging enemies. Works with Damage Heal effect for stored-damage healing.', domainNote:'Random spawn positions with homing (heals instead of damages).', extraNote:'Healing projectile' },
+	summon:   { phaseNote:'Summons minions. Increase range/health/speed sliders for more mana. Minion fires the next spell phase as its attack.', domainNote:'Necromancer class + Summon domain: raises 3 strong defeated enemies from Bestiary over the domain duration.', extraNote:'Summon mana: +4/range, +3/health, +3/speed' },
+	meteor:   { phaseNote:'Blazing comet that gains damage with travel distance (up to +200%). Explodes on impact for 50% splash AoE. Has −25% base damage nerf.', domainNote:'Meteor domain projectiles rain from the top of the domain downward (straight behavior, not homing). Deal +75% damage.', extraNote:'Distance scaling: +1% per 3px, max +200%. Base nerf: ×0.75' },
+	vortex:   { phaseNote:'Slow-moving void (35% speed) that pulls nearby enemies in and deals DoT (30% stored as ongoing). Lasts 2× longer. Customizable duration slider.', domainNote:'Per-frame pull effect — enemies inside domain are pulled toward center.', extraNote:'Speed: ×0.35 | Duration: ×2 × vortexDuration slider | Pull: 1.5 str' },
+	slash:    { phaseNote:'Curved crescent arc projectile.', domainNote:'Slash domain sub-phase projectiles spawn at player position rather than random domain positions.', extraNote:'' },
+	same:     { phaseNote:'Re-uses the previous phase\'s shape. Allows different behavior/effects on the same projectile form without re-specifying shape.', domainNote:'Buffs the player while domain is active: +30% damage to all spells.', extraNote:'Domain buff: ×1.3 damage while active' },
+};
+
+const DICT_BEHAVIOR_DETAILS = {
+	straight:     { phaseNote:'Fires toward your mouse cursor.', dmgMod:'None (×1.0)', extraNote:'' },
+	lob:          { phaseNote:'Arcs through the air toward cursor. Spread slider changes the arc angle.', dmgMod:'+25% (×1.25)', extraNote:'' },
+	homing:       { phaseNote:'Tracks nearest target. Good for guaranteed hits but massive damage penalty.', dmgMod:'−50% (×0.5)', extraNote:'' },
+	boomerang:    { phaseNote:'Travels outward toward cursor then returns to caster.', dmgMod:'None (×1.0)', extraNote:'' },
+	groundSurge:  { phaseNote:'Travels horizontally along the ground toward the mouse cursor direction.', dmgMod:'None (×1.0)', extraNote:'' },
+	orbit:        { phaseNote:'Circles around you for a time, then launches outward.', dmgMod:'−30% (×0.7)', extraNote:'' },
+	rain:         { phaseNote:'Falls from the sky in an area. Spread slider changes angle spread. Count multiplier cost reduced (×0.1 instead of ×0.4).', dmgMod:'+50% (×1.5)', extraNote:'Count cost: only +10% per extra projectile' },
+	barrage:      { phaseNote:'Horizontal wall of projectiles. Spread changes angle spread. Count cost reduced like Rain.', dmgMod:'+35% (×1.35)', extraNote:'Count cost: only +10% per extra projectile' },
+	stationary:   { phaseNote:'Stays in place where spawned. Gets ×2 power bonus.', dmgMod:'×2.0 power bonus', extraNote:'' },
+	underfoot:    { phaseNote:'Spawns directly below your feet.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
+	selfCast:     { phaseNote:'Spawns at your exact position.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
+	aroundSelf:   { phaseNote:'Spawns projectiles in a circle around you. Uses the Around Self Count slider for count.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
+	ground:       { phaseNote:'Erupts from the ground at the nearest enemy (within customizable radius). If no enemy in range, spawns at your feet. Expand radius costs +3 mana per 50px above 200.', dmgMod:'+40% (×1.4)', extraNote:'Auto-locks nearest enemy. Duration ×3' },
+	zigzag:       { phaseNote:'Weaves in a sine wave pattern toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
+	teleport:     { phaseNote:'Blinks forward at intervals, making it hard to dodge.', dmgMod:'None (×1.0)', extraNote:'' },
+	domain:       { phaseNote:'ULTIMATE ONLY. Creates a massive zone (1.8× canvas size). Must be in spell slot 0 as Phase 1. Next phases fire from domain edges with forced homing. Matching elemental effects get +50% damage.', dmgMod:'Domain sub-phases capped at power 10 base', extraNote:'Dominion Master class: +30% range, +40% damage. Domain Vows can buff slow, range, power, DoT, mana regen, duration, and more.' },
+};
+
+const DICT_EFFECT_DETAILS = {
+	burn:      { phaseNote:'Applies fire DoT — 15% of hit damage stored as burn ticks over time. Domain element: if active domain matches burn, spell gets +50% damage.', extraNote:'DoT: 15% of damage as burn ticks' },
+	freeze:    { phaseNote:'Slows target movement speed. Domain element: if active domain matches freeze, spell gets +50% damage.', extraNote:'' },
+	poison:    { phaseNote:'Applies poison DoT — 10% of hit damage stored as poison ticks. Domain element: matching grants +50% damage.', extraNote:'DoT: 10% of damage as poison ticks' },
+	knockback: { phaseNote:'Pushes target away from the projectile impact point.', extraNote:'' },
+	pull:      { phaseNote:'Pulls target toward you (opposite of knockback).', extraNote:'' },
+	forceJump: { phaseNote:'Forces the target to jump upward.', extraNote:'' },
+	horizontalLaunch:{ phaseNote:'Launches target horizontally. Strength multiplier: ×0.75.', extraNote:'Reduced from ×1.5 to ×0.75' },
+	stun:      { phaseNote:'Briefly stuns target (prevents movement and attacks). Enemies build stun resistance — each stun is 15% shorter. Domain element: matching grants +50% damage.', extraNote:'Resistance: −15% duration per consecutive stun' },
+	healSelf:  { phaseNote:'Heals you on each hit.', extraNote:'' },
+	shield:    { phaseNote:'Provides a temporary defence boost on hit.', extraNote:'' },
+	lifesteal: { phaseNote:'Heals you for 20% of damage dealt. Domain element: matching grants +50% damage.', extraNote:'Heal: 20% of damage dealt' },
+	randomDelay:{ phaseNote:'Each projectile in a multi-count spell spawns after a random delay instead of simultaneously.', extraNote:'' },
+	phaseThrough:{ phaseNote:'Projectile passes through solid walls and platforms. Massive damage penalty unless from a domain.', extraNote:'Damage: ×0.55 (−45%) — domain projectiles exempt' },
+	timedRelease:{ phaseNote:'Automatically triggers the spell\'s after-effects after a set delay.', extraNote:'' },
+	phaseFork: { phaseNote:'Triggers the next phase after a delay WITHOUT ending the current phase. Both run simultaneously. Repeats cost +35 mana each.', extraNote:'Extra mana: +35 per repeat' },
+	resetProjectiles:{ phaseNote:'When transitioning to next phase, spawns fresh projectiles instead of morphing existing ones. Free (0 mana, 0 control).', extraNote:'Free effect' },
+	damageStore:{ phaseNote:'Stores a customizable % of damage dealt into a damage bank for later use.', extraNote:'' },
+	damageRelease:{ phaseNote:'Consumes all stored damage and adds it as bonus damage and increased projectile size. Formula: ×(1 + stored/500).', extraNote:'Bonus: ×(1 + storedDmg / 500)' },
+	damageHeal:{ phaseNote:'Ally Orb shape + Damage Heal converts 50% of stored damage into healing.', extraNote:'Requires Ally Orb shape' },
+	dispel:    { phaseNote:'Destroys enemy projectiles and magic walls on contact. Compares power — can block projectiles up to its own power level.', extraNote:'Mana cost: 25 (highest of all effects)' },
+	blind:     { phaseNote:'Reduces enemy detection range temporarily, causing them to lose track of the player.', extraNote:'' },
+	shatter:   { phaseNote:'When killing an enemy, the corpse explodes into damaging fragments that hit nearby enemies.', extraNote:'On-kill AoE' },
+	mark:      { phaseNote:'Tags an enemy — all attacks deal +30% bonus damage to marked targets for 3 seconds.', extraNote:'+30% damage debuff for 3s' },
+	gravityWell:{ phaseNote:'Creates a gravitational pull zone around the impact point for 2 seconds, pulling enemies inward.', extraNote:'2 second duration' },
+	ricochet:  { phaseNote:'Bounces off walls up to 5 times. Works with homing, lob, and other behaviors.', extraNote:'Max 5 bounces' },
+};
+
+function rankName(idx){
+	return MAGE_RANKS[idx] ? (MAGE_RANKS[idx].icon + ' ' + MAGE_RANKS[idx].name) : 'Rank '+idx;
+}
+
+function dictTag(cls, text){
+	return '<span class="dict-tag '+cls+'">'+text+'</span>';
+}
+
+function renderDictSection(cat){
+	// Update active category button
+	document.querySelectorAll('.dict-cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+	const el = document.getElementById('dictContent');
+	if(!el) return;
+
+	if(cat === 'shapes')    el.innerHTML = renderDictShapes();
+	else if(cat === 'behaviors') el.innerHTML = renderDictBehaviors();
+	else if(cat === 'effects')   el.innerHTML = renderDictEffects();
+	else if(cat === 'domains')   el.innerHTML = renderDictDomains();
+	else if(cat === 'ultimates') el.innerHTML = renderDictUltimates();
+	else if(cat === 'phases')    el.innerHTML = renderDictPhases();
+}
+
+/* ---------- SHAPES ---------- */
+function renderDictShapes(){
+	let html = '<div class="dict-section-title">🔷 Shapes — Projectile Form</div>';
+	html += '<p class="dict-detail">The shape determines the visual form, hitbox, and special mechanics of your projectile. Each shape has a base mana cost and control requirement.</p>';
+	for(const [id, s] of Object.entries(SHAPES)){
+		const rank = SHAPE_RANK_REQ[id] ?? '?';
+		const det = DICT_SHAPE_DETAILS[id] || {};
+		html += '<div class="dict-card">';
+		html += '<h4>'+s.icon+' '+s.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+id+')</span></h4>';
+		html += '<div class="dict-tags">';
+		html += dictTag('mana', '💧 Mana: '+s.manaCost);
+		html += dictTag('ctrl', '🎮 Control: '+s.controlReq);
+		html += dictTag('rank', '🏅 '+rankName(rank));
+		if(s.dmgNote) html += dictTag(s.dmgNote.includes('-')||s.dmgNote.includes('no')?'dmg-down':'dmg-up', s.dmgNote);
+		html += '</div>';
+		html += '<p class="dict-detail"><b>Description:</b> '+s.desc+'</p>';
+		if(det.phaseNote) html += '<p class="dict-detail"><b>Phase Mechanics:</b> '+det.phaseNote+'</p>';
+		if(det.domainNote) html += '<p class="dict-detail"><b>Domain Effect:</b> '+det.domainNote+'</p>';
+		if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+		html += '</div>';
+	}
+	return html;
+}
+
+/* ---------- BEHAVIORS ---------- */
+function renderDictBehaviors(){
+	let html = '<div class="dict-section-title">🎯 Behaviors — Movement Pattern</div>';
+	html += '<p class="dict-detail">The behavior controls how the projectile travels after being cast. Some behaviors modify damage output. Mana and control costs are added on top of the shape cost.</p>';
+	for(const [id, b] of Object.entries(BEHAVIORS)){
+		const rank = BEHAVIOR_RANK_REQ[id] ?? '?';
+		const det = DICT_BEHAVIOR_DETAILS[id] || {};
+		html += '<div class="dict-card">';
+		html += '<h4>'+b.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+id+')</span>';
+		if(b.ultimateOnly) html += ' <span class="dict-tag ult">⚡ ULTIMATE ONLY</span>';
+		html += '</h4>';
+		html += '<div class="dict-tags">';
+		html += dictTag('mana', '💧 Mana: +'+b.manaCost);
+		html += dictTag('ctrl', '🎮 Control: '+b.controlReq);
+		html += dictTag('rank', '🏅 '+rankName(rank));
+		if(b.dmgNote) html += dictTag(b.dmgNote.includes('-')?'dmg-down':'dmg-up', b.dmgNote);
+		html += '</div>';
+		html += '<p class="dict-detail"><b>Description:</b> '+b.desc+'</p>';
+		if(det.dmgMod) html += '<p class="dict-detail"><b>Damage Modifier:</b> '+det.dmgMod+'</p>';
+		if(det.phaseNote) html += '<p class="dict-detail"><b>Mechanics:</b> '+det.phaseNote+'</p>';
+		if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+		html += '</div>';
+	}
+	return html;
+}
+
+/* ---------- EFFECTS ---------- */
+function renderDictEffects(){
+	let html = '<div class="dict-section-title">✨ Effects — On-Hit Modifiers</div>';
+	html += '<p class="dict-detail">Effects add special properties to your projectiles. Multiple effects can be combined, but some categories are exclusive (only one per phase).</p>';
+	// Group by category
+	const groups = {};
+	for(const [id, e] of Object.entries(EFFECTS)){
+		const cat = e.category || 'utility';
+		if(!groups[cat]) groups[cat] = [];
+		groups[cat].push([id, e]);
+	}
+	const catInfo = {
+		elemental: {label:'🔥 Elemental', note:'Only ONE elemental effect per phase. These interact with Domain element matching for +50% damage bonus.'},
+		movement:  {label:'💨 Forced Movement', note:'Only ONE movement effect per phase.'},
+		cc:        {label:'⚡ Crowd Control', note:'Can stack with other categories.'},
+		support:   {label:'💚 Support', note:'Can stack with other categories.'},
+		utility:   {label:'🔧 Utility', note:'Can stack with other categories.'},
+		store:     {label:'🗃️ Damage Store', note:'Store damage from hits, then release it later for massive burst or healing.'},
+	};
+	for(const [catId, catDef] of Object.entries(catInfo)){
+		const items = groups[catId];
+		if(!items || items.length === 0) continue;
+		html += '<div style="margin-top:10px"><div class="dict-section-title" style="font-size:14px">'+catDef.label+'</div>';
+		html += '<p class="dict-detail" style="margin-bottom:6px"><em>'+catDef.note+'</em></p>';
+		for(const [id, e] of items){
+			const rank = EFFECT_RANK_REQ[id] ?? '?';
+			const det = DICT_EFFECT_DETAILS[id] || {};
+			html += '<div class="dict-card">';
+			html += '<h4>'+e.icon+' '+e.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+id+')</span></h4>';
+			html += '<div class="dict-tags">';
+			html += dictTag('mana', '💧 Mana: +'+e.manaCost);
+			html += dictTag('ctrl', '🎮 Control: '+e.controlReq);
+			html += dictTag('rank', '🏅 '+rankName(rank));
+			if(e.dmgNote) html += dictTag(e.dmgNote.includes('-')?'dmg-down':'dmg-up', e.dmgNote);
+			html += '</div>';
+			html += '<p class="dict-detail"><b>Description:</b> '+e.desc+'</p>';
+			if(det.phaseNote) html += '<p class="dict-detail"><b>Mechanics:</b> '+det.phaseNote+'</p>';
+			if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+			html += '</div>';
+		}
+		html += '</div>';
+	}
+	return html;
+}
+
+/* ---------- DOMAINS ---------- */
+function renderDictDomains(){
+	let html = '<div class="dict-section-title">⚡ Domain Expansion — Shape Effects</div>';
+	html += '<p class="dict-detail">Domain Expansion is an <b>Ultimate-only</b> behavior (spell slot 0). It creates a massive zone covering 1.8× the screen. The <b>shape you choose in Phase 1</b> determines the domain\'s special per-frame effect and how sub-phase projectiles spawn.</p>';
+	html += '<p class="dict-detail"><b>Base mana cost:</b> 1000 (behavior) + shape cost + effect costs. Ultimate cost = spell cost × 10 (uses Total Mana). <b>Charge time:</b> 3 seconds.</p>';
+	html += '<p class="dict-detail"><b>Sub-phases:</b> Phases after Phase 1 fire from domain edges with forced homing (except Meteor → straight from top, Spike → straight from ground).</p>';
+
+	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Shape-Specific Domain Effects</div>';
+
+	const domainShapeInfo = [
+		{ shape:'missile', icon:'💠', effect:'Default', desc:'No special per-frame effect. Sub-phase projectiles spawn at random positions inside the domain with forced homing.' },
+		{ shape:'orb', icon:'🔮', effect:'Default', desc:'Same as Missile — random positions with homing.' },
+		{ shape:'blade', icon:'🗡️', effect:'Default', desc:'Random positions with forced homing.' },
+		{ shape:'beam', icon:'⚡', effect:'Default', desc:'Random positions with homing. Beam damage penalty (×0.65) still applies.' },
+		{ shape:'ring', icon:'⭕', effect:'Center Burst', desc:'Sub-phase projectiles all spawn from the domain center (tight cluster), then home to targets.' },
+		{ shape:'cone', icon:'🔺', effect:'Default', desc:'Random positions with forced homing.' },
+		{ shape:'nova', icon:'💥', effect:'Shockwave + Slow', desc:'Fires an instant shockwave on activation (power × 5 × magic scaling) that damages and knocks back all enemies. Also applies per-frame slow to all enemies inside.' },
+		{ shape:'chain', icon:'⛓️', effect:'Ground Stun', desc:'Per-frame stun applied to all grounded enemies inside the domain. Enemies build stun resistance (−15% per consecutive stun).' },
+		{ shape:'wall', icon:'🧱', effect:'+50% Size', desc:'Domain is 50% larger in both width and height (×1.5 multiplier). Extra thick pulsing visual border.' },
+		{ shape:'solidify', icon:'🟩', effect:'Default', desc:'Random positions with homing (platform shape — no damage).' },
+		{ shape:'spike', icon:'🔱', effect:'Ground Eruption', desc:'Sub-phase projectiles erupt from the ground upward (straight behavior instead of homing). Spawns at ground level.' },
+		{ shape:'polygon', icon:'⬡', effect:'Push Enemies', desc:'Per-frame push effect — all enemies inside domain are pushed away from center (strength: 1.2).' },
+		{ shape:'allyOrb', icon:'💚', effect:'Default (Heal)', desc:'Random positions with homing (heals instead of damages since Ally Orb).' },
+		{ shape:'summon', icon:'👾', effect:'Necro Summon', desc:'Necromancer class only: raises 3 strong defeated enemies from your Bestiary over the domain\'s duration. Without Necromancer class, acts as default.' },
+		{ shape:'meteor', icon:'☄️', effect:'Rain From Above', desc:'Sub-phase projectiles rain from the top of the domain downward (straight behavior, not homing). Deal +75% damage (×1.75).' },
+		{ shape:'vortex', icon:'🌀', effect:'Pull Enemies', desc:'Per-frame gravitational pull — all enemies inside domain are pulled toward center (strength: 1.5).' },
+		{ shape:'slash', icon:'🌙', effect:'Player Spawn', desc:'Sub-phase projectiles spawn at the player\'s position rather than random domain positions.' },
+		{ shape:'same', icon:'🔄', effect:'Damage Buff', desc:'Buffs the player while domain is active — all spells deal +30% damage (×1.3 multiplier).' },
+	];
+
+	for(const d of domainShapeInfo){
+		html += '<div class="dict-card">';
+		html += '<h4>'+d.icon+' '+d.shape.charAt(0).toUpperCase()+d.shape.slice(1)+' <span style="font-size:11px;color:var(--accent2);font-weight:600">→ '+d.effect+'</span></h4>';
+		html += '<p class="dict-detail">'+d.desc+'</p>';
+		html += '</div>';
+	}
+
+	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Domain Element Matching</div>';
+	html += '<p class="dict-detail">When you set a <b>Domain Element</b> (burn, freeze, poison, stun, or lifesteal), any spell with a matching elemental effect gets <b>+50% damage</b> while the domain is active.</p>';
+
+	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Domain Vow Buffs</div>';
+	html += '<p class="dict-detail">Vows assigned to domain can grant these buffs (per point):</p>';
+	const vowBuffList = [
+		['domainSlow','8% slow to enemies per point'],
+		['domainRange','+12% domain range per point'],
+		['domainPower','+damage to domain sub-phases per point'],
+		['domainPlayerPow','+spell damage while domain is active per point'],
+		['domainPlayerSpd','+player speed while domain is active'],
+		['domainSummonPow','+summon power while domain is active'],
+		['domainDuration','+8% duration per point'],
+		['domainDotDmg','2% max HP DoT per second to enemies per point'],
+		['domainCooldown','−6% cooldown per point'],
+		['domainManaRegen','+5 mana per second per point'],
+		['domainDefense','+defence while domain is active'],
+		['mobileDomain','Domain follows the player (mobile)'],
+		['domainTP','Teleport to domain center (press key)'],
+	];
+	html += '<div class="dict-card"><table style="width:100%;font-size:12px;color:var(--muted)">';
+	for(const [k,v] of vowBuffList){
+		html += '<tr><td style="padding:2px 8px;color:#ddd;font-weight:600">'+k+'</td><td style="padding:2px 8px">'+v+'</td></tr>';
+	}
+	html += '</table></div>';
+
+	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Domain Collapse</div>';
+	html += '<p class="dict-detail">If your mana reaches 0 while a domain is active, it <b>collapses immediately</b>. Vow buff points drain mana at 1 per total buff point per second.</p>';
+
+	return html;
+}
+
+/* ---------- ULTIMATES ---------- */
+function renderDictUltimates(){
+	let html = '<div class="dict-section-title">🌟 Ultimate Spells</div>';
+	html += '<p class="dict-detail">Ultimate spells are placed in <b>Spell Slot 0</b> (key 0). They use <b>Total Mana</b> instead of regular mana. Total Mana accumulates from normal spell casts (2× mana spent is added to your Total Mana pool).</p>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>⚡ How Ultimates Work</h4>';
+	html += '<p class="dict-detail"><b>Cost:</b> Spell mana cost × 10 (paid from Total Mana, not regular mana).</p>';
+	html += '<p class="dict-detail"><b>Necromancer Domain:</b> Costs ×2 (20k+ instead of 10k+).</p>';
+	html += '<p class="dict-detail"><b>Charge Time:</b> 3 seconds (180 frames at 60fps). You are vulnerable during the charge.</p>';
+	html += '<p class="dict-detail"><b>Control Discount:</b> Same as normal spells — higher Magic Control reduces effective mana cost by 1.5% per point (min ×0.3).</p>';
+	html += '<p class="dict-detail"><b>Cooldown Formula:</b> 24 + (avgPower × 16) + (rawCost × 0.15) + 180 (charge duration). Modified by Vow cooldown reductions.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>📊 Total Mana Accumulation</h4>';
+	html += '<p class="dict-detail">Every time you cast a normal spell, <b>2× the mana spent</b> is added to your Total Mana pool. Cast more spells to charge your ultimate faster!</p>';
+	html += '<p class="dict-detail">The HUD bar shows your progress toward the ultimate\'s cost.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>🔷 Domain as Ultimate</h4>';
+	html += '<p class="dict-detail">Domain Expansion behavior is <b>ultimate-only</b> — it can only be used in Slot 0 as Phase 1. The domain phase creates the zone, and subsequent phases fire projectiles from the domain edges.</p>';
+	html += '<p class="dict-detail"><b>Domain element:</b> Set the elemental type (burn/freeze/poison/stun/lifesteal) for +50% damage matching bonus.</p>';
+	html += '</div>';
+
+	return html;
+}
+
+/* ---------- PHASES & TRIGGERS ---------- */
+function renderDictPhases(){
+	let html = '<div class="dict-section-title">🔗 Phases & Triggers</div>';
+	html += '<p class="dict-detail">Spells can have multiple <b>phases</b>. Each phase has its own shape, behavior, effects, and triggers. Phases fire sequentially based on their trigger condition.</p>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>📐 Phase Triggers</h4>';
+	for(const [id, t] of Object.entries(TRIGGERS)){
+		html += '<p class="dict-detail"><b>'+t.label+':</b> '+t.desc+'</p>';
+	}
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>💰 Multi-Phase Cost Scaling</h4>';
+	html += '<p class="dict-detail"><b>Total cost multiplier:</b> ×(0.6 + phases × 0.25). A 1-phase spell costs ×0.85, 2-phase ×1.1, 3-phase ×1.35, etc.</p>';
+	html += '<p class="dict-detail"><b>Control requirement:</b> Highest single component control + (phases − 1) × 3. Each extra phase adds +3 control requirement.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>🔄 Same Shape</h4>';
+	html += '<p class="dict-detail">The "Same" shape re-uses the previous phase\'s shape. This lets you apply different behaviors or effects to the same projectile form without re-specifying the shape. Costs 0 mana and 0 control.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>🔄 Reset Projectiles</h4>';
+	html += '<p class="dict-detail">Adding the "Reset Projectiles" effect causes the next phase to spawn fresh projectiles from the caster instead of morphing the existing ones into the new phase. Free (0 mana, 0 control).</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>🔀 Phase Fork</h4>';
+	html += '<p class="dict-detail">Phase Fork triggers the next phase after a delay <b>without ending the current phase</b>. Both phases run simultaneously. Each repeat costs +35 extra mana.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>💰 Mana Cost Formula</h4>';
+	html += '<p class="dict-detail">Per phase: <b>base 5</b> + shape mana + behavior mana + (power × 50 × countMult) + (count − 1) × 4 + (width − 1) × 2 + (height − 1) × 2 + effect mana costs.</p>';
+	html += '<p class="dict-detail"><b>Count multiplier:</b> 1 + (count − 1) × 0.4 for most behaviors. Rain/Barrage use 0.1 instead of 0.4.</p>';
+	html += '<p class="dict-detail"><b>Chain stun:</b> +25 mana per stun-second. <b>Ground radius:</b> +3 mana per 50px over 200. <b>Summon:</b> +4/range, +3/health, +3/speed.</p>';
+	html += '<p class="dict-detail"><b>Phase Fork repeats:</b> +35 mana per repeat.</p>';
+	html += '<p class="dict-detail"><b>Final multiplier:</b> total × (0.6 + phases × 0.25).</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>🎮 Control Requirement</h4>';
+	html += '<p class="dict-detail">The highest control value among all shapes, behaviors, and effects across all phases, plus <b>+(phases − 1) × 3</b> for multi-phase complexity.</p>';
+	html += '<p class="dict-detail">Higher Magic Control stat reduces mana cost by 1.5% per point (minimum ×0.3 multiplier).</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card">';
+	html += '<h4>📊 Damage Formula</h4>';
+	html += '<p class="dict-detail"><b>Base damage:</b> power × 8 × (all multipliers)</p>';
+	html += '<p class="dict-detail"><b>Behavior multipliers:</b> Homing ×0.5 | Lob ×1.25 | Orbit ×0.7 | Rain ×1.5 | Barrage ×1.35 | Ground ×1.4 | Stationary ×2.0 power</p>';
+	html += '<p class="dict-detail"><b>Shape multipliers:</b> Beam ×0.65 | Meteor ×0.75 (base) + distance scaling up to ×3.0 | Vortex 30% DoT</p>';
+	html += '<p class="dict-detail"><b>Effect multipliers:</b> Phase Through ×0.55 (not from domain) | Elemental Vow +7%/pt | Domain element match +50%</p>';
+	html += '<p class="dict-detail"><b>Diminishing returns:</b> Each consecutive hit on same target: ×1/(1 + hitCount × 0.04). Domain projectiles are exempt.</p>';
+	html += '<p class="dict-detail"><b>Spread bonus:</b> +0.25% per degree of spread per projectile count.</p>';
+	html += '</div>';
+
+	return html;
+}
+
+/* =============================================================
    CRAFTING SYSTEM
    ============================================================= */
 let craftSearch = '';
@@ -1493,9 +2003,13 @@ function switchTab(tab){
 	document.getElementById('inventoryTab').style.display = tab === 'inventory' ? 'flex' : 'none';
 	document.getElementById('craftingTab').style.display  = tab === 'crafting'  ? 'flex' : 'none';
 	document.getElementById('questTab').style.display     = tab === 'quests'    ? 'flex' : 'none';
+	document.getElementById('bestiaryTab').style.display  = tab === 'bestiary'  ? 'flex' : 'none';
+	document.getElementById('dictionaryTab').style.display= tab === 'dictionary'? 'flex' : 'none';
 	document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
 	if(tab === 'crafting') renderCraftList();
 	if(tab === 'quests') renderQuestList();
+	if(tab === 'bestiary') renderBestiary();
+	if(tab === 'dictionary') renderDictSection('shapes');
 }
 
 /* ============================================================
@@ -1518,14 +2032,310 @@ const CITY_QUEST_DEFS = [
 	{ title:'Welcome to EmberFall', desc:'Speak with Archmage Thalen at the Mage Academy.', npc:'Archmage Thalen' },
 	{ title:'Visit the Spell Market', desc:'Find Mira the Spell Merchant in the market district.', npc:'Mira the Spell Merchant' },
 	{ title:'Return to Thalen \u2014 New Power', desc:'Report back to Archmage Thalen with your new spell component.', npc:'Archmage Thalen' },
-	{ title:'Meet Captain Dorn', desc:'Speak with Captain Dorn at the Training Arena.', npc:'Captain Dorn' },
-	{ title:'Arena Training', desc:'Destroy 3 training targets in the Training Arena.', npc:null },
+	{ title:'Meet Captain Dorn', desc:'Speak with Captain Dorn at the Colosseum.', npc:'Captain Dorn' },
+	{ title:'Arena Training', desc:'Destroy 3 training targets in the Colosseum.', npc:null },
 	{ title:'Report to Dorn & Thalen', desc:'Speak with Captain Dorn, then return to Archmage Thalen.', npc:'Archmage Thalen' },
 	{ title:'The Clock Tower Mystery', desc:'Visit the Ancient Clock Tower and speak with Keeper Aldric.', npc:'Keeper Aldric' },
 	{ title:'Report to Thalen \u2014 The Inscription', desc:'Tell Archmage Thalen about the Clock Tower inscription.', npc:'Archmage Thalen' },
 	{ title:'The Outer Forest Gate', desc:'Speak with Ranger Sylva at the Outer Forest Gate.', npc:'Ranger Sylva' },
 	{ title:'Ready for the Wildes', desc:'Speak with Archmage Thalen for your final briefing.', npc:'Archmage Thalen' },
 ];
+
+const SPELL_TEACHER_CHAPTERS = [
+	{ name:'Chapter 1: Getting Started', start:0, end:8 },
+	{ name:'Chapter 2: Novice Rank', start:9, end:28 },
+	{ name:'Chapter 3: Apprentice Rank', start:29, end:53 },
+	{ name:'Chapter 4: Adept Rank', start:54, end:83 },
+	{ name:'Chapter 5: Mage Rank', start:84, end:124 },
+	{ name:'Chapter 6: Archmage Rank', start:125, end:169 },
+	{ name:'Chapter 7: Grand Sorcerer Rank', start:170, end:190 },
+	{ name:'Chapter 8: Final Mastery & Graduation', start:191, end:200 },
+];
+
+const SPELL_TEACHER_QUEST_DEFS = [
+	/* Ch1 Getting Started */
+	{ title:'Meet Spell Teacher Mira', desc:'Find Spell Teacher Mira at the Spell Market in the city.', npc:'Mira' },
+	{ title:'Open Your Inventory', desc:'Press M to open your inventory and view your spell slots.' },
+	{ title:'Lesson: Understanding Mana', desc:'Return to Mira to learn how mana and spell costs work.', npc:'Mira' },
+	{ title:'Cast Your First Spell', desc:'Equip any spell and cast it.' },
+	{ title:'Lesson: Spell Power', desc:'Talk to Mira about how spell power affects damage.', npc:'Mira' },
+	{ title:'Hit a Training Dummy', desc:'Go to the sandbox and hit a training dummy with any spell.' },
+	{ title:'Lesson: Shapes & Behaviors', desc:'Return to Mira to learn about spell shapes and behaviors.', npc:'Mira' },
+	{ title:'Cast a Missile Spell', desc:'Equip a spell with the Missile shape and cast it.' },
+	{ title:'Getting Started Complete', desc:'Return to Mira to begin your rank training.', npc:'Mira' },
+	/* Ch2 Novice Rank 0 */
+	{ title:'Lesson: Orb Shape', desc:'Talk to Mira about the Orb shape.', npc:'Mira' },
+	{ title:'Cast an Orb Spell', desc:'Use a spell with the Orb shape.' },
+	{ title:'Lesson: Ally Orb Shape', desc:'Talk to Mira about the healing Ally Orb shape.', npc:'Mira' },
+	{ title:'Cast an Ally Orb Spell', desc:'Use a spell with the Ally Orb shape.' },
+	{ title:'Lesson: Same Shape', desc:'Talk to Mira about re-using the previous phase shape.', npc:'Mira' },
+	{ title:'Cast with Same Shape', desc:'Use a spell with the Same shape in a multi-phase spell.' },
+	{ title:'Lesson: Straight Behavior', desc:'Talk to Mira about the basic Straight firing behavior.', npc:'Mira' },
+	{ title:'Cast a Straight Spell', desc:'Use a spell with the Straight behavior.' },
+	{ title:'Lesson: Stationary Behavior', desc:'Talk to Mira about Stationary turret spells.', npc:'Mira' },
+	{ title:'Cast a Stationary Spell', desc:'Use a spell with the Stationary behavior.' },
+	{ title:'Lesson: Self Cast Behavior', desc:'Talk to Mira about Self Cast.', npc:'Mira' },
+	{ title:'Cast a Self Cast Spell', desc:'Use a spell with the Self Cast behavior.' },
+	{ title:'Lesson: Knockback Effect', desc:'Talk to Mira about Knockback.', npc:'Mira' },
+	{ title:'Cast with Knockback', desc:'Use a spell with the Knockback effect.' },
+	{ title:'Lesson: Random Delay Effect', desc:'Talk to Mira about Random Delay.', npc:'Mira' },
+	{ title:'Cast with Random Delay', desc:'Use a spell with the Random Delay effect.' },
+	{ title:'Lesson: Reset Projectiles', desc:'Talk to Mira about Reset Projectiles.', npc:'Mira' },
+	{ title:'Cast with Reset Projectiles', desc:'Use a spell with the Reset Projectiles effect.' },
+	{ title:'Lesson: Your First Combo', desc:'Talk to Mira about Missile + Straight + Knockback.', npc:'Mira' },
+	{ title:'Novice Rank Complete', desc:'Return to Mira to review your Novice training.', npc:'Mira' },
+	/* Ch3 Apprentice Rank 1 */
+	{ title:'Lesson: Blade Shape', desc:'Talk to Mira about the Blade shape.', npc:'Mira' },
+	{ title:'Cast a Blade Spell', desc:'Use a spell with the Blade shape.' },
+	{ title:'Lesson: Spike Shape', desc:'Talk to Mira about the Spike shape.', npc:'Mira' },
+	{ title:'Cast a Spike Spell', desc:'Use a spell with the Spike shape.' },
+	{ title:'Lesson: Polygon Shape', desc:'Talk to Mira about the Polygon shape.', npc:'Mira' },
+	{ title:'Cast a Polygon Spell', desc:'Use a spell with the Polygon shape.' },
+	{ title:'Lesson: Platform Shape', desc:'Talk to Mira about Solidify (Platform).', npc:'Mira' },
+	{ title:'Cast a Platform Spell', desc:'Use a spell with the Solidify shape.' },
+	{ title:'Lesson: Slash Shape', desc:'Talk to Mira about the Slash shape.', npc:'Mira' },
+	{ title:'Cast a Slash Spell', desc:'Use a spell with the Slash shape.' },
+	{ title:'Lesson: Lob Behavior', desc:'Talk to Mira about arcing Lob projectiles.', npc:'Mira' },
+	{ title:'Cast a Lob Spell', desc:'Use a spell with the Lob behavior.' },
+	{ title:'Lesson: Underfoot Behavior', desc:'Talk to Mira about Underfoot casting.', npc:'Mira' },
+	{ title:'Cast an Underfoot Spell', desc:'Use a spell with the Underfoot behavior.' },
+	{ title:'Lesson: Burn Effect', desc:'Talk to Mira about the Burn effect.', npc:'Mira' },
+	{ title:'Cast with Burn', desc:'Use a spell with the Burn effect.' },
+	{ title:'Lesson: Freeze Effect', desc:'Talk to Mira about the Freeze effect.', npc:'Mira' },
+	{ title:'Cast with Freeze', desc:'Use a spell with the Freeze effect.' },
+	{ title:'Lesson: Force Jump Effect', desc:'Talk to Mira about Force Jump.', npc:'Mira' },
+	{ title:'Cast with Force Jump', desc:'Use a spell with the Force Jump effect.' },
+	{ title:'Lesson: Multi-Phase Spells', desc:'Talk to Mira about multi-phase spells.', npc:'Mira' },
+	{ title:'Create a 2-Phase Spell', desc:'Build and cast a spell with 2 phases.' },
+	{ title:'Lesson: Lob + Burn Combo', desc:'Talk to Mira about Lob + Burn.', npc:'Mira' },
+	{ title:'Cast Lob Burn', desc:'Cast a spell with Lob behavior and Burn effect.' },
+	{ title:'Apprentice Rank Complete', desc:'Return to Mira to review your Apprentice training.', npc:'Mira' },
+	/* Ch4 Adept Rank 2 */
+	{ title:'Lesson: Beam Shape', desc:'Talk to Mira about the Beam shape.', npc:'Mira' },
+	{ title:'Cast a Beam Spell', desc:'Use a spell with the Beam shape.' },
+	{ title:'Lesson: Cone Shape', desc:'Talk to Mira about the Cone shape.', npc:'Mira' },
+	{ title:'Cast a Cone Spell', desc:'Use a spell with the Cone shape.' },
+	{ title:'Lesson: Wall Shape', desc:'Talk to Mira about the Wall shape.', npc:'Mira' },
+	{ title:'Cast a Wall Spell', desc:'Use a spell with the Wall shape.' },
+	{ title:'Lesson: Homing Behavior', desc:'Talk to Mira about Homing projectiles.', npc:'Mira' },
+	{ title:'Cast a Homing Spell', desc:'Use a spell with the Homing behavior.' },
+	{ title:'Lesson: Boomerang Behavior', desc:'Talk to Mira about the Boomerang behavior.', npc:'Mira' },
+	{ title:'Cast a Boomerang Spell', desc:'Use a spell with the Boomerang behavior.' },
+	{ title:'Lesson: Ground Surge Behavior', desc:'Talk to Mira about Ground Surge.', npc:'Mira' },
+	{ title:'Cast a Ground Surge Spell', desc:'Use a spell with the Ground Surge behavior.' },
+	{ title:'Lesson: Poison Effect', desc:'Talk to Mira about the Poison effect.', npc:'Mira' },
+	{ title:'Cast with Poison', desc:'Use a spell with the Poison effect.' },
+	{ title:'Lesson: Pull Effect', desc:'Talk to Mira about Pull.', npc:'Mira' },
+	{ title:'Cast with Pull', desc:'Use a spell with the Pull effect.' },
+	{ title:'Lesson: Horizontal Launch', desc:'Talk to Mira about Horizontal Launch.', npc:'Mira' },
+	{ title:'Cast with H. Launch', desc:'Use a spell with the Horizontal Launch effect.' },
+	{ title:'Lesson: Timed Release Effect', desc:'Talk to Mira about Timed Release.', npc:'Mira' },
+	{ title:'Cast with Timed Release', desc:'Use a spell with the Timed Release effect.' },
+	{ title:'Lesson: Damage Store Effect', desc:'Talk to Mira about Damage Store.', npc:'Mira' },
+	{ title:'Cast with Damage Store', desc:'Use a spell with the Damage Store effect.' },
+	{ title:'Lesson: Homing + Burn Combo', desc:'Talk to Mira about Homing + Burn.', npc:'Mira' },
+	{ title:'Cast Homing Burn', desc:'Cast a spell with Homing and Burn.' },
+	{ title:'Lesson: Wall + Poison Combo', desc:'Talk to Mira about poisonous barriers.', npc:'Mira' },
+	{ title:'Cast Wall Poison', desc:'Cast a spell with Wall and Poison.' },
+	{ title:'Lesson: Beam + Pull Combo', desc:'Talk to Mira about Beam + Pull.', npc:'Mira' },
+	{ title:'Cast Beam Pull', desc:'Cast a spell with Beam and Pull.' },
+	{ title:'Lesson: Phase Transitions', desc:'Talk to Mira about On Hit, After Delay, On Expire.', npc:'Mira' },
+	{ title:'Adept Rank Complete', desc:'Return to Mira to review your Adept training.', npc:'Mira' },
+	/* Ch5 Mage Rank 3 */
+	{ title:'Lesson: Ring Shape', desc:'Talk to Mira about the Ring shape.', npc:'Mira' },
+	{ title:'Cast a Ring Spell', desc:'Use a spell with the Ring shape.' },
+	{ title:'Lesson: Nova Shape', desc:'Talk to Mira about the Nova shape.', npc:'Mira' },
+	{ title:'Cast a Nova Spell', desc:'Use a spell with the Nova shape.' },
+	{ title:'Lesson: Meteor Shape', desc:'Talk to Mira about the Meteor shape.', npc:'Mira' },
+	{ title:'Cast a Meteor Spell', desc:'Use a spell with the Meteor shape.' },
+	{ title:'Lesson: Around Self Behavior', desc:'Talk to Mira about Around Self.', npc:'Mira' },
+	{ title:'Cast an Around Self Spell', desc:'Use a spell with the Around Self behavior.' },
+	{ title:'Lesson: Ground Behavior', desc:'Talk to Mira about Ground behavior.', npc:'Mira' },
+	{ title:'Cast a Ground Spell', desc:'Use a spell with the Ground behavior.' },
+	{ title:'Lesson: Zigzag Behavior', desc:'Talk to Mira about Zigzag.', npc:'Mira' },
+	{ title:'Cast a Zigzag Spell', desc:'Use a spell with the Zigzag behavior.' },
+	{ title:'Lesson: Stun Effect', desc:'Talk to Mira about Stun.', npc:'Mira' },
+	{ title:'Cast with Stun', desc:'Use a spell with the Stun effect.' },
+	{ title:'Lesson: Heal Self Effect', desc:'Talk to Mira about Heal Self.', npc:'Mira' },
+	{ title:'Cast with Heal Self', desc:'Use a spell with the Heal Self effect.' },
+	{ title:'Lesson: Shield Effect', desc:'Talk to Mira about Shield.', npc:'Mira' },
+	{ title:'Cast with Shield', desc:'Use a spell with the Shield effect.' },
+	{ title:'Lesson: Phase Fork Effect', desc:'Talk to Mira about Phase Fork.', npc:'Mira' },
+	{ title:'Cast with Phase Fork', desc:'Use a spell with the Phase Fork effect.' },
+	{ title:'Lesson: Damage Release Effect', desc:'Talk to Mira about Damage Release.', npc:'Mira' },
+	{ title:'Cast with Damage Release', desc:'Use a spell with the Damage Release effect.' },
+	{ title:'Lesson: Damage Heal Effect', desc:'Talk to Mira about Damage Heal (Ally Orb).', npc:'Mira' },
+	{ title:'Cast with Damage Heal', desc:'Use a spell with Damage Heal on an Ally Orb.' },
+	{ title:'Lesson: Nova + Stun Combo', desc:'Talk to Mira about Nova + Stun.', npc:'Mira' },
+	{ title:'Cast Nova Stun', desc:'Cast a spell with Nova and Stun.' },
+	{ title:'Lesson: Ground + Burn Trap', desc:'Talk to Mira about ground traps.', npc:'Mira' },
+	{ title:'Cast Ground Burn', desc:'Cast a spell with Ground and Burn.' },
+	{ title:'Lesson: Ring + Freeze Combo', desc:'Talk to Mira about Ring + Freeze.', npc:'Mira' },
+	{ title:'Cast Ring Freeze', desc:'Cast a spell with Ring and Freeze.' },
+	{ title:'Lesson: 3-Phase Spell Chains', desc:'Talk to Mira about 3-phase spells.', npc:'Mira' },
+	{ title:'Create a 3-Phase Spell', desc:'Build and cast a spell with 3 phases.' },
+	{ title:'Lesson: Multi-Count Spells', desc:'Talk to Mira about multiple projectiles.', npc:'Mira' },
+	{ title:'Cast a Multi-Count Spell', desc:'Cast a spell with count 3 or more.' },
+	{ title:'Lesson: Damage Store → Release', desc:'Talk to Mira about the damage cycle.', npc:'Mira' },
+	{ title:'Cast Damage Cycle', desc:'Cast spells with Damage Store and Damage Release.' },
+	{ title:'Lesson: Self Cast + Heal Self', desc:'Talk to Mira about instant self-healing.', npc:'Mira' },
+	{ title:'Cast Self Heal', desc:'Cast Self Cast + Heal Self.' },
+	{ title:'Lesson: High Power Spells', desc:'Talk to Mira about maximizing spell power.', npc:'Mira' },
+	{ title:'Cast High Power Spell', desc:'Cast a spell with power 8+.' },
+	{ title:'Mage Rank Complete', desc:'Return to Mira to review your Mage training.', npc:'Mira' },
+	/* Ch6 Archmage Rank 4 */
+	{ title:'Lesson: Chain Shape', desc:'Talk to Mira about the Chain shape.', npc:'Mira' },
+	{ title:'Cast a Chain Spell', desc:'Use a spell with the Chain shape.' },
+	{ title:'Lesson: Vortex Shape', desc:'Talk to Mira about the Vortex shape.', npc:'Mira' },
+	{ title:'Cast a Vortex Spell', desc:'Use a spell with the Vortex shape.' },
+	{ title:'Lesson: Summon Shape', desc:'Talk to Mira about the Summon shape.', npc:'Mira' },
+	{ title:'Cast a Summon Spell', desc:'Use a spell with the Summon shape.' },
+	{ title:'Lesson: Orbit Behavior', desc:'Talk to Mira about Orbit.', npc:'Mira' },
+	{ title:'Cast an Orbit Spell', desc:'Use a spell with the Orbit behavior.' },
+	{ title:'Lesson: Rain Behavior', desc:'Talk to Mira about Rain.', npc:'Mira' },
+	{ title:'Cast a Rain Spell', desc:'Use a spell with the Rain behavior.' },
+	{ title:'Lesson: Barrage Behavior', desc:'Talk to Mira about Barrage.', npc:'Mira' },
+	{ title:'Cast a Barrage Spell', desc:'Use a spell with the Barrage behavior.' },
+	{ title:'Lesson: Teleport Behavior', desc:'Talk to Mira about Teleport.', npc:'Mira' },
+	{ title:'Cast a Teleport Spell', desc:'Use a spell with the Teleport behavior.' },
+	{ title:'Lesson: Lifesteal Effect', desc:'Talk to Mira about Lifesteal.', npc:'Mira' },
+	{ title:'Cast with Lifesteal', desc:'Use a spell with the Lifesteal effect.' },
+	{ title:'Lesson: Blind Effect', desc:'Talk to Mira about Blind.', npc:'Mira' },
+	{ title:'Cast with Blind', desc:'Use a spell with the Blind effect.' },
+	{ title:'Lesson: Shatter Effect', desc:'Talk to Mira about Shatter.', npc:'Mira' },
+	{ title:'Cast with Shatter', desc:'Use a spell with the Shatter effect.' },
+	{ title:'Lesson: Mark Effect', desc:'Talk to Mira about Mark.', npc:'Mira' },
+	{ title:'Cast with Mark', desc:'Use a spell with the Mark effect.' },
+	{ title:'Lesson: Dispel Effect', desc:'Talk to Mira about Dispel.', npc:'Mira' },
+	{ title:'Cast with Dispel', desc:'Use a spell with the Dispel effect.' },
+	{ title:'Lesson: Chain + Burn Combo', desc:'Talk to Mira about Chain + Burn.', npc:'Mira' },
+	{ title:'Cast Chain Burn', desc:'Cast Chain + Burn.' },
+	{ title:'Lesson: Vortex + Stun Combo', desc:'Talk to Mira about Vortex + Stun.', npc:'Mira' },
+	{ title:'Cast Vortex Stun', desc:'Cast Vortex + Stun.' },
+	{ title:'Lesson: Orbit + Shield Combo', desc:'Talk to Mira about Orbit + Shield.', npc:'Mira' },
+	{ title:'Cast Orbit Shield', desc:'Cast Orbit + Shield.' },
+	{ title:'Lesson: Rain + Freeze Combo', desc:'Talk to Mira about Rain + Freeze.', npc:'Mira' },
+	{ title:'Cast Rain Freeze', desc:'Cast Rain + Freeze.' },
+	{ title:'Lesson: Beam + Lifesteal Combo', desc:'Talk to Mira about Beam + Lifesteal.', npc:'Mira' },
+	{ title:'Cast Beam Lifesteal', desc:'Cast Beam + Lifesteal.' },
+	{ title:'Lesson: Wall + Dispel Combo', desc:'Talk to Mira about Wall + Dispel.', npc:'Mira' },
+	{ title:'Cast Wall Dispel', desc:'Cast Wall + Dispel.' },
+	{ title:'Lesson: Barrage + Shatter Combo', desc:'Talk to Mira about Barrage + Shatter.', npc:'Mira' },
+	{ title:'Cast Barrage Shatter', desc:'Cast Barrage + Shatter.' },
+	{ title:'Lesson: Triple Effect Spells', desc:'Talk to Mira about 3 effects in one spell.', npc:'Mira' },
+	{ title:'Cast Triple Effect Spell', desc:'Cast a spell with 3+ effects.' },
+	{ title:'Lesson: Meteor + Mark Combo', desc:'Talk to Mira about Meteor + Mark.', npc:'Mira' },
+	{ title:'Cast Meteor Mark', desc:'Cast Meteor + Mark.' },
+	{ title:'Lesson: Orbit + Heal Self', desc:'Talk to Mira about Orbit + Heal Self.', npc:'Mira' },
+	{ title:'Cast Orbit Heal', desc:'Cast Orbit + Heal Self.' },
+	{ title:'Archmage Rank Complete', desc:'Return to Mira to review your Archmage training.', npc:'Mira' },
+	/* Ch7 Grand Sorcerer Rank 5 */
+	{ title:'Lesson: Phase Through Effect', desc:'Talk to Mira about Phase Through.', npc:'Mira' },
+	{ title:'Cast with Phase Through', desc:'Use a spell with the Phase Through effect.' },
+	{ title:'Lesson: Gravity Well Effect', desc:'Talk to Mira about Gravity Well.', npc:'Mira' },
+	{ title:'Cast with Gravity Well', desc:'Use a spell with the Gravity Well effect.' },
+	{ title:'Lesson: Ricochet Effect', desc:'Talk to Mira about Ricochet.', npc:'Mira' },
+	{ title:'Cast with Ricochet', desc:'Use a spell with the Ricochet effect.' },
+	{ title:'Lesson: Ultimate Spells', desc:'Talk to Mira about Ultimates.', npc:'Mira' },
+	{ title:'Lesson: Domain Expansion', desc:'Talk to Mira about Domain Expansion.', npc:'Mira' },
+	{ title:'Lesson: Domain Shape Effects', desc:'Talk to Mira about domain shape combos.', npc:'Mira' },
+	{ title:'Lesson: Barrage + Ricochet Combo', desc:'Talk to Mira about Barrage + Ricochet.', npc:'Mira' },
+	{ title:'Cast Barrage Ricochet', desc:'Cast Barrage + Ricochet.' },
+	{ title:'Lesson: Vortex + Gravity Well', desc:'Talk to Mira about Vortex + Gravity Well.', npc:'Mira' },
+	{ title:'Cast Vortex Gravity', desc:'Cast Vortex + Gravity Well.' },
+	{ title:'Lesson: Cone + Pull Vacuum', desc:'Talk to Mira about Cone + Pull.', npc:'Mira' },
+	{ title:'Cast Cone Pull', desc:'Cast Cone + Pull.' },
+	{ title:'Lesson: Phase Fork Shenanigans', desc:'Talk to Mira about Phase Fork splitting.', npc:'Mira' },
+	{ title:'Cast Fork Missile', desc:'Cast Missile + Phase Fork.' },
+	{ title:'Lesson: Area Denial Strategy', desc:'Talk to Mira about area denial.', npc:'Mira' },
+	{ title:'Cast Area Denial', desc:'Cast a persistent area-control spell.' },
+	{ title:'Lesson: Loadout Optimization', desc:'Talk to Mira about spell slot planning.', npc:'Mira' },
+	{ title:'Lesson: Boss Fight Preparation', desc:'Talk to Mira about boss encounters.', npc:'Mira' },
+	/* Ch8 Final Mastery & Graduation */
+	{ title:'Lesson: Sustain Mastery', desc:'Talk to Mira about max healing builds.', npc:'Mira' },
+	{ title:'Cast Sustain Build', desc:'Cast Heal Self + Lifesteal.' },
+	{ title:'Lesson: Crowd Control Mastery', desc:'Talk to Mira about locking down groups.', npc:'Mira' },
+	{ title:'Cast AoE Control', desc:'Cast Nova/Vortex + Stun/Freeze.' },
+	{ title:'Lesson: Mobility Mastery', desc:'Talk to Mira about mobility builds.', npc:'Mira' },
+	{ title:'Cast Mobility Spell', desc:'Cast Teleport or Horizontal Launch.' },
+	{ title:'Lesson: Zigzag + Poison Combo', desc:'Talk to Mira about Zigzag + Poison.', npc:'Mira' },
+	{ title:'Cast Zigzag Poison', desc:'Cast Zigzag + Poison.' },
+	{ title:'Final Evaluation', desc:'Return to Mira for your final evaluation.', npc:'Mira' },
+	{ title:'Graduation — Spell Master', desc:'Return to Mira. You have mastered spellcraft!', npc:'Mira' },
+];
+
+function renderSpellTeacherQuests(wrap){
+	let stSaved = null;
+	try { stSaved = JSON.parse(localStorage.getItem('magicBattle_spellTeacherQuests')); } catch(e){}
+	const currentIndex = stSaved ? (stSaved.qi || 0) : 0;
+
+	const header = document.createElement('div');
+	header.style.cssText = 'font-size:14px;font-weight:bold;color:#cc6644;padding:10px 0 6px 4px;border-bottom:1px solid rgba(204,102,68,0.25);margin-bottom:6px;';
+	header.textContent = '🔮 Spell Teacher — Mira';
+	wrap.appendChild(header);
+
+	const totalDone = Math.min(currentIndex, SPELL_TEACHER_QUEST_DEFS.length);
+	const totalAll = SPELL_TEACHER_QUEST_DEFS.length;
+	const overallProg = document.createElement('div');
+	overallProg.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:8px;padding-left:4px;';
+	overallProg.textContent = totalDone + ' / ' + totalAll + ' quests completed';
+	wrap.appendChild(overallProg);
+
+	for(const ch of SPELL_TEACHER_CHAPTERS){
+		const chDiv = document.createElement('div');
+		chDiv.className = 'st-chapter';
+		const chCount = ch.end - ch.start + 1;
+		const chDone = Math.max(0, Math.min(currentIndex, ch.end + 1) - ch.start);
+		const allDone = chDone >= chCount;
+		const containsCurrent = currentIndex >= ch.start && currentIndex <= ch.end;
+		if(allDone) chDiv.classList.add('all-done');
+
+		// Header
+		const head = document.createElement('div');
+		head.className = 'st-chapter-head' + (containsCurrent ? ' open' : '');
+		head.innerHTML = '<span class="st-arrow">▶</span>'
+			+ '<span class="st-ch-title">' + (allDone ? '✅ ' : '') + ch.name + '</span>'
+			+ '<span class="st-ch-prog">' + chDone + '/' + chCount + '</span>';
+		head.onclick = function(){ this.classList.toggle('open'); };
+		chDiv.appendChild(head);
+
+		// Body
+		const body = document.createElement('div');
+		body.className = 'st-chapter-body';
+		for(let i = ch.start; i <= ch.end; i++){
+			const q = SPELL_TEACHER_QUEST_DEFS[i];
+			if(!q) continue;
+			const isComplete = i < currentIndex;
+			const isCurrent = i === currentIndex;
+			const row = document.createElement('div');
+			row.style.cssText = 'padding:8px 10px;margin-bottom:4px;border-radius:6px;border:1px solid '
+				+ (isCurrent ? 'rgba(108,92,231,0.6)' : isComplete ? 'rgba(40,167,69,0.25)' : 'rgba(255,255,255,0.06)')
+				+ ';background:' + (isCurrent ? 'rgba(108,92,231,0.12)' : isComplete ? 'rgba(40,167,69,0.05)' : 'rgba(255,255,255,0.02)') + ';';
+			const icon = isComplete ? '✅' : isCurrent ? '📜' : '🔒';
+			const titleColor = isComplete ? '#28a745' : isCurrent ? '#f1c40f' : '#555';
+			const descColor = isComplete ? '#5a8a5a' : isCurrent ? '#bbb' : '#444';
+			row.innerHTML = '<div style="display:flex;align-items:center;gap:6px;">'
+				+ '<span style="font-size:15px;">' + icon + '</span>'
+				+ '<div style="flex:1;">'
+				+ '<div style="font-size:12px;font-weight:bold;color:' + titleColor + ';">' + q.title + '</div>'
+				+ '<div style="font-size:10px;color:' + descColor + ';margin-top:1px;">' + q.desc + '</div>'
+				+ (q.npc && isCurrent ? '<div style="font-size:9px;color:#cc6644;margin-top:2px;">NPC: ' + q.npc + '</div>' : '')
+				+ '</div>'
+				+ (isCurrent ? '<span style="font-size:9px;color:#6c5ce7;white-space:nowrap;">IN PROGRESS</span>' : '')
+				+ '</div>';
+			body.appendChild(row);
+		}
+		chDiv.appendChild(body);
+		wrap.appendChild(chDiv);
+	}
+
+	if(currentIndex >= SPELL_TEACHER_QUEST_DEFS.length){
+		const complete = document.createElement('div');
+		complete.style.cssText = 'text-align:center;padding:12px;color:#28a745;font-size:13px;font-weight:bold;margin-top:4px;';
+		complete.textContent = '🎓 All Spell Teacher lessons completed — Spell Master!';
+		wrap.appendChild(complete);
+	}
+}
 
 function renderQuestSection(wrap, title, defs, storageKey, slimeQuestIndex){
 	let saved = null;
@@ -1577,11 +2387,317 @@ function renderQuestSection(wrap, title, defs, storageKey, slimeQuestIndex){
 	}
 }
 
+const SYLVARIS_QUEST_DEFS = [
+	{ title:'Welcome to the Wildes', desc:'Speak with Ranger Sylva at the forest entrance.', npc:'Ranger Sylva' },
+	{ title:'Forest Patrol', desc:'Defeat 3 Thorn Wolves in the forest.', npc:null },
+	{ title:'Spore Problem', desc:'Defeat 3 Spore Fungi near the mossy rocks.', npc:null },
+	{ title:'Scout Report', desc:'Speak with Scout Fern deeper in the forest.', npc:'Scout Fern' },
+	{ title:'Wisp Hunting', desc:'Defeat 4 Willow Wisps among the trees.', npc:null },
+	{ title:'Wraith Mist', desc:'Defeat 3 Moss Wraiths lurking in the fog.', npc:null },
+	{ title:'Vine Infestation', desc:'Defeat 4 Vine Crawlers blocking the path.', npc:null },
+	{ title:'Underground Passage', desc:'Speak with Grothar the Delver near the cave entrance.', npc:'Grothar the Delver' },
+	{ title:'Cave Crawlers', desc:'Defeat 3 Glow Beetles in the underground.', npc:null },
+	{ title:'Bat Swarm', desc:'Defeat 4 Stalactite Bats in the caves.', npc:null },
+	{ title:'Spider Nest', desc:'Defeat 3 Cave Spiders in the deep caves.', npc:null },
+	{ title:'Elder Treant', desc:'Defeat the Elder Treant, ancient guardian of the underground.', npc:null },
+	{ title:'Herbalist\'s Request', desc:'Speak with Briar the Herbalist near the giant tree base.', npc:'Briar the Herbalist' },
+	{ title:'Ascending the Giant Tree', desc:'Defeat 3 Sky Vines on the tree trunk.', npc:null },
+	{ title:'Wind Sylph Gauntlet', desc:'Defeat 4 Wind Sylphs among the upper branches.', npc:null },
+	{ title:'Storm Raptor', desc:'Defeat the Storm Raptor nesting at the tree summit.', npc:null },
+	{ title:'Watcher\'s Vigil', desc:'Speak with Watcher Aelara at the treetop.', npc:'Watcher Aelara' },
+	{ title:'Thorough Extermination', desc:'Defeat 30 total enemies in the Sylvaris Wildes.', npc:null },
+	{ title:'The Wildes Are Tamed', desc:'Return to Ranger Sylva to report your victory.', npc:'Ranger Sylva' },
+];
+
+const OBSERVATORY_QUEST_DEFS = [
+	{ title:'Meet Professor Ignis', desc:'Speak with Professor Ignis at the observatory.', npc:'Professor Ignis' },
+	{ title:'Inspect CinderWatch', desc:'Clear the CinderWatch Dungeon, then return here.', npc:null },
+	{ title:'Report CinderWatch Findings', desc:'Tell Professor Ignis what you found in CinderWatch.', npc:'Professor Ignis' },
+];
+
+const GRAVEYARD_QUEST_DEFS = [
+	{ title:'Explore the Dragon Graveyard', desc:'Climb the mountain and find the dragon remains.', npc:null },
+	{ title:'Defeat the Frost Hatchling', desc:'A baby dragon emerged from the ice! Defeat it!', npc:null },
+	{ title:'Report to Archmage Thalen', desc:'Return to EmberFall City and tell the Archmage what happened.', npc:'Archmage Thalen' },
+	{ title:'Investigate the Frozen Caverns', desc:'Enter the Frost Dungeon on Medium difficulty and defeat the guardian.', npc:null },
+	{ title:'Report to Archmage Thalen', desc:'Report what you found in the Frozen Caverns.', npc:'Archmage Thalen' },
+	{ title:'Speak with Elder Maris', desc:'Find Elder Maris in the Residential district.', npc:'Elder Maris' },
+	{ title:'Conquer the Iron Forge', desc:'Enter the Iron Forge dungeon on Normal difficulty and defeat Ferrox.', npc:null },
+	{ title:'Return to Elder Maris', desc:'Report your victory over Ferrox to Elder Maris.', npc:'Elder Maris' },
+];
+
+const DEEP_ROOT_QUEST_DEFS = [
+	{ title:'The Archmage\'s Prophecy', desc:'Speak with Archmage Thalen about the deep root horror.', npc:'Archmage Thalen' },
+	{ title:'Return to the Wildes', desc:'Travel to Sylvaris Wildes and speak with Watcher Aelara.', npc:'Watcher Aelara' },
+	{ title:'Enter the Corruption', desc:'Venture past the giant tree and descend into the corrupted tunnels.', npc:null },
+	{ title:'Face the Darkness', desc:'Encounter and defeat a darkened creature in the tunnels.', npc:null },
+	{ title:'Report to the Archmage', desc:'Return to Archmage Thalen with news of the corruption.', npc:'Archmage Thalen' },
+	{ title:'Seek Captain Dorn', desc:'Go to the Colosseum and speak with Captain Dorn for advanced training.', npc:'Captain Dorn' },
+	{ title:'Prove Your Worth', desc:'Defeat Captain Dorn in the Colosseum duel.', npc:'Captain Dorn' },
+	{ title:'The Deep Root Horror', desc:'Descend back into the corruption and destroy the Deep Root Horror.', npc:null },
+];
+
+const STORM_ISLANDS_QUEST_DEFS = [
+	{ title:'Meet Marek the Fisherman', desc:'Speak with Marek on the first island.', npc:'Marek the Fisherman' },
+	{ title:'Investigate the Volcano', desc:'Cross the islands and find the volcano entrance.', npc:null },
+	{ title:'Defeat Pyraxis', desc:'Enter the volcano and slay the Fire Colossus, Pyraxis.', npc:null },
+	{ title:'Return to Marek', desc:'Report the defeat of Pyraxis to Marek.', npc:'Marek the Fisherman' },
+	{ title:'The Leviathan Stirs', desc:'The storm rages. Speak with Marek about the Leviathan.', npc:'Marek the Fisherman' },
+	{ title:'The Temple of the Deep', desc:'Speak with Marek to learn about the ancient sea temple.', npc:'Marek the Fisherman' },
+	{ title:'Explore the Sea Temple', desc:'Dive beneath the waves and enter the ancient sea temple.', npc:null },
+	{ title:'Find the Leviathan Door', desc:'Navigate the temple depths and locate the sealed door.', npc:null },
+	{ title:'The Door is Open', desc:'The seal has been broken. Something stirs beyond...', npc:null },
+	{ title:'Escape the Temple', desc:'Return to the surface before it awakens.', npc:null },
+	{ title:'The Leviathan Awakens', desc:'The ancient sea leviathan has risen from the deep.', npc:null },
+];
+
+const OLD_SOCIETY_QUEST_DEFS = [
+	{ title:'Speak with Elder Maris', desc:'Elder Maris has something urgent to share about the Old Society.', npc:'Elder Maris' },
+	{ title:'Journey to the Black Sands', desc:'Travel to the Black Sands Desert and find the ancient stone tablet beyond the pyramid.', npc:null },
+	{ title:'Find the Stone Tablet', desc:'Locate the black stone tablet past the pyramid in the Black Sands Desert.', npc:null },
+	{ title:'Return to Elder Maris', desc:'You found the tablet. Return to Elder Maris in EmberFall and tell her what you discovered.', npc:'Elder Maris' },
+	{ title:'Time Unwound', desc:'Something went wrong. Elder Maris has vanished — time itself was rewound before she could speak.', npc:null },
+	{ title:'Travel to the Ruins', desc:'Journey to the Ruins of the Arcane Council. The answers must lie there.', npc:null },
+	{ title:'Explore the Ruins', desc:'Search the ancient castle ruins for clues about the Void Arbiter and the Old Society.', npc:null },
+	{ title:'Enter the Void Portal', desc:'A massive purple portal pulses deep within the ruins. Step through to face what lies beyond.', npc:null },
+	{ title:'Defeat the Void Arbiter', desc:'The Void Arbiter awaits. Destroy the entity that shattered the Old Society.', npc:null },
+	{ title:'Return to the Archmage', desc:'Tell Archmage Thalen about the Void Arbiter and what you found in the ruins.', npc:'Archmage Thalen' },
+	{ title:'Defeat the Chrono Tyrant', desc:'The Chrono Lord has revealed himself — the last survivor of the Arcane Council, corrupted by the black tablet. End his reign over time.', npc:null },
+];
+
+/* Sync graveyard quest progress based on graveyardStage localStorage value.
+   Quests 2+ complete in city/dungeon modes where checkQuestCompletion doesn't run
+   for graveyard quests, so questIndex can fall behind the actual stage. */
+function syncGraveyardQuestProgress(){
+	const gStage = parseInt(localStorage.getItem('magicBattle_graveyardStage')||'0');
+	if(gStage < 1) return;
+	const key = 'magicBattle_graveyardQuests';
+	let saved = null;
+	try { saved = JSON.parse(localStorage.getItem(key)); } catch(e){}
+	if(!saved) saved = { questIndex:0, flags:{}, slimesKilled:0 };
+	// graveyardStage >= N means quest N+1 is done (stage 1 → quests 0,1 done → index 2)
+	const minIndex = gStage + 1;
+	if(saved.questIndex < minIndex){
+		saved.questIndex = minIndex;
+		localStorage.setItem(key, JSON.stringify(saved));
+	}
+}
+
+function syncDeepRootQuestProgress(){
+	const drStage = parseInt(localStorage.getItem('magicBattle_deepRootStage')||'0');
+	if(drStage < 1) return;
+	const key = 'magicBattle_deepRootQuests';
+	let saved = null;
+	try { saved = JSON.parse(localStorage.getItem(key)); } catch(e){}
+	if(!saved) saved = { questIndex:0, flags:{} };
+	// Stages 1-2 map 1:1 to quest indices; stage 3+ maps to drStage-1
+	// because "Find the Corrupted Tree" was merged with "Enter the Corruption".
+	// Stage 9 also collapses with 8 (both map to "The Deep Root Horror" quest).
+	const minIndex = drStage <= 2 ? drStage : drStage <= 8 ? drStage - 1 : drStage - 2;
+	if(saved.questIndex < minIndex){
+		saved.questIndex = minIndex;
+		localStorage.setItem(key, JSON.stringify(saved));
+	}
+}
+
+function syncStormIslandsQuestProgress(){
+	const siData = JSON.parse(localStorage.getItem('magicBattle_stormIslandsQuest') || '{}');
+	const stage = siData.stage || 0;
+	if(stage < 1) return;
+	const key = 'magicBattle_stormIslandsQuest';
+	const minIndex = stage;
+	if(!siData.questIndex || siData.questIndex < minIndex){
+		siData.questIndex = minIndex;
+		localStorage.setItem(key, JSON.stringify(siData));
+	}
+}
+
 function renderQuestList(){
 	const wrap = document.getElementById('questList');
 	wrap.innerHTML = '';
+
+	syncGraveyardQuestProgress();
+	syncDeepRootQuestProgress();
+	syncStormIslandsQuestProgress();
+
+	function qp(key){ try { const s = JSON.parse(localStorage.getItem(key)); return s ? (s.questIndex||0) : 0; } catch(e){ return 0; } }
+	const tutorialDone  = qp('magicBattle_tutorialQuests')    >= 10;
+	const cityDone      = qp('magicBattle_cityQuests')        >= 10;
+	const sylvarisDone  = qp('magicBattle_sylvarisQuests')    >= 19;
+	const observatoryDone = qp('magicBattle_observatoryQuests') >= 3;
+
+	// ===== MAIN STORY =====
+	const mainHeader = document.createElement('div');
+	mainHeader.style.cssText = 'font-size:16px;font-weight:bold;color:#e8c840;padding:12px 0 8px 4px;border-bottom:2px solid rgba(232,200,64,0.3);margin-bottom:8px;letter-spacing:1px;';
+	mainHeader.textContent = '📖 Main Story';
+	wrap.appendChild(mainHeader);
+
 	renderQuestSection(wrap, 'Tutorial Quests', TUTORIAL_QUEST_DEFS, 'magicBattle_tutorialQuests', 8);
-	renderQuestSection(wrap, 'City Quests', CITY_QUEST_DEFS, 'magicBattle_cityQuests', -1);
+
+	if(tutorialDone)  renderQuestSection(wrap, 'City Quests', CITY_QUEST_DEFS, 'magicBattle_cityQuests', -1);
+	else              renderLockedSection(wrap, 'City Quests', 'Complete Tutorial Quests to unlock.');
+
+	if(cityDone)      renderQuestSection(wrap, 'Sylvaris Wildes', SYLVARIS_QUEST_DEFS, 'magicBattle_sylvarisQuests', -1);
+	else              renderLockedSection(wrap, 'Sylvaris Wildes', 'Complete City Quests to unlock.');
+
+	if(sylvarisDone)  renderQuestSection(wrap, 'Observatory', OBSERVATORY_QUEST_DEFS, 'magicBattle_observatoryQuests', -1);
+	else              renderLockedSection(wrap, 'Observatory', 'Complete Sylvaris Wildes quests to unlock.');
+
+	if(observatoryDone) renderQuestSection(wrap, 'Dragon Graveyard', GRAVEYARD_QUEST_DEFS, 'magicBattle_graveyardQuests', -1);
+	else                renderLockedSection(wrap, 'Dragon Graveyard', 'Complete Observatory quests to unlock.');
+
+	const graveyardDone = parseInt(localStorage.getItem('magicBattle_graveyardStage')||'0') >= 7;
+	if(graveyardDone) renderQuestSection(wrap, 'Deep Root Prophecy', DEEP_ROOT_QUEST_DEFS, 'magicBattle_deepRootQuests', -1);
+	else if(observatoryDone) renderLockedSection(wrap, 'Deep Root Prophecy', 'Complete Dragon Graveyard quests to unlock.');
+
+	const playerData = JSON.parse(localStorage.getItem('magicBattle_playerData') || 'null');
+	const deepRootDone = parseInt(localStorage.getItem('magicBattle_deepRootStage')||'0') >= 11;
+	const hasArchmageRank = playerData && playerData.mageRank >= 4;
+	if(deepRootDone && hasArchmageRank) renderQuestSection(wrap, 'Recovering the Old Society', OLD_SOCIETY_QUEST_DEFS, 'magicBattle_oldSocietyQuests', -1);
+	else if(graveyardDone) renderLockedSection(wrap, 'Recovering the Old Society', 'Complete all main quests and reach Archmage rank to unlock.');
+
+	// ===== SIDE QUESTS =====
+	const sideHeader = document.createElement('div');
+	sideHeader.style.cssText = 'font-size:16px;font-weight:bold;color:#5cb8e6;padding:16px 0 8px 4px;border-bottom:2px solid rgba(92,184,230,0.3);margin-bottom:8px;margin-top:12px;letter-spacing:1px;';
+	sideHeader.textContent = '🌊 Side Quests';
+	wrap.appendChild(sideHeader);
+
+	const hasMageRank = playerData && playerData.mageRank >= 3;
+	if(hasMageRank) renderQuestSection(wrap, 'Storm Islands', STORM_ISLANDS_QUEST_DEFS, 'magicBattle_stormIslandsQuest', -1);
+	else            renderLockedSection(wrap, 'Storm Islands', 'Reach Mage rank to unlock.');
+
+	// ===== SPELL TEACHER =====
+	const stHeader = document.createElement('div');
+	stHeader.style.cssText = 'font-size:16px;font-weight:bold;color:#cc6644;padding:16px 0 8px 4px;border-bottom:2px solid rgba(204,102,68,0.3);margin-bottom:8px;margin-top:12px;letter-spacing:1px;';
+	stHeader.textContent = '📖 Spell Training';
+	wrap.appendChild(stHeader);
+
+	if(cityDone) renderSpellTeacherQuests(wrap);
+	else         renderLockedSection(wrap, 'Spell Teacher — Mira', 'Complete City Quests to unlock.');
+}
+
+/* =============================================================
+   BESTIARY TAB — tracks defeated enemies
+   ============================================================= */
+const BESTIARY_ENTRIES = [
+	{ id:'imp',             name:'Imp',              icon:'👹', hp:350,   zone:'Fire Dungeon', boss:false },
+	{ id:'flameSerpent',    name:'Flame Serpent',     icon:'🐍', hp:480,   zone:'Fire Dungeon', boss:false },
+	{ id:'emberMage',       name:'Ember Mage',        icon:'🔥', hp:300,   zone:'Fire Dungeon', boss:false },
+	{ id:'magmaGolem',      name:'Magma Golem',       icon:'🪨', hp:1100,  zone:'Fire Dungeon', boss:false },
+	{ id:'fireSprite',      name:'Fire Sprite',       icon:'✨', hp:200,   zone:'Fire Dungeon', boss:false },
+	{ id:'fireDragon',      name:'Fire Dragon',       icon:'🐉', hp:15000, zone:'Fire Dungeon', boss:true },
+	{ id:'frostWraith',     name:'Frost Wraith',      icon:'👻', hp:200,   zone:'Ice Dungeon', boss:false },
+	{ id:'iceArcher',       name:'Ice Archer',        icon:'🏹', hp:170,   zone:'Ice Dungeon', boss:false },
+	{ id:'snowBeast',       name:'Snow Beast',        icon:'🐻', hp:600,   zone:'Ice Dungeon', boss:false },
+	{ id:'cryoMage',        name:'Cryo Mage',         icon:'❄️', hp:160,   zone:'Ice Dungeon', boss:false },
+	{ id:'glacierSentinel', name:'Glacier Sentinel',  icon:'🧊', hp:700,   zone:'Ice Dungeon', boss:false },
+	{ id:'frostColossus',   name:'Frost Colossus',    icon:'🏔️', hp:15000, zone:'Ice Dungeon', boss:true },
+	{ id:'rockGolem',       name:'Rock Golem',        icon:'🪨', hp:700,   zone:'Earth Dungeon', boss:false },
+	{ id:'vineCrawler',     name:'Vine Crawler',      icon:'🌱', hp:250,   zone:'Earth Dungeon', boss:false },
+	{ id:'caveSpider',      name:'Cave Spider',       icon:'🕷️', hp:100,   zone:'Earth Dungeon', boss:false },
+	{ id:'crystalMage',     name:'Crystal Mage',      icon:'💎', hp:170,   zone:'Earth Dungeon', boss:false },
+	{ id:'mudElemental',    name:'Mud Elemental',     icon:'🟤', hp:400,   zone:'Earth Dungeon', boss:false },
+	{ id:'earthColossus',   name:'Earth Colossus',    icon:'⛰️', hp:15000, zone:'Earth Dungeon', boss:true },
+	{ id:'ironSentinel',    name:'Iron Sentinel',     icon:'🛡️', hp:800,   zone:'Iron Forge', boss:false },
+	{ id:'forgeDrone',      name:'Forge Drone',       icon:'⚙️', hp:350,   zone:'Iron Forge', boss:false },
+	{ id:'slagBrute',       name:'Slag Brute',        icon:'🔩', hp:1200,  zone:'Iron Forge', boss:false },
+	{ id:'ironColossus',    name:'Iron Colossus',     icon:'🤖', hp:25000, zone:'Iron Forge', boss:true },
+	{ id:'thornWolf',       name:'Thorn Wolf',        icon:'🐺', hp:280,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'sporeFungus',     name:'Spore Fungus',      icon:'🍄', hp:350,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'mossWraith',      name:'Moss Wraith',       icon:'👻', hp:220,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'willowWisp',      name:'Willow Wisp',       icon:'✨', hp:140,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'glowBeetle',      name:'Glow Beetle',       icon:'🪲', hp:180,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'stalactiteBat',   name:'Stalactite Bat',    icon:'🦇', hp:120,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'skyVine',         name:'Sky Vine',          icon:'🌿', hp:260,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'windSylph',       name:'Wind Sylph',        icon:'💨', hp:180,   zone:'Sylvaris Wildes', boss:false },
+	{ id:'elderTreant',     name:'Elder Treant',      icon:'🌳', hp:5000,  zone:'Sylvaris Wildes', boss:true },
+	{ id:'stormRaptor',     name:'Storm Raptor',      icon:'⚡', hp:4000,  zone:'Sylvaris Wildes', boss:true },
+	{ id:'deepRootHorror',  name:'Deep Root Horror',  icon:'🌑', hp:25000, zone:'Corrupted Roots', boss:true },
+	{ id:'darkVineCrawler', name:'Darkened Vine Crawler', icon:'🖤', hp:800, zone:'Corrupted Roots', boss:false },
+	{ id:'darkThornWolf',   name:'Darkened Thorn Wolf',   icon:'🐺', hp:900, zone:'Corrupted Roots', boss:false },
+	{ id:'darkMossWraith',  name:'Darkened Moss Wraith',  icon:'👤', hp:700, zone:'Corrupted Roots', boss:false },
+	{ id:'boneWraith',      name:'Bone Wraith',       icon:'💀', hp:280,   zone:'Dragon Graveyard', boss:false },
+	{ id:'babyDragon',      name:'Baby Dragon',       icon:'🐲', hp:5000,  zone:'Dragon Graveyard', boss:true },
+	{ id:'flameSalamander', name:'Flame Salamander',  icon:'🔥', hp:600,   zone:'Storm Islands', boss:false },
+	{ id:'magmaImp',        name:'Magma Imp',         icon:'👹', hp:450,   zone:'Storm Islands', boss:false },
+	{ id:'fireColossus',    name:'Pyraxis',           icon:'🌋', hp:20000, zone:'Storm Islands', boss:true },
+	{ id:'abyssalGuardian', name:'Abyssal Guardian',  icon:'🛡️', hp:850,   zone:'Sea Temple', boss:false },
+	{ id:'coralSentinel',   name:'Coral Sentinel',    icon:'🪸', hp:750,   zone:'Sea Temple', boss:false },
+	{ id:'depthSerpent',    name:'Depth Serpent',      icon:'🐍', hp:700,   zone:'Sea Temple', boss:false },
+	// Black Sands Desert / Pyramid
+	{ id:'sandWraith',      name:'Sand Wraith',        icon:'👻', hp:1500,  zone:'Desert Pyramid', boss:false },
+	{ id:'tombGuardian',    name:'Tomb Guardian',      icon:'🗿', hp:2500,  zone:'Desert Pyramid', boss:false },
+	{ id:'desertSerpent',   name:'Desert Serpent',     icon:'🐍', hp:1800,  zone:'Desert Pyramid', boss:false },
+	{ id:'mummyWarrior',    name:'Mummy Warrior',      icon:'⚔️', hp:2200,  zone:'Desert Pyramid', boss:false },
+	{ id:'scarabSwarm',     name:'Scarab Swarm',       icon:'🪲', hp:1200,  zone:'Desert Pyramid', boss:false },
+	{ id:'sandstormDjinn',  name:'Sandstorm Djinn',    icon:'🌪️', hp:3000,  zone:'Desert Pyramid', boss:false },
+];
+
+function loadBestiary(){
+	try{
+		const raw = localStorage.getItem('magicBattle_bestiary');
+		if(raw) return JSON.parse(raw);
+	}catch(e){}
+	return {};
+}
+function saveBestiary(data){
+	localStorage.setItem('magicBattle_bestiary', JSON.stringify(data));
+}
+
+function renderBestiary(){
+	const wrap = document.getElementById('bestiaryList');
+	wrap.innerHTML = '';
+	const discovered = loadBestiary();
+	const total = BESTIARY_ENTRIES.length;
+	const found = BESTIARY_ENTRIES.filter(e => discovered[e.id]).length;
+	document.getElementById('bestiaryCount').textContent = `(${found} / ${total} discovered)`;
+
+	// Group by zone
+	const zones = [];
+	const zoneMap = {};
+	for(const entry of BESTIARY_ENTRIES){
+		if(!zoneMap[entry.zone]){ zoneMap[entry.zone] = []; zones.push(entry.zone); }
+		zoneMap[entry.zone].push(entry);
+	}
+
+	let num = 0;
+	for(const zone of zones){
+		const zoneHeader = document.createElement('div');
+		zoneHeader.style.cssText = 'font-size:13px;font-weight:bold;color:var(--accent2);padding:8px 0 4px 4px;border-bottom:1px solid rgba(255,255,255,0.06);margin-top:8px;';
+		zoneHeader.textContent = zone;
+		wrap.appendChild(zoneHeader);
+
+		for(const entry of zoneMap[zone]){
+			num++;
+			const unlocked = !!discovered[entry.id];
+			const row = document.createElement('div');
+			row.style.cssText = `padding:8px 12px;border-radius:8px;border:1px solid ${unlocked ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'};background:${unlocked ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.2)'};display:flex;align-items:center;gap:10px;`;
+			if(unlocked){
+				const kills = discovered[entry.id] || 0;
+				row.innerHTML = `<span style="font-size:11px;color:var(--muted);min-width:24px">#${num}</span>`
+					+ `<span style="font-size:18px">${entry.icon}</span>`
+					+ `<div style="flex:1"><div style="font-size:13px;font-weight:bold;color:${entry.boss ? 'var(--rarity-legendary)' : '#fff'}">${entry.name}${entry.boss ? ' ⭐' : ''}</div>`
+					+ `<div style="font-size:11px;color:var(--muted)">HP: ${entry.hp.toLocaleString()} · Defeated: ${kills}x</div></div>`;
+			} else {
+				row.innerHTML = `<span style="font-size:11px;color:#444;min-width:24px">#${num}</span>`
+					+ `<span style="font-size:18px;filter:brightness(0.2)">❓</span>`
+					+ `<div style="flex:1"><div style="font-size:13px;font-weight:bold;color:#444">???</div>`
+					+ `<div style="font-size:11px;color:#333">Not yet discovered</div></div>`;
+			}
+			wrap.appendChild(row);
+		}
+	}
+}
+
+function renderLockedSection(wrap, title, msg){
+	const header = document.createElement('div');
+	header.style.cssText = 'font-size:14px;font-weight:bold;color:#666;padding:10px 0 6px 4px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:6px;';
+	header.textContent = '🔒 ' + title;
+	wrap.appendChild(header);
+	const row = document.createElement('div');
+	row.style.cssText = 'padding:10px 12px;margin-bottom:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.02);color:#555;font-size:12px;font-style:italic;';
+	row.textContent = msg;
+	wrap.appendChild(row);
 }
 
 function getIngredientCount(itemId){
@@ -1782,10 +2898,53 @@ function renderVowSlots(){
 		el.addEventListener('click', () => openVowEditor(i));
 		wrap.appendChild(el);
 	}
+
+	/* 4th slot: Domain Vow (only visible for dominion class) */
+	if(STATE.mageClass === 'dominion'){
+		const dv = STATE.domainVow ? migrateDomainVow(STATE.domainVow) : null;
+		const del = document.createElement('div');
+		del.className = 'spell-slot';
+		del.style.cursor = 'pointer';
+		if(dv){
+			const pts = calcDomainVowPoints(dv);
+			const spent = calcDomainVowSpent(dv);
+			// Build sacrifice summary
+			const sacParts = [];
+			const s = dv.sacrifices;
+			if(s.health > 0) sacParts.push(`❤️-${s.health}%`);
+			if(s.maxMana > 0) sacParts.push(`💧-${s.maxMana}`);
+			if(s.spellSlots && s.spellSlots.length) sacParts.push(`🔒${s.spellSlots.length}`);
+			if(s.effects && s.effects.length) sacParts.push(`✨${s.effects.length}`);
+			if(s.shapes && s.shapes.length) sacParts.push(`⬡${s.shapes.length}`);
+			if(s.movement > 0) sacParts.push(`🐢-${s.movement}%`);
+			if(s.visibility > 0) sacParts.push(`🌫️-${s.visibility}%`);
+			if(s.items && s.items.length) sacParts.push(`🎒${s.items.length}`);
+			if(s.domProjectiles) sacParts.push('🚫Proj');
+			if(s.domPlayerPower > 0) sacParts.push(`💔-${s.domPlayerPower}%`);
+			if(s.domRange > 0) sacParts.push(`📐-${s.domRange}%`);
+			const sacLabel = sacParts.length > 0 ? sacParts.join(' ') : 'No sacrifice';
+			let boostLabel = '';
+			if(dv.domainBuffs){
+				boostLabel = Object.entries(dv.domainBuffs).filter(([k,v])=>v>0).map(([k,v])=>{
+					const info = DOMAIN_VOW_BUFFS[k];
+					return `${info?info.icon:''}${info&&info.binary?'':v}`;
+				}).join(' ');
+			}
+			del.innerHTML = `<span class="sp-num" style="background:rgba(231,76,60,.35);color:#e74c3c">👁️</span>
+				<span class="sp-name" style="color:#e74c3c">${sacLabel} → Domain</span>
+				<span class="sp-mana" style="color:#ffcc44">${boostLabel} (${spent}/${pts})</span>`;
+		} else {
+			del.innerHTML = `<span class="sp-num" style="background:rgba(231,76,60,.15);color:#c0392b">👁️</span>
+				<span class="sp-empty" style="color:#888">Domain Vow — click to create</span>`;
+		}
+		del.addEventListener('click', () => openDomainVowEditor());
+		wrap.appendChild(del);
+	}
 }
 
 function openVowEditor(slotIdx){
 	editingVowSlot = slotIdx;
+	domainVowEditor = null; // ensure domain editor is cleared
 	const existing = STATE.vows[slotIdx];
 	if(existing){
 		vowEditor = JSON.parse(JSON.stringify(existing));
@@ -1854,8 +3013,8 @@ function renderVowEditor(){
 
 	// Amount / slot selection
 	if(v.sacrifice === 'health'){
-		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Health to sacrifice: ${v.amount}</label>
-			<input type="range" min="10" max="80" step="10" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
+		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Health to sacrifice: ${v.amount}%</label>
+			<input type="range" min="5" max="50" step="5" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
 	} else if(v.sacrifice === 'maxMana'){
 		html += `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">Mana to sacrifice: ${v.amount} (${pts} pts)</label>
 			<input type="range" min="100" max="1200" step="100" value="${v.amount}" id="vowAmount" style="flex:1"/></div>`;
@@ -1936,7 +3095,7 @@ function renderVowEditor(){
 		/* Gather slots already sacrificed in other vows */
 		const usedItemSlots = new Set();
 		for(let i=0;i<STATE.vows.length;i++){
-			if(i===vowEditorIdx) continue;
+			if(i===editingVowSlot) continue;
 			const other = STATE.vows[i];
 			if(other && other.sacrifice === 'items') for(const sl of other.sacrificedItemSlots||[]) usedItemSlots.add(sl);
 		}
@@ -2006,7 +3165,7 @@ function renderVowEditor(){
 	/* Gather unlocks from OTHER vows to avoid duplicates */
 	const otherUnlocks = new Set();
 	for(let i=0;i<STATE.vows.length;i++){
-		if(i===vowEditorIdx) continue;
+		if(i===editingVowSlot) continue;
 		const other = STATE.vows[i];
 		if(other && other.vowUnlocks) for(const u of other.vowUnlocks) otherUnlocks.add(u);
 	}
@@ -2044,7 +3203,7 @@ function renderVowEditor(){
 	document.querySelectorAll('#vowModalBody [data-sac]').forEach(el => {
 		el.addEventListener('click', () => {
 			vowEditor.sacrifice = el.dataset.sac;
-			if(vowEditor.sacrifice === 'health') vowEditor.amount = 30;
+			if(vowEditor.sacrifice === 'health') vowEditor.amount = 10;
 			else if(vowEditor.sacrifice === 'maxMana') vowEditor.amount = 300;
 			else if(vowEditor.sacrifice === 'effects') vowEditor.sacrificedEffects = vowEditor.sacrificedEffects || [];
 			else if(vowEditor.sacrifice === 'shapes') vowEditor.sacrificedShapes = vowEditor.sacrificedShapes || [];
@@ -2161,30 +3320,447 @@ function renderVowEditor(){
 }
 
 // Vow modal buttons
-document.getElementById('vowModalClose').addEventListener('click', () => { document.getElementById('vowModal').style.display='none'; });
-document.getElementById('vowCancelBtn').addEventListener('click', () => { document.getElementById('vowModal').style.display='none'; });
-document.getElementById('vowClearBtn').addEventListener('click', () => {
-	STATE.vows[editingVowSlot] = null;
-	saveState();
-	renderVowSlots();
-	renderSpellSlots();
+document.getElementById('vowModalClose').addEventListener('click', () => { handleVowClose(); });
+document.getElementById('vowCancelBtn').addEventListener('click', () => { handleVowClose(); });
+document.getElementById('vowClearBtn').addEventListener('click', () => { handleVowClear(); });
+document.getElementById('vowSaveBtn').addEventListener('click', () => { handleVowSave(); });
+
+/* =============================================================
+   DOMAIN VOW SYSTEM — 4th special vow slot for Dominion Master
+   ============================================================= */
+let domainVowEditor = null; // temp domain vow during editing
+
+/* Default empty multi-sacrifice domain vow */
+function emptyDomainVow(){
+	return {
+		sacrifices: {
+			health: 0, maxMana: 0, spellSlots: [], effects: [], shapes: [],
+			movement: 0, visibility: 0, items: [],
+			domProjectiles: false, domPlayerPower: 0, domRange: 0,
+		},
+		domainBuffs: {},
+		vowUnlocks: [],
+	};
+}
+/* Migrate old single-sacrifice format to new multi-sacrifice format */
+function migrateDomainVow(dv){
+	if(!dv) return null;
+	if(dv.sacrifices) return dv; // already new format
+	const nv = emptyDomainVow();
+	nv.domainBuffs = dv.domainBuffs || {};
+	nv.vowUnlocks = dv.vowUnlocks || [];
+	const s = nv.sacrifices;
+	if(dv.sacrifice === 'health') s.health = dv.amount || 10;
+	else if(dv.sacrifice === 'maxMana') s.maxMana = dv.amount || 300;
+	else if(dv.sacrifice === 'spellSlot') s.spellSlots = dv.slots || [];
+	else if(dv.sacrifice === 'effects') s.effects = dv.sacrificedEffects || [];
+	else if(dv.sacrifice === 'shapes') s.shapes = dv.sacrificedShapes || [];
+	else if(dv.sacrifice === 'movement') s.movement = dv.amount || 10;
+	else if(dv.sacrifice === 'visibility') s.visibility = dv.amount || 15;
+	else if(dv.sacrifice === 'items') s.items = dv.sacrificedItemSlots || [];
+	return nv;
+}
+
+function calcDomainVowPoints(vow){
+	if(!vow || !vow.sacrifices) return 0;
+	const s = vow.sacrifices;
+	let pts = 0;
+	// Health
+	if(s.health > 0) pts += Math.floor(s.health / 5);
+	// Max Mana
+	if(s.maxMana > 0){ const ratio = s.maxMana / 1200; pts += Math.floor(40 * Math.pow(ratio, 1.3)); }
+	// Spell Slots
+	if(s.spellSlots && s.spellSlots.length > 0){
+		let otherCount = 0;
+		for(const other of STATE.vows){ if(other && other.sacrifice === 'spellSlot') otherCount += (other.slots||[]).filter(x=>x!==9).length; }
+		const regularSlots = s.spellSlots.filter(x=>x!==9);
+		const hasUlt = s.spellSlots.includes(9);
+		for(let i = 0; i < regularSlots.length; i++) pts += Math.max(1, otherCount + i);
+		if(hasUlt) pts += 8;
+	}
+	// Effects
+	if(s.effects && s.effects.length > 0){
+		for(const fx of s.effects){ const eff = EFFECTS[fx]; pts += (eff && eff.category === 'elemental') ? 1 : 0.5; }
+		pts = Math.floor(pts);
+	}
+	// Shapes
+	if(s.shapes) pts += s.shapes.length;
+	// Movement
+	if(s.movement > 0) pts += Math.floor(s.movement / 5);
+	// Visibility
+	if(s.visibility > 0){ pts += Math.floor(s.visibility / 15) + Math.floor(s.visibility / 30); }
+	// Items
+	if(s.items && s.items.length > 0){
+		let otherCount = 0;
+		for(const other of STATE.vows){ if(other && other.sacrifice === 'items') otherCount += (other.sacrificedItemSlots||[]).length; }
+		const ITEM_PTS = [10, 15, 20, 30];
+		for(let i = 0; i < s.items.length; i++){ const idx = otherCount + i; pts += idx < ITEM_PTS.length ? ITEM_PTS[idx] : 30; }
+	}
+	// Domain-specific sacrifices
+	if(s.domProjectiles) pts += DOMAIN_SACRIFICES.domProjectiles.pts;
+	if(s.domPlayerPower > 0) pts += Math.floor(s.domPlayerPower / 10) * DOMAIN_SACRIFICES.domPlayerPower.ptsPerStep;
+	if(s.domRange > 0) pts += Math.floor(s.domRange / 10) * DOMAIN_SACRIFICES.domRange.ptsPerStep;
+	return pts;
+}
+
+function calcDomainVowSpent(vow){
+	if(!vow || !vow.domainBuffs) return 0;
+	let spent = 0;
+	for(const k in vow.domainBuffs){
+		const info = DOMAIN_VOW_BUFFS[k];
+		if(info && info.binary) spent += vow.domainBuffs[k] ? info.cost : 0;
+		else spent += vow.domainBuffs[k] || 0;
+	}
+	if(vow.vowUnlocks) spent += vow.vowUnlocks.length * 5;
+	return spent;
+}
+
+function openDomainVowEditor(){
+	const existing = STATE.domainVow;
+	if(existing){
+		domainVowEditor = JSON.parse(JSON.stringify(migrateDomainVow(existing)));
+	} else {
+		domainVowEditor = emptyDomainVow();
+	}
+	if(!domainVowEditor.domainBuffs) domainVowEditor.domainBuffs = {};
+	document.getElementById('vowModal').style.display = 'flex';
+	document.getElementById('vowModalTitle').textContent = '👁️ Domain Vow Editor';
+	renderDomainVowEditor();
+}
+
+function renderDomainVowEditor(){
+	const v = domainVowEditor;
+	const s = v.sacrifices;
+	const pts = calcDomainVowPoints(v);
+	const spent = calcDomainVowSpent(v);
+	const remaining = pts - spent;
+	let html = '';
+
+	html += `<div style="font-size:12px;color:#e74c3c;margin-bottom:6px;padding:6px;border:1px solid rgba(231,76,60,.3);border-radius:4px;background:rgba(231,76,60,.08)">
+		👁️ <strong>Domain Vow</strong> — Sacrifice <em>multiple</em> things to empower your Domain Expansion with special rules and abilities.</div>`;
+
+	/* Cross-vow dedup for spell slots */
+	const usedSlots = new Set();
+	for(const other of STATE.vows){ if(other && other.sacrifice === 'spellSlot') for(const x of other.slots||[]) usedSlots.add(x); }
+	const usedEffects = new Set();
+	for(const other of STATE.vows){ if(other && other.sacrifice === 'effects') for(const fx of other.sacrificedEffects||[]) usedEffects.add(fx); }
+	const usedShapes = new Set();
+	for(const other of STATE.vows){ if(other && other.sacrifice === 'shapes') for(const sh of other.sacrificedShapes||[]) usedShapes.add(sh); }
+	const usedItemSlots = new Set();
+	for(const other of STATE.vows){ if(other && other.sacrifice === 'items') for(const sl of other.sacrificedItemSlots||[]) usedItemSlots.add(sl); }
+
+	// ─── GENERAL SACRIFICES (stack globally) ───
+	html += `<div style="font-size:13px;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:2px;margin-bottom:4px">General Sacrifices <span style="font-size:10px;opacity:.6">(these apply at all times)</span></div>`;
+
+	// Health
+	const hActive = s.health > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${hActive?'active':''}" data-dtogsac="health" style="cursor:pointer;padding:4px 8px;font-size:11px">❤️ Health${hActive?' ('+s.health+'%)':''}</div>`;
+	if(hActive) html += `<input type="range" min="5" max="50" step="5" value="${s.health}" data-dsacamt="health" style="width:180px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Max Mana
+	const mActive = s.maxMana > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${mActive?'active':''}" data-dtogsac="maxMana" style="cursor:pointer;padding:4px 8px;font-size:11px">💧 Max Mana${mActive?' (-'+s.maxMana+')':''}</div>`;
+	if(mActive) html += `<input type="range" min="100" max="1200" step="100" value="${s.maxMana}" data-dsacamt="maxMana" style="width:180px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Movement
+	const mvActive = s.movement > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${mvActive?'active':''}" data-dtogsac="movement" style="cursor:pointer;padding:4px 8px;font-size:11px">🐢 Movement${mvActive?' (-'+s.movement+'%)':''}</div>`;
+	if(mvActive) html += `<input type="range" min="10" max="50" step="5" value="${s.movement}" data-dsacamt="movement" style="width:180px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Visibility
+	const vActive = s.visibility > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${vActive?'active':''}" data-dtogsac="visibility" style="cursor:pointer;padding:4px 8px;font-size:11px">🌫️ Visibility${vActive?' (-'+s.visibility+'%)':''}</div>`;
+	if(vActive) html += `<input type="range" min="15" max="60" step="15" value="${s.visibility}" data-dsacamt="visibility" style="width:180px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Spell Slots
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${s.spellSlots.length>0?'active':''}" style="padding:4px 8px;font-size:11px;cursor:default">🔒 Spell Slots${s.spellSlots.length>0?' ('+s.spellSlots.length+')':''}</div>`;
+	html += `<div style="display:inline-flex;gap:3px;margin-left:4px;flex-wrap:wrap">`;
+	for(let si=0;si<10;si++){
+		const isLocked = s.spellSlots.includes(si);
+		const taken = usedSlots.has(si);
+		const label = si===9?'⚡Ult':`${si+1}`;
+		if(taken && !isLocked) html += `<div class="fx-chip" style="padding:2px 6px;font-size:10px;opacity:0.35;cursor:not-allowed;text-decoration:line-through">${label}</div>`;
+		else html += `<div class="fx-chip ${isLocked?'active':''}" data-dslot="${si}" style="cursor:pointer;padding:2px 6px;font-size:10px">${label}</div>`;
+	}
+	html += `</div></div>`;
+
+	// Effects
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${s.effects.length>0?'active':''}" style="padding:4px 8px;font-size:11px;cursor:default">✨ Effects${s.effects.length>0?' ('+s.effects.length+')':''}</div>`;
+	html += `<div style="display:inline-flex;gap:3px;margin-left:4px;flex-wrap:wrap">`;
+	for(const [fx,info] of Object.entries(EFFECTS)){
+		const isSac = s.effects.includes(fx);
+		const taken = usedEffects.has(fx);
+		const isElem = info.category === 'elemental';
+		const ptLabel = isElem ? '1pt' : '0.5pt';
+		if(taken && !isSac) html += `<div class="fx-chip" style="padding:2px 5px;font-size:9px;opacity:0.35;cursor:not-allowed;text-decoration:line-through">${info.icon} ${info.label}</div>`;
+		else html += `<div class="fx-chip ${isSac?'active':''}" data-dfx="${fx}" style="cursor:pointer;padding:2px 5px;font-size:9px">${info.icon} ${info.label} <span style="font-size:8px;opacity:.5">(${ptLabel})</span></div>`;
+	}
+	html += `</div></div>`;
+
+	// Shapes
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${s.shapes.length>0?'active':''}" style="padding:4px 8px;font-size:11px;cursor:default">⬡ Shapes${s.shapes.length>0?' ('+s.shapes.length+')':''}</div>`;
+	html += `<div style="display:inline-flex;gap:3px;margin-left:4px;flex-wrap:wrap">`;
+	for(const [sh,info] of Object.entries(SHAPES)){
+		const isSac = s.shapes.includes(sh);
+		const taken = usedShapes.has(sh);
+		if(taken && !isSac) html += `<div class="fx-chip" style="padding:2px 5px;font-size:9px;opacity:0.35;cursor:not-allowed;text-decoration:line-through">${info.icon} ${info.label}</div>`;
+		else html += `<div class="fx-chip ${isSac?'active':''}" data-dshape="${sh}" style="cursor:pointer;padding:2px 5px;font-size:9px">${info.icon} ${info.label}</div>`;
+	}
+	html += `</div></div>`;
+
+	// Items
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${s.items.length>0?'active':''}" style="padding:4px 8px;font-size:11px;cursor:default">🎒 Items${s.items.length>0?' ('+s.items.length+')':''}</div>`;
+	html += `<div style="display:inline-flex;gap:4px;margin-left:4px;flex-wrap:wrap">`;
+	const EQUIP_SLOTS = ['staff','robe','relic1','relic2'];
+	const SLOT_LABELS = {staff:'🪄 Staff',robe:'👘 Robe',relic1:'💎 Relic 1',relic2:'💎 Relic 2'};
+	for(const slot of EQUIP_SLOTS){
+		const itemId = STATE.equipment[slot];
+		const item = itemId ? ITEM_DB[itemId] : null;
+		const isSac = s.items.includes(slot);
+		const taken = usedItemSlots.has(slot);
+		if(!item) html += `<div class="fx-chip" style="padding:2px 6px;font-size:9px;opacity:0.3;cursor:not-allowed">${SLOT_LABELS[slot]} (empty)</div>`;
+		else if(taken && !isSac) html += `<div class="fx-chip" style="padding:2px 6px;font-size:9px;opacity:0.35;cursor:not-allowed;text-decoration:line-through">${item.icon} ${item.name}</div>`;
+		else html += `<div class="fx-chip ${isSac?'active':''}" data-ditem="${slot}" style="cursor:pointer;padding:2px 6px;font-size:9px">${item.icon} ${item.name}</div>`;
+	}
+	html += `</div></div>`;
+
+	// ─── DOMAIN SACRIFICES (active only while domain is up) ───
+	html += `<div style="font-size:13px;color:#e67e22;border-bottom:1px solid rgba(230,126,34,.3);padding-bottom:2px;margin:8px 0 4px">Domain Sacrifices <span style="font-size:10px;opacity:.6">(only while domain is active)</span></div>`;
+
+	// Projectiles (binary toggle)
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${s.domProjectiles?'active':''}" data-dtogsac="domProjectiles" style="cursor:pointer;padding:4px 8px;font-size:11px">🚫 Seal Projectiles${s.domProjectiles?' (ON — 8pts)':''}</div>
+		<span style="font-size:9px;color:#888;margin-left:4px">Domain cannot fire wave projectiles</span></div>`;
+
+	// Player Power
+	const ppActive = s.domPlayerPower > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${ppActive?'active':''}" data-dtogsac="domPlayerPower" style="cursor:pointer;padding:4px 8px;font-size:11px">💔 Weaken Self${ppActive?' (-'+s.domPlayerPower+'%)':''}</div>`;
+	if(ppActive) html += `<input type="range" min="10" max="50" step="10" value="${s.domPlayerPower}" data-dsacamt="domPlayerPower" style="width:140px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Domain Range
+	const drActive = s.domRange > 0;
+	html += `<div style="margin-bottom:4px"><div class="fx-chip ${drActive?'active':''}" data-dtogsac="domRange" style="cursor:pointer;padding:4px 8px;font-size:11px">📐 Compressed Domain${drActive?' (-'+s.domRange+'%)':''}</div>`;
+	if(drActive) html += `<input type="range" min="5" max="95" step="5" value="${s.domRange}" data-dsacamt="domRange" style="width:140px;vertical-align:middle;margin-left:6px"/>`;
+	html += `</div>`;
+
+	// Points display
+	html += `<div style="font-size:13px;color:#ffcc44;padding:6px 0;border-top:1px solid var(--border)">
+		Domain Vow Points: <strong>${spent}</strong> / <strong>${pts}</strong> available (${remaining} remaining)</div>`;
+
+	// ─── DOMAIN BUFFS ───
+	html += `<div style="font-size:13px;color:#e74c3c;margin-bottom:4px;border-top:1px solid rgba(231,76,60,.2);padding-top:6px">👁️ Allocate points to Domain Rules:</div>`;
+	for(const [k,info] of Object.entries(DOMAIN_VOW_BUFFS)){
+		const amt = v.domainBuffs[k] || 0;
+		// Block Expanded Territory if Compressed Domain sacrifice is active
+		const blockedByCompress = (k === 'domainRange' && s.domRange > 0);
+		if(blockedByCompress){
+			html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;opacity:0.35">
+				<span style="font-size:11px;color:#e74c3c;min-width:22px">${info.icon}</span>
+				<span style="font-size:11px;min-width:140px;color:#888;text-decoration:line-through">${info.label}: blocked</span>
+				<span style="font-size:9px;color:#e74c3c;min-width:120px">Cannot expand while domain is compressed</span>
+			</div>`;
+			continue;
+		}
+		if(info.binary){
+			// Binary toggle ability
+			const active = amt > 0;
+			html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+				<span style="font-size:11px;color:#e74c3c;min-width:22px">${info.icon}</span>
+				<div class="fx-chip ${active?'active':''}" data-dbufftog="${k}" style="cursor:pointer;padding:3px 8px;font-size:11px">${info.label} (${info.cost} pts)${active?' ✓':''}</div>
+				<span style="font-size:9px;color:#888;min-width:120px">${info.desc}</span>
+			</div>`;
+		} else {
+			const maxAlloc = amt + remaining;
+			html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+				<span style="font-size:11px;color:#e74c3c;min-width:22px">${info.icon}</span>
+				<span style="font-size:11px;min-width:140px;color:#ddd">${info.label}: <strong>${amt}</strong></span>
+				<input type="range" min="0" max="${Math.max(maxAlloc,0)}" step="1" value="${amt}" data-dbuff="${k}" style="flex:1;accent-color:#e74c3c"/>
+				<span style="font-size:9px;color:#888;min-width:120px">${info.desc.split('.')[0]}</span>
+			</div>`;
+		}
+	}
+
+	document.getElementById('vowModalBody').innerHTML = html;
+
+	// === EVENT LISTENERS ===
+
+	// Toggle general sacrifice on/off
+	document.querySelectorAll('#vowModalBody [data-dtogsac]').forEach(el => {
+		el.addEventListener('click', () => {
+			const key = el.dataset.dtogsac;
+			const sc = domainVowEditor.sacrifices;
+			if(key === 'health') sc.health = sc.health > 0 ? 0 : 10;
+			else if(key === 'maxMana') sc.maxMana = sc.maxMana > 0 ? 0 : 300;
+			else if(key === 'movement') sc.movement = sc.movement > 0 ? 0 : 10;
+			else if(key === 'visibility') sc.visibility = sc.visibility > 0 ? 0 : 15;
+			else if(key === 'domProjectiles') sc.domProjectiles = !sc.domProjectiles;
+			else if(key === 'domPlayerPower') sc.domPlayerPower = sc.domPlayerPower > 0 ? 0 : 10;
+			else if(key === 'domRange'){
+				sc.domRange = sc.domRange > 0 ? 0 : 5;
+				if(sc.domRange > 0) domainVowEditor.domainBuffs.domainRange = 0;
+			}
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Amount sliders for general sacrifices
+	document.querySelectorAll('#vowModalBody [data-dsacamt]').forEach(el => {
+		el.addEventListener('input', () => {
+			domainVowEditor.sacrifices[el.dataset.dsacamt] = +el.value;
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Spell slot toggles
+	document.querySelectorAll('#vowModalBody [data-dslot]').forEach(el => {
+		el.addEventListener('click', () => {
+			const si = +el.dataset.dslot;
+			const arr = domainVowEditor.sacrifices.spellSlots;
+			const idx = arr.indexOf(si);
+			if(idx >= 0) arr.splice(idx, 1); else arr.push(si);
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Effect toggles
+	document.querySelectorAll('#vowModalBody [data-dfx]').forEach(el => {
+		el.addEventListener('click', () => {
+			const fx = el.dataset.dfx;
+			const arr = domainVowEditor.sacrifices.effects;
+			const idx = arr.indexOf(fx);
+			if(idx >= 0) arr.splice(idx, 1); else arr.push(fx);
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Shape toggles
+	document.querySelectorAll('#vowModalBody [data-dshape]').forEach(el => {
+		el.addEventListener('click', () => {
+			const sh = el.dataset.dshape;
+			const arr = domainVowEditor.sacrifices.shapes;
+			const idx = arr.indexOf(sh);
+			if(idx >= 0) arr.splice(idx, 1); else arr.push(sh);
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Item toggles
+	document.querySelectorAll('#vowModalBody [data-ditem]').forEach(el => {
+		el.addEventListener('click', () => {
+			const slot = el.dataset.ditem;
+			const arr = domainVowEditor.sacrifices.items;
+			const idx = arr.indexOf(slot);
+			if(idx >= 0) arr.splice(idx, 1); else arr.push(slot);
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Binary buff toggles (mobileDomain, domainTP)
+	document.querySelectorAll('#vowModalBody [data-dbufftog]').forEach(el => {
+		el.addEventListener('click', () => {
+			const k = el.dataset.dbufftog;
+			domainVowEditor.domainBuffs[k] = domainVowEditor.domainBuffs[k] ? 0 : 1;
+			clampDomainBuffs();
+			renderDomainVowEditor();
+		});
+	});
+
+	// Domain buff sliders
+	document.querySelectorAll('#vowModalBody [data-dbuff]').forEach(el => {
+		el.addEventListener('input', () => {
+			domainVowEditor.domainBuffs[el.dataset.dbuff] = +el.value;
+			renderDomainVowEditor();
+		});
+	});
+}
+
+function clampDomainBuffs(){
+	// Block domainRange buff when domRange sacrifice is active
+	if(domainVowEditor.sacrifices.domRange > 0) domainVowEditor.domainBuffs.domainRange = 0;
+	const pts = calcDomainVowPoints(domainVowEditor);
+	const spent = calcDomainVowSpent(domainVowEditor);
+	if(spent > pts){
+		const buffs = domainVowEditor.domainBuffs;
+		// First remove binary abilities that are over budget
+		for(const k in buffs){
+			const info = DOMAIN_VOW_BUFFS[k];
+			if(info && info.binary && buffs[k]){
+				const newSpent = calcDomainVowSpent(domainVowEditor);
+				if(newSpent > calcDomainVowPoints(domainVowEditor)) buffs[k] = 0;
+			}
+		}
+		// Then proportionally reduce scalable buffs
+		let total = 0;
+		for(const k in buffs){ const info = DOMAIN_VOW_BUFFS[k]; if(!info || !info.binary) total += buffs[k]; }
+		if(total > 0){
+			const binaryCost = calcDomainVowSpent(domainVowEditor) - total;
+			const available = Math.max(0, calcDomainVowPoints(domainVowEditor) - binaryCost);
+			const ratio = available / total;
+			for(const k in buffs){ const info = DOMAIN_VOW_BUFFS[k]; if(!info || !info.binary) buffs[k] = Math.floor(buffs[k] * ratio); }
+		}
+	}
+}
+
+/* Override save/clear/cancel for domain vow mode */
+const origSave = document.getElementById('vowSaveBtn');
+const origClear = document.getElementById('vowClearBtn');
+const origCancel = document.getElementById('vowCancelBtn');
+const origClose = document.getElementById('vowModalClose');
+
+function handleVowSave(){
+	if(domainVowEditor){
+		const pts = calcDomainVowPoints(domainVowEditor);
+		const spent = calcDomainVowSpent(domainVowEditor);
+		if(spent > pts){ alert('Not enough domain vow points!'); return; }
+		STATE.domainVow = domainVowEditor;
+		domainVowEditor = null;
+		saveState();
+		renderVowSlots();
+		document.getElementById('vowModal').style.display='none';
+	} else {
+		const pts = calcVowPoints(vowEditor, editingVowSlot);
+		const spent = calcVowSpent(vowEditor);
+		if(spent > pts){ alert('Not enough vow points! Remove some boosts or sacrifice more.'); return; }
+		if(vowEditor.boosts) delete vowEditor.boosts;
+		if(vowEditor.boostType == null) vowEditor.boostType = 'power';
+		if(vowEditor.boostAmount == null) vowEditor.boostAmount = 0;
+		if(vowEditor.sizeBonus == null) vowEditor.sizeBonus = false;
+		STATE.vows[editingVowSlot] = vowEditor;
+		saveState();
+		renderVowSlots();
+		renderSpellSlots();
+		document.getElementById('vowModal').style.display='none';
+	}
+}
+function handleVowClear(){
+	if(domainVowEditor){
+		STATE.domainVow = null;
+		domainVowEditor = null;
+		saveState();
+		renderVowSlots();
+		document.getElementById('vowModal').style.display='none';
+	} else {
+		STATE.vows[editingVowSlot] = null;
+		saveState();
+		renderVowSlots();
+		renderSpellSlots();
+		document.getElementById('vowModal').style.display='none';
+	}
+}
+function handleVowClose(){
+	domainVowEditor = null;
 	document.getElementById('vowModal').style.display='none';
-});
-document.getElementById('vowSaveBtn').addEventListener('click', () => {
-	const pts = calcVowPoints(vowEditor, editingVowSlot);
-	const spent = calcVowSpent(vowEditor);
-	if(spent > pts){ alert('Not enough vow points! Remove some boosts or sacrifice more.'); return; }
-	/* Ensure new format fields */
-	if(vowEditor.boosts) delete vowEditor.boosts;
-	if(vowEditor.boostType == null) vowEditor.boostType = 'power';
-	if(vowEditor.boostAmount == null) vowEditor.boostAmount = 0;
-	if(vowEditor.sizeBonus == null) vowEditor.sizeBonus = false;
-	STATE.vows[editingVowSlot] = vowEditor;
-	saveState();
-	renderVowSlots();
-	renderSpellSlots();
-	document.getElementById('vowModal').style.display='none';
-});
+}
 
 /* =============================================================
    SPELL BUILDER
@@ -2384,7 +3960,7 @@ function renderBuilder(){
 
 		// Shape
 		html += `<div class="prow"><label>Shape</label><select data-idx="${idx}" data-prop="shape">`;
-		for(const [k,v] of Object.entries(SHAPES)){
+		for(const [k,v] of Object.entries(SHAPES).sort((a,b)=>(SHAPE_RANK_REQ[a[0]]??99)-(SHAPE_RANK_REQ[b[0]]??99)||a[1].controlReq-b[1].controlReq)){
 			const shLocked = vowLockedShapes.has(k);
 			const itemReq = SHAPE_ITEM_REQ[k];
 			const itemLocked = itemReq && !hasItemEquipped(itemReq);
@@ -2402,7 +3978,7 @@ function renderBuilder(){
 
 		// Behavior
 		html += `<div class="prow"><label>Behavior</label><select data-idx="${idx}" data-prop="behavior">`;
-		for(const [k,v] of Object.entries(BEHAVIORS)){
+		for(const [k,v] of Object.entries(BEHAVIORS).sort((a,b)=>(BEHAVIOR_RANK_REQ[a[0]]??99)-(BEHAVIOR_RANK_REQ[b[0]]??99)||a[1].controlReq-b[1].controlReq)){
 			const behItemReq = BEH_ITEM_REQ[k];
 			const behItemLocked = behItemReq && !hasItemEquipped(behItemReq);
 			const behRankLocked = !isBehaviorUnlocked(k);
@@ -2560,7 +4136,7 @@ function renderBuilder(){
 		const catOrder = ['elemental','movement','cc','support','buff','utility','store'];
 		for(const cat of catOrder){
 			const catInfo = EFFECT_CATEGORIES[cat];
-			const catEffects = Object.entries(EFFECTS).filter(([k,v])=>v.category===cat);
+			const catEffects = Object.entries(EFFECTS).filter(([k,v])=>v.category===cat).sort((a,b)=>(EFFECT_RANK_REQ[a[0]]??99)-(EFFECT_RANK_REQ[b[0]]??99)||a[1].controlReq-b[1].controlReq);
 			if(!catEffects.length) continue;
 			html += `<div class="prow" style="margin-top:4px"><label style="font-size:.85em;color:var(--accent2)">${catInfo.label}${catInfo.exclusive?' <span style="color:#ff6b6b;font-size:.8em"> (pick one)</span>':''}</label><div class="fx-grid">`;
 			for(const [k,v] of catEffects){

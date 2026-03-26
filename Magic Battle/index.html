@@ -614,6 +614,27 @@
 			</div>
 			<div class="setting-row">
 				<div>
+					<div class="setting-label">⏩ Advance Quest</div>
+					<div class="setting-desc">Skip ahead one quest in each active questline.</div>
+				</div>
+				<button id="advanceQuestBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#28a745;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Advance</button>
+			</div>
+			<div class="setting-row">
+				<div>
+					<div class="setting-label">⏪ Rewind Quest</div>
+					<div class="setting-desc">Step back one quest in each active questline. Useful for replaying content.</div>
+				</div>
+				<button id="rewindQuestBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#6c5ce7;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Rewind</button>
+			</div>
+			<div class="setting-row">
+				<div>
+					<div class="setting-label">⏪ Rewind Side Quests</div>
+					<div class="setting-desc">Step back one stage in side quests (Storm Islands).</div>
+				</div>
+				<button id="rewindSideQuestsBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#e17055;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Rewind All</button>
+			</div>
+			<div class="setting-row">
+				<div>
 					<div class="setting-label">🔄 Reset Quests &amp; Story</div>
 					<div class="setting-desc">Clear all tutorial and city quest progress. This cannot be undone.</div>
 				</div>
@@ -631,19 +652,35 @@
 			<svg id="mapPaths" width="100%" height="100%">
 				<!-- EmberFall ↔ CinderWatch -->
 				<line x1="30%" y1="39%" x2="50%" y2="52%"/>
-				<!-- CinderWatch ↔ IronRidge -->
+				<!-- CinderWatch ↔ Iron Forge -->
 				<line x1="52%" y1="52%" x2="69%" y2="49%"/>
+				<!-- Iron Forge ↔ IronRidge -->
+				<line x1="69%" y1="49%" x2="80%" y2="65%"/>
 				<!-- CinderWatch ↔ Aurorafall -->
 				<line x1="50%" y1="48%" x2="49%" y2="18%"/>
 				<!-- EmberFall ↔ Aurorafall -->
 				<line x1="30%" y1="35%" x2="45%" y2="18%"/>
+				<!-- EmberFall ↔ Sylvaris Wildes -->
+				<line x1="30%" y1="42%" x2="33%" y2="68%"/>
+				<!-- EmberFall ↔ Volcano Observatory -->
+				<line x1="30%" y1="42%" x2="40%" y2="55%"/>
+				<!-- Volcano Observatory ↔ CinderWatch -->
+				<line x1="40%" y1="55%" x2="50%" y2="52%"/>
+				<!-- Volcano Observatory ↔ Sylvaris Wildes -->
+				<line x1="40%" y1="55%" x2="33%" y2="68%"/>
+				<!-- EmberFall ↔ Dragon Graveyard -->
+				<line x1="30%" y1="35%" x2="38%" y2="25%"/>
+				<!-- Volcano Observatory ↔ Dragon Graveyard -->
+				<line x1="40%" y1="52%" x2="38%" y2="28%"/>
+				<!-- CinderWatch ↔ Black Sands Desert -->
+				<line x1="50%" y1="55%" x2="54.5%" y2="76%"/>
 			</svg>
 
-			<!-- Storm Islands (locked) — far left -->
-			<div class="map-location locked" style="left:7%;top:50%;--loc-glow:rgba(150,120,200,0.3)" data-loc="storm_islands">
-				<div class="map-icon" style="background:rgba(50,40,70,0.8);border-color:#666">⛈️</div>
+			<!-- Storm Islands — far left (locked dynamically if rank < Mage) -->
+			<div class="map-location" style="left:7%;top:50%;--loc-glow:rgba(150,120,200,0.3)" data-loc="storm_islands">
+				<div class="map-icon" style="background:rgba(50,40,70,0.8);border-color:#8877aa">⛈️</div>
 				<div class="map-name">Storm Islands</div>
-				<div class="map-locked-tag">Coming Soon</div>
+				<div class="map-sub">Exploration</div>
 			</div>
 
 			<!-- EmberFall (Tutorial) — upper-center-left -->
@@ -653,11 +690,18 @@
 				<div class="map-sub">Tutorial</div>
 			</div>
 
-			<!-- Sylvaris Wildes (locked) — below EmberFall -->
-			<div class="map-location locked" style="left:41%;top:61%;--loc-glow:rgba(80,200,120,0.3)" data-loc="sylvaris_wildes">
-				<div class="map-icon" style="background:rgba(30,60,30,0.8);border-color:#666">🌳</div>
+			<!-- Sylvaris Wildes — below-left of EmberFall -->
+			<div class="map-location" style="left:33%;top:68%;--loc-glow:rgba(80,200,120,0.4)" data-loc="sylvaris_wildes">
+				<div class="map-icon" style="background:rgba(30,60,30,0.8);border-color:#44aa66">🌳</div>
 				<div class="map-name">Sylvaris Wildes</div>
-				<div class="map-locked-tag">Coming Soon</div>
+				<div class="map-sub">Exploration</div>
+			</div>
+
+			<!-- Volcano Observatory — between EmberFall, Sylvaris, and CinderWatch -->
+			<div class="map-location" style="left:40%;top:55%;--loc-glow:rgba(255,120,40,0.45)" data-loc="volcano_observatory">
+				<div class="map-icon" style="background:rgba(80,40,15,0.85);border-color:#e67e22">🌋</div>
+				<div class="map-name">Volcano Observatory</div>
+				<div class="map-sub">Outpost</div>
 			</div>
 
 			<!-- CinderWatch (Fire Dungeon) — center -->
@@ -667,11 +711,39 @@
 				<div class="map-sub">Fire Dungeon</div>
 			</div>
 
-			<!-- IronRidge (Earth Dungeon) — right of center -->
-			<div class="map-location" style="left:69%;top:49%;--loc-glow:rgba(100,200,80,0.4)" data-loc="ironridge">
+			<!-- Black Sands Desert — 150px below and 50px right of CinderWatch -->
+			<div class="map-location" style="left:54.5%;top:76%;--loc-glow:rgba(196,160,53,0.5)" data-loc="black_sands">
+				<div class="map-icon" style="background:rgba(60,45,20,0.85);border-color:#c4a035">🏜️</div>
+				<div class="map-name">Black Sands</div>
+				<div class="map-sub">Desert</div>
+			</div>
+
+			<!-- Iron Forge (Iron Dungeon) — right of center -->
+			<div class="map-location" style="left:69%;top:49%;--loc-glow:rgba(150,150,170,0.4)" data-loc="ironforge">
+				<div class="map-icon" style="background:rgba(50,50,60,0.85);border-color:#7a7a8a">⚒️</div>
+				<div class="map-name">Iron Forge</div>
+				<div class="map-sub">Iron Dungeon</div>
+			</div>
+
+			<!-- Ruins of the Arcane Council — above-right of Iron Forge -->
+			<div class="map-location" style="left:83.5%;top:24.5%;--loc-glow:rgba(140,40,220,0.5)" data-loc="arcane_ruins">
+				<div class="map-icon" style="background:rgba(30,10,40,0.85);border-color:#8c28dc">🏚️</div>
+				<div class="map-name">Arcane Ruins</div>
+				<div class="map-sub">Ancient Council</div>
+			</div>
+
+			<!-- IronRidge (Earth Dungeon) — below-right of Iron Forge -->
+			<div class="map-location" style="left:80%;top:65%;--loc-glow:rgba(100,200,80,0.4)" data-loc="ironridge">
 				<div class="map-icon" style="background:rgba(40,60,30,0.85);border-color:#27ae60">🌿</div>
 				<div class="map-name">IronRidge</div>
 				<div class="map-sub">Earth Dungeon</div>
+			</div>
+
+			<!-- Dragon Graveyard — above EmberFall, northwest of Aurorafall -->
+			<div class="map-location" style="left:38%;top:25%;--loc-glow:rgba(140,100,200,0.5)" data-loc="dragon_graveyard">
+				<div class="map-icon" style="background:rgba(40,30,50,0.85);border-color:#9b59b6">💀</div>
+				<div class="map-name">Dragon Graveyard</div>
+				<div class="map-sub">Ancient Bones</div>
 			</div>
 
 			<!-- Aurorafall (Ice Dungeon) — top center -->
@@ -731,6 +803,7 @@
 				<h2>Raid Bosses</h2>
 				<p>Face devastating raid bosses with unique mechanics. Can you survive their onslaught?</p>
 				<button id="raidsBtn" type="button">Enter Raids</button>
+				<a href="raids.html">s</a>
 			</article>
 
 			<article class="mode-card" id="openworld-card">
@@ -783,11 +856,160 @@
 			localStorage.setItem('magicBattle_testMode', testModeToggle.checked);
 		});
 
+		/* Ordered questline definitions: key, max quests, display name, quest titles */
+		const QUESTLINES = [
+			{ key:'magicBattle_tutorialQuests', max:10, name:'Tutorial', titles:[
+				'Speak to Archmage Thalen','Learn to Move','Return to Thalen — Spells','Cast Your First Spell',
+				'Return to Thalen — Inventory','Talk to Instructor Mira','Destroy the Training Dummies',
+				'Meet Captain Varn','Defeat 5 Slimes','Report to Archmage Thalen'] },
+			{ key:'magicBattle_cityQuests', max:10, name:'EmberFall City', titles:[
+				'Welcome to EmberFall','Visit the Spell Market','Return to Thalen — New Power','Meet Captain Dorn',
+				'Arena Training','Report to Dorn & Thalen','The Clock Tower Mystery',
+				'Report to Thalen — The Inscription','The Outer Forest Gate','Ready for the Wildes'] },
+			{ key:'magicBattle_sylvarisQuests', max:19, name:'Sylvaris Wildes', titles:[
+				'Welcome to the Wildes','Forest Patrol','Spore Problem','Scout Report','Wisp Hunting',
+				'Wraith Mist','Vine Infestation','Underground Passage','Cave Crawlers','Bat Swarm',
+				'Spider Nest','Elder Treant','Herbalist\'s Request','Ascending the Giant Tree',
+				'Wind Sylph Gauntlet','Storm Raptor','Watcher\'s Vigil','Thorough Extermination','The Wildes Are Tamed'] },
+			{ key:'magicBattle_observatoryQuests', max:3, name:'Observatory', titles:[
+				'Meet Professor Ignis','Inspect CinderWatch','Report CinderWatch Findings'] },
+			{ key:'magicBattle_graveyardQuests', max:8, name:'Dragon Graveyard', titles:[
+				'Explore the Dragon Graveyard','Defeat the Frost Hatchling','Report to Archmage Thalen',
+				'Investigate the Frozen Caverns','Report to Archmage Thalen','Speak with Elder Maris',
+				'Conquer the Iron Forge','Return to Elder Maris'] },
+			{ key:'magicBattle_deepRootQuests', max:8, name:'Deep Root Prophecy', titles:[
+				'The Archmage\'s Prophecy','Return to the Wildes','Enter the Corruption','Face the Darkness',
+				'Report to the Archmage','Seek Captain Dorn','Prove Your Worth','The Deep Root Horror'] },
+			{ key:'magicBattle_stormIslandsQuest', max:11, name:'Storm Islands', titles:[
+				'Meet Marek the Fisherman','Investigate the Volcano','Defeat Pyraxis','Return to Marek',
+				'The Leviathan Stirs','The Temple of the Deep','Explore the Sea Temple','Find the Leviathan Door',
+				'The Door is Open','Escape the Temple','The Leviathan Awakens'] },
+			{ key:'magicBattle_oldSocietyQuests', max:3, name:'Recovering the Old Society', titles:[
+				'Speak with Elder Maris','Journey to the Black Sands','Explore the Ancient Pyramid'] },
+		];
+
+		function getQuestIndex(key){ try { const s = JSON.parse(localStorage.getItem(key)); return s ? (s.questIndex||0) : 0; } catch(e){ return 0; } }
+		function setQuestIndex(key, idx){ let s; try { s = JSON.parse(localStorage.getItem(key)); } catch(e){} if(!s) s = {questIndex:0,flags:{}}; s.questIndex = idx; localStorage.setItem(key, JSON.stringify(s)); }
+
+		const QUEST_XP = {
+			'magicBattle_tutorialQuests': 5,
+			'magicBattle_cityQuests': 8,
+			'magicBattle_sylvarisQuests': 12,
+			'magicBattle_observatoryQuests': 15,
+			'magicBattle_graveyardQuests': 18,
+			'magicBattle_deepRootQuests': 20,
+			'magicBattle_stormIslandsQuest': 75,
+			'magicBattle_oldSocietyQuests': 30,
+		};
+		const RANK_THRESHOLDS = [0, 50, 200, 600, 1500, 4000];
+		const RANK_NAMES = ['Novice', 'Apprentice', 'Adept', 'Mage', 'Archmage', 'Grand Sorcerer'];
+
+		function computeAndSyncQuestXp(){
+			let total = 0;
+			for(const ql of QUESTLINES){
+				const idx = getQuestIndex(ql.key);
+				total += idx * (QUEST_XP[ql.key] || 10);
+			}
+			let pd;
+			try { pd = JSON.parse(localStorage.getItem('magicBattle_playerData')); } catch(e){}
+			if(!pd) pd = { xp:0, mageRank:0 };
+			pd.xp = total;
+			let newRank = 0;
+			for(let i = RANK_THRESHOLDS.length - 1; i >= 0; i--){
+				if(total >= RANK_THRESHOLDS[i]){ newRank = i; break; }
+			}
+			pd.mageRank = newRank;
+			localStorage.setItem('magicBattle_playerData', JSON.stringify(pd));
+			return { xp: total, rank: newRank, rankName: RANK_NAMES[newRank] };
+		}
+
+		/* Find which questline & quest we're currently on (first incomplete one) */
+		function findCurrentPosition(){
+			for(let i = 0; i < QUESTLINES.length; i++){
+				const ql = QUESTLINES[i];
+				const idx = getQuestIndex(ql.key);
+				if(idx < ql.max) return { lineIdx: i, questIdx: idx };
+			}
+			return null; // all complete
+		}
+
+		document.getElementById('advanceQuestBtn').addEventListener('click', () => {
+			const pos = findCurrentPosition();
+			if(!pos){ alert('All quests are already complete!'); return; }
+			const ql = QUESTLINES[pos.lineIdx];
+			const newIdx = pos.questIdx + 1;
+			setQuestIndex(ql.key, newIdx);
+			// Sync stage keys for graveyard/deep root
+			if(ql.key === 'magicBattle_graveyardQuests'){
+				const gStage = parseInt(localStorage.getItem('magicBattle_graveyardStage')||'0');
+				if(gStage < newIdx) localStorage.setItem('magicBattle_graveyardStage', String(newIdx));
+			}
+			if(ql.key === 'magicBattle_deepRootQuests'){
+				const drStage = parseInt(localStorage.getItem('magicBattle_deepRootStage')||'0');
+				const mapped = newIdx <= 2 ? newIdx : newIdx + 1; // reverse the sync collapse
+				if(drStage < mapped) localStorage.setItem('magicBattle_deepRootStage', String(mapped));
+			}
+			const stats = computeAndSyncQuestXp();
+			if(newIdx >= ql.max){
+				const next = pos.lineIdx + 1 < QUESTLINES.length ? QUESTLINES[pos.lineIdx + 1] : null;
+				alert('✅ Completed: ' + ql.name + ' — "' + ql.titles[pos.questIdx] + '"' + (next ? '\nNext questline: ' + next.name : '\n🎉 All questlines complete!') + '\nXP: ' + stats.xp + ' | Rank: ' + stats.rankName);
+			} else {
+				alert('⏩ ' + ql.name + ' — Quest ' + (newIdx) + '/' + ql.max + '\nCompleted: "' + ql.titles[pos.questIdx] + '"\nNow on: "' + ql.titles[newIdx] + '"\nXP: ' + stats.xp + ' | Rank: ' + stats.rankName);
+			}
+		});
+
+		document.getElementById('rewindQuestBtn').addEventListener('click', () => {
+			// Find the last questline that has progress
+			let found = null;
+			for(let i = QUESTLINES.length - 1; i >= 0; i--){
+				const idx = getQuestIndex(QUESTLINES[i].key);
+				if(idx > 0){ found = { lineIdx: i, questIdx: idx }; break; }
+			}
+			if(!found){ alert('No quest progress to rewind.'); return; }
+			const ql = QUESTLINES[found.lineIdx];
+			const newIdx = found.questIdx - 1;
+			setQuestIndex(ql.key, newIdx);
+			// Sync stage keys for graveyard/deep root
+			if(ql.key === 'magicBattle_graveyardQuests'){
+				localStorage.setItem('magicBattle_graveyardStage', String(Math.max(0, newIdx)));
+			}
+			if(ql.key === 'magicBattle_deepRootQuests'){
+				const mapped = newIdx <= 2 ? newIdx : newIdx + 1;
+				localStorage.setItem('magicBattle_deepRootStage', String(mapped));
+			}
+			const stats = computeAndSyncQuestXp();
+			alert('⏪ ' + ql.name + ' — Quest ' + (newIdx + 1) + '/' + ql.max + '\nRewound to: "' + ql.titles[newIdx] + '"\nXP: ' + stats.xp + ' | Rank: ' + stats.rankName);
+		});
+
+		document.getElementById('rewindSideQuestsBtn').addEventListener('click', () => {
+			// Storm Islands quest (stage-based) — only side quest
+			try {
+				const siData = JSON.parse(localStorage.getItem('magicBattle_stormIslandsQuest') || '{}');
+				const siStage = siData.stage || 0;
+				if(siStage > 0){
+					siData.stage = siStage - 1;
+					localStorage.setItem('magicBattle_stormIslandsQuest', JSON.stringify(siData));
+					alert('⏪ Rewound Storm Islands: stage ' + siStage + ' → ' + (siStage - 1));
+				} else {
+					alert('No side quest progress to rewind.');
+				}
+			} catch(e){ alert('No side quest progress to rewind.'); }
+		});
+
 		document.getElementById('resetQuestsBtn').addEventListener('click', () => {
 			if(confirm('Are you sure you want to reset all quest and story progress? This cannot be undone.')){
 				localStorage.removeItem('magicBattle_tutorialQuests');
 				localStorage.removeItem('magicBattle_cityQuests');
-				alert('Quest progress has been reset.');
+				localStorage.removeItem('magicBattle_sylvarisQuests');
+				localStorage.removeItem('magicBattle_observatoryQuests');
+				localStorage.removeItem('magicBattle_graveyardQuests');
+				localStorage.removeItem('magicBattle_cinderStage');
+				localStorage.removeItem('magicBattle_graveyardStage');
+				localStorage.removeItem('magicBattle_deepRootQuests');
+				localStorage.removeItem('magicBattle_deepRootStage');
+				// Reset XP and rank
+				const stats = computeAndSyncQuestXp();
+				alert('Quest progress has been reset.\nXP: ' + stats.xp + ' | Rank: ' + stats.rankName);
 			}
 		});
 
@@ -796,8 +1018,10 @@
 			storm_islands: {
 				name: 'Storm Islands',
 				icon: '⛈️',
-				desc: 'Shattered isles wreathed in perpetual storms. The secrets of lightning magic await those brave enough to venture here.',
-				available: false,
+				desc: 'A chain of tropical islands beneath darkening skies. A dormant volcano rumbles on the far island, and a fisherman speaks of ancient sea legends.',
+				subLocations: [
+					{ name: 'Enter Storm Islands', icon: '🏝️', label: 'Explore the islands & volcano', url: 'dungeon.html?mode=stormislands' },
+				],
 			},
 			emberfall: {
 				name: 'EmberFall',
@@ -812,8 +1036,18 @@
 			sylvaris_wildes: {
 				name: 'Sylvaris Wildes',
 				icon: '🌳',
-				desc: 'An ancient forest teeming with wild magic and forgotten creatures. What lies within remains a mystery.',
-				available: false,
+				desc: 'An ancient forest teeming with wild magic and forgotten creatures. Venture into underground caves and climb the Giant Tree.',
+				subLocations: [
+					{ name: 'Enter the Wildes', icon: '🌳', label: 'Explore the forest, caves & tree', url: 'dungeon.html?mode=sylvaris' },
+				],
+			},
+			volcano_observatory: {
+				name: 'Volcano Observatory',
+				icon: '🌋',
+				desc: 'A towering stone outpost perched on the volcanic ridge between EmberFall and CinderWatch. A lone scholar studies the fires below.',
+				subLocations: [
+					{ name: 'Enter Observatory', icon: '🌋', label: 'Visit the stone tower', url: 'dungeon.html?mode=observatory' },
+				],
 			},
 			cinderwatch: {
 				name: 'CinderWatch',
@@ -821,6 +1055,13 @@
 				desc: 'A smoldering fortress built over volcanic vents. Fight through fire-themed enemies and face the Inferno Dragon boss.',
 				isDungeon: true,
 				dungeonType: 'fire',
+			},
+			ironforge: {
+				name: 'Iron Forge',
+				icon: '⚒️',
+				desc: 'An ancient forge buried deep underground where molten metal and iron constructs guard the depths. Face the mighty Iron Colossus.',
+				isDungeon: true,
+				dungeonType: 'iron',
 			},
 			ironridge: {
 				name: 'IronRidge',
@@ -836,12 +1077,95 @@
 				isDungeon: true,
 				dungeonType: 'ice',
 			},
+			dragon_graveyard: {
+				name: 'Dragon Graveyard',
+				icon: '💀',
+				desc: 'A desolate mountain plateau littered with the bones of ancient dragons. Dark wraiths haunt the slopes, and a mysterious dragon stone pulses with frozen energy at the summit.',
+				subLocations: [
+					{ name: 'Enter Graveyard', icon: '💀', label: 'Climb the mountain of ancient bones', url: 'dungeon.html?mode=dragongraveyard' },
+				],
+			},
+			black_sands: {
+				name: 'Black Sands Desert',
+				icon: '🏜️',
+				desc: 'A vast expanse of dark golden sand stretching to the horizon. Jagged black rocks jut from the dunes like broken teeth, and deep within the wastes lies a mysterious shrine of obsidian stone covered in ancient writings.',
+				subLocations: [
+					{ name: 'Enter Desert', icon: '🏜️', label: 'Explore the black sands', url: 'dungeon.html?mode=blacksands' },
+				],
+			},
+			arcane_ruins: {
+				name: 'Ruins of the Arcane Council',
+				icon: '🏚️',
+				desc: 'The shattered remains of the Arcane Council\'s castle, where Archmage Thaelan sealed the Void Arbiter long ago. Black stone and purple cracks scar the landscape. A portal to the void pulses deep within.',
+				subLocations: [
+					{ name: 'Enter Ruins', icon: '🏚️', label: 'Explore the ancient ruins', url: 'dungeon.html?mode=arcaneruins' },
+				],
+			},
 		};
 
 		const worldMapOverlay = document.getElementById('worldMapOverlay');
 		const locPopup = document.getElementById('locPopup');
 		let selectedLocKey = null;
 		let selectedDifficulty = 'normal';
+
+		/* ---- Quest chain gating ---- */
+		function getQuestProgress(key){
+			try { const s = JSON.parse(localStorage.getItem(key)); return s ? (s.questIndex || 0) : 0; } catch(e){ return 0; }
+		}
+		const tutorialDone  = getQuestProgress('magicBattle_tutorialQuests')    >= 10;
+		const cityDone      = getQuestProgress('magicBattle_cityQuests')        >= 10;
+		const sylvarisDone  = getQuestProgress('magicBattle_sylvarisQuests')    >= 19;
+		const observatoryDone = getQuestProgress('magicBattle_observatoryQuests') >= 3;
+
+		// Gate EmberFall City sub-location behind tutorial completion
+		if(!tutorialDone){
+			MAP_LOCATIONS.emberfall.subLocations = MAP_LOCATIONS.emberfall.subLocations.filter(s => !s.url.includes('mode=city'));
+		}
+		// Gate Sylvaris behind city completion
+		if(!cityDone){
+			MAP_LOCATIONS.sylvaris_wildes.available = false;
+			MAP_LOCATIONS.sylvaris_wildes.desc += '\n\n🔒 Complete EmberFall City quests to unlock.';
+		}
+		// Gate Observatory & CinderWatch behind sylvaris completion
+		if(!sylvarisDone){
+			MAP_LOCATIONS.volcano_observatory.available = false;
+			MAP_LOCATIONS.volcano_observatory.desc += '\n\n🔒 Complete Sylvaris Wildes quests to unlock.';
+			MAP_LOCATIONS.cinderwatch.available = false;
+			MAP_LOCATIONS.cinderwatch.desc += '\n\n🔒 Complete Sylvaris Wildes quests to unlock.';
+		}
+		// Gate Dragon Graveyard behind observatory completion
+		if(!observatoryDone){
+			MAP_LOCATIONS.dragon_graveyard.available = false;
+			MAP_LOCATIONS.dragon_graveyard.desc += '\n\n🔒 Complete Observatory quests to unlock.';
+		}
+		// Gate Storm Islands & Black Sands behind Mage rank
+		const playerStats = computeAndSyncQuestXp();
+		if(!playerStats || playerStats.rank < 3){
+			MAP_LOCATIONS.storm_islands.available = false;
+			MAP_LOCATIONS.storm_islands.desc += '\n\n🔒 Reach Mage rank to unlock.';
+			MAP_LOCATIONS.black_sands.available = false;
+			MAP_LOCATIONS.black_sands.desc += '\n\n🔒 Reach Mage rank to unlock.';
+		}
+		// Gate Arcane Ruins behind Old Society quest stage 5 (Elder Maris time rewind)
+		const osStage = parseInt(localStorage.getItem('magicBattle_oldSocietyStage')||'0');
+		if(osStage < 5){
+			MAP_LOCATIONS.arcane_ruins.available = false;
+			MAP_LOCATIONS.arcane_ruins.desc += '\n\n🔒 Progress further in the Recovering the Old Society questline to unlock.';
+		}
+
+		// Apply locked visual state to gated locations
+		document.querySelectorAll('.map-location').forEach(el => {
+			const loc = MAP_LOCATIONS[el.dataset.loc];
+			if(loc && loc.available === false && !el.classList.contains('locked')){
+				el.classList.add('locked');
+				if(!el.querySelector('.map-locked-tag')){
+					const tag = document.createElement('div');
+					tag.className = 'map-locked-tag';
+					tag.textContent = '🔒 Locked';
+					el.appendChild(tag);
+				}
+			}
+		});
 
 		function openWorldMap() {
 			worldMapOverlay.classList.add('open');
@@ -957,24 +1281,39 @@
 				poly: [[22,28],[22,50],[37,50],[37,28]],
 			},
 			sylvaris_wildes: {
-				color: 'rgba(80,200,120,0.18)',
-				borderColor: 'rgba(80,200,120,0.45)',
-				poly: [[33,50],[33,72],[48,72],[48,50]],
+				color: 'rgba(80,200,120,0.22)',
+				borderColor: 'rgba(80,200,120,0.55)',
+				poly: [[20,55],[20,82],[42,82],[42,55]],
+			},
+			volcano_observatory: {
+				color: 'rgba(255,120,40,0.22)',
+				borderColor: 'rgba(255,120,40,0.55)',
+				poly: [[35,50],[35,62],[46,62],[46,50]],
 			},
 			cinderwatch: {
 				color: 'rgba(255,80,30,0.25)',
 				borderColor: 'rgba(255,80,30,0.6)',
 				poly: [[43,28],[43,72],[62,72],[62,28]],
 			},
+			ironforge: {
+				color: 'rgba(150,150,170,0.25)',
+				borderColor: 'rgba(150,150,170,0.6)',
+				poly: [[58,28],[58,62],[79,62],[79,28]],
+			},
 			ironridge: {
 				color: 'rgba(100,200,80,0.25)',
 				borderColor: 'rgba(100,200,80,0.6)',
-				poly: [[58,28],[58,72],[79,72],[79,28]],
+				poly: [[72,55],[72,80],[92,80],[92,55]],
 			},
 			aurorafall: {
 				color: 'rgba(80,170,255,0.25)',
 				borderColor: 'rgba(80,170,255,0.6)',
 				poly: [[39,2],[39,28],[59,28],[59,2]],
+			},
+			black_sands: {
+				color: 'rgba(196,160,53,0.22)',
+				borderColor: 'rgba(196,160,53,0.55)',
+				poly: [[46,68],[46,88],[66,88],[66,68]],
 			},
 		};
 
