@@ -178,8 +178,8 @@ const SPRITE_ROW = { idle: 0, walk: 1, attack: 2, defeat: 3 };
 const SPRITE_FPS = 8; // game frames per animation frame
 const ATTACK_ANIM_DURATION = SPRITE_FPS * SPRITE_COLS; // 48 frames for full attack cycle
 const SPRITE_SCALE = { imp:3.2, flameSerpent:2.8, emberMage:2.8, magmaGolem:3.0, fireSprite:3.8, fireDragon:1.4, frostWraith:3.2, iceArcher:2.8, snowBeast:3.0, cryoMage:2.8, glacierSentinel:3.0, frostColossus:1.4, rockGolem:3.0, vineCrawler:2.8, caveSpider:2.8, crystalMage:2.8, mudElemental:3.0, earthColossus:1.4, ironSentinel:3.0, forgeDrone:3.5, slagBrute:2.8, ironColossus:1.4, thornWolf:3.0, sporeFungus:2.8, mossWraith:3.2, willowWisp:3.5, glowBeetle:2.8, stalactiteBat:3.2, deepRootHorror:1.8, skyVine:2.8, windSylph:3.2, elderTreant:2.0, stormRaptor:2.0, darkVineCrawler:2.8, darkThornWolf:3.0, darkMossWraith:3.2, boneWraith:3.2, babyDragon:1.8, flameSalamander:3.0, magmaImp:3.2, fireColossus:1.4, abyssalGuardian:2.8, coralSentinel:3.0, depthSerpent:3.0, sandWraith:3.0, tombGuardian:2.8, desertSerpent:3.0, mummyWarrior:2.8, scarabSwarm:3.2, sandstormDjinn:2.6, seraphel:1.6, voidArbiter:2.0, infernalKitten:1.4 };
-const SPRITE_COLS_OVERRIDE = { fireDragon: 4, frostColossus: 4, earthColossus: 4, ironColossus: 4, fireColossus: 4, crystalMage: 7, elderTreant: 4, stormRaptor: 4, deepRootHorror: 4, skyVine: 8, windSylph: 8, darkMossWraith: 8, babyDragon: 4, seraphel: 10, voidArbiter: 4, infernalKitten: 1 };
-const SPRITE_ROWS_OVERRIDE = { infernalKitten: 2 };
+const SPRITE_COLS_OVERRIDE = { fireDragon: 4, frostColossus: 4, earthColossus: 4, ironColossus: 4, fireColossus: 4, crystalMage: 7, elderTreant: 4, stormRaptor: 4, deepRootHorror: 4, skyVine: 8, windSylph: 8, darkMossWraith: 8, babyDragon: 4, seraphel: 10, voidArbiter: 4, infernalKitten: 2 };
+const SPRITE_ROWS_OVERRIDE = { infernalKitten: 1 };
 const SPRITE_NAME_OVERRIDE = { cryoMage: 'cyro-mage', deepRootHorror: 'deep-root-horror', stalactiteBat: 'stalactite-bat', glowBeetle: 'glow-beetle', boneWraith: 'bone-wraith', babyDragon: 'baby-dragon', darkVineCrawler: 'dark-vine-crawler', darkThornWolf: 'dark-thorn-wolf', darkMossWraith: 'dark-moss-wraith', flameSalamander: 'flame-salamander', magmaImp: 'magma-imp', fireColossus: 'fire-colossus', abyssalGuardian: 'abyssal-guardian', coralSentinel: 'coral-sentinel', depthSerpent: 'depth-serpent', sandWraith: 'sand-wraith', tombGuardian: 'tomb-guardian', desertSerpent: 'desert-serpent', mummyWarrior: 'mummy-warrior', scarabSwarm: 'scarab-swarm', sandstormDjinn: 'sandstorm-djinn', seraphel: 'seraphel', voidArbiter: 'void-arbiter', infernalKitten: 'infernal-kitten' };
 // Fire enemies — JPG
 ['imp','flameSerpent','emberMage','magmaGolem','fireSprite','fireDragon'].forEach(key => {
@@ -515,6 +515,8 @@ if(!playerData.spellBoosts) playerData.spellBoosts = new Array(10).fill(1.0);
 if(playerData.mageRank == null) playerData.mageRank = 0;
 if(playerData.xp == null) playerData.xp = 0;
 if(!playerData.mageClass) playerData.mageClass = 'none';
+/* --- Ensure equipment object exists (migration for saves predating equipment feature) --- */
+if(!playerData.equipment) playerData.equipment = {staff:null,robe:null,relic1:null,relic2:null};
 
 /* Active mage class for quick access */
 const activeMageClass = playerData.mageClass || 'none';
@@ -743,17 +745,18 @@ const SHAPE_MANA={missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:
 const SHAPE_CTRL={missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,spike:3,allyOrb:1,polygon:3,meteor:6,vortex:7,same:0};
 const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5,ground:4,zigzag:5,teleport:7,domain:1000};
 const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,domain:10};
-const FX_MANA={burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:6,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10,classDisable:0};
-const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0};
+const FX_MANA={burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:6,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10,classDisable:0,rotate:4};
+const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0,rotate:2};
 
 function calcSpellCost(spell){
 	if(!spell||!spell.phases.length)return 0;
 	let cost=5;
 	for(const ph of spell.phases){
-		cost+=(SHAPE_MANA[ph.shape]||0)+(BEH_MANA[ph.behavior]||0);
+		cost+=(SHAPE_MANA[ph.shape]||0)+(ph.behavior==='aroundSelf'?(BEH_MANA.aroundSelf*(ph.aroundSelfCount||4)):(BEH_MANA[ph.behavior]||0));
 		const isAreaBeh=ph.behavior==='rain'||ph.behavior==='barrage';
-		const countMult=1+(ph.count-1)*(isAreaBeh?0.1:0.4);
-		cost+=ph.power*50*countMult+(ph.count-1)*(isAreaBeh?1:4)+(ph.width-1)*2+(ph.height-1)*2;
+		const effectiveCount=ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):ph.count;
+		const countMult=1+(effectiveCount-1)*(isAreaBeh?0.1:0.4);
+		cost+=ph.power*50*countMult+(effectiveCount-1)*(isAreaBeh?1:4)+(ph.width-1)*2+(ph.height-1)*2;
 		if(ph.shape==='chain'&&ph.chainStunTime>0)cost+=ph.chainStunTime*25;
 		if(ph.behavior==='ground'&&ph.groundRadius>200)cost+=Math.floor((ph.groundRadius-200)/50)*3;
 		if(ph.shape==='summon'){cost+=(ph.summonRange||0)*4+(ph.summonHealth||0)*3+(ph.summonSpeed||0)*3;}
@@ -5085,7 +5088,7 @@ function checkKittenTrigger(){
 		// Place kitten at center of arena
 		const kt = ENEMY_TYPES.infernalKitten;
 		// Always use hard-mode stats regardless of difficulty
-		const bossHp = Math.round(kt.hp * 2);
+		const bossHp = 100000;
 		kittenBoss.hp = bossHp;
 		kittenBoss.maxHp = bossHp;
 		const kittenEn = {
@@ -5373,15 +5376,16 @@ function onKittenDefeated(){
 /* Attack 0 — SOLAR FLARE RINGS: Expanding rings of fire orbs with rotating gaps */
 function castKittenSolarFlare(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	const cx = en.x + en.w/2, cy = en.y + en.h/2;
 	kb.mouthOpen = true; kb.mouthTimer = 60;
 	// Telegraph
-	spawnTelegraph(cx - 600, cy - 600, 1200, 1200, 90, 'rgba(255,100,0,0.15)', 'circle', '☀ SOLAR FLARE');
+	spawnTelegraph(cx - 600, cy - 600, 1200, 1200, 180, 'rgba(255,100,0,0.15)', 'circle', '☀ SOLAR FLARE');
 	const ringCount = kb.attackPhase >= 2 ? 5 : 4;
 	for(let ring = 0; ring < ringCount; ring++){
 		setTimeout(() => {
 			if(en.dead || kb.phase !== 'active') return;
-			const orbCount = 16;
+			const orbCount = 10;
 			const gapAngle = Math.random() * Math.PI * 2;
 			const gapSize = 0.7; // radians gap
 			for(let i = 0; i < orbCount; i++){
@@ -5389,23 +5393,23 @@ function castKittenSolarFlare(en){
 				// Skip orbs in the gap zone
 				const angleDiff = Math.abs(((angle - gapAngle + Math.PI) % (Math.PI*2)) - Math.PI);
 				if(angleDiff < gapSize / 2) continue;
-				const spd = 3 + ring * 0.6;
+				const spd = 4;
 				spawnEnemyProj(cx, cy, Math.cos(angle)*spd, Math.sin(angle)*spd, {
 					color:'#ff6600', color2:'#ffcc00', power: 30, width: 22, height: 22,
 					shape:'circle', effects:['burn'], trail:'flame', maxAge: 220,
-					noWallCollide: true,
 				});
 			}
-		}, 800 + ring * 400);
+		}, 2000 + ring * 400);
 	}
 }
 
 /* Attack 1 — INFERNO GRID COLLAPSE: Arena divides into grid, tiles light up and explode */
 function castKittenInfernoGrid(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 120;
 	const ar = KITTEN_ARENA_RECT;
-	const cols = 8, rows = 3;
+	const cols = 5, rows = 2;
 	const cellW = ar.w / cols, cellH = ar.h / rows;
 	// Build grid cells with random activation order
 	const cells = [];
@@ -5413,7 +5417,7 @@ function castKittenInfernoGrid(en){
 		for(let c = 0; c < cols; c++)
 			cells.push({ col:c, row:r, x: ar.x + c*cellW, y: ar.y + r*cellH, w: cellW, h: cellH, active: false, timer: 0, exploded: false });
 	// Shuffle activation order but keep 2-3 safe cells
-	const safeCount = kb.attackPhase >= 2 ? 2 : 3;
+	const safeCount = 3;
 	const indices = cells.map((_, i) => i);
 	for(let i = indices.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [indices[i], indices[j]] = [indices[j], indices[i]]; }
 	const safeIndices = new Set(indices.slice(0, safeCount));
@@ -5431,7 +5435,7 @@ function updateKittenGridAttack(){
 	if(!en || en.dead){ kb.gridActive = false; return; }
 	kb.gridTimer++;
 	const waveDelay = 20;
-	const activateAt = kb._gridWave * waveDelay + 100; // ~1.7 second telegraph, then waves
+	const activateAt = kb._gridWave * waveDelay + 240; // ~4 second telegraph, then waves
 	if(kb.gridTimer >= activateAt && kb._gridWave < kb._gridOrder.length){
 		const idx = kb._gridOrder[kb._gridWave];
 		const cell = kb.gridCells[idx];
@@ -5445,7 +5449,7 @@ function updateKittenGridAttack(){
 	for(const cell of kb.gridCells){
 		if(cell.active && !cell.exploded){
 			cell.timer++;
-			if(cell.timer >= 60){
+			if(cell.timer >= 120){
 				cell.exploded = true;
 				// Spawn damage zone
 				spawnEnemyProj(cell.x + cell.w/2, cell.y + cell.h/2, 0, 0, {
@@ -5467,12 +5471,13 @@ function updateKittenGridAttack(){
 /* Attack 2 — HELL YARN SNARE: Flaming yarn balls with connecting thread web */
 function castKittenHellYarn(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 80;
 	const cx = en.x + en.w/2, cy = en.y + en.h/2;
 	const ar = KITTEN_ARENA_RECT;
 	const ballCount = kb.attackPhase >= 2 ? 8 : 5;
 	// Telegraph
-	spawnTelegraph(cx - 400, cy - 300, 800, 600, 90, 'rgba(255,80,0,0.12)', 'circle', '🧶 YARN');
+	spawnTelegraph(cx - 400, cy - 300, 800, 600, 180, 'rgba(255,80,0,0.12)', 'circle', '🧶 YARN');
 	kb.yarnBalls = [];
 	kb.yarnActive = true;
 	kb.yarnTimer = 0;
@@ -5483,21 +5488,21 @@ function castKittenHellYarn(en){
 		const bx = ar.x + 150 + Math.random() * (ar.w - 300);
 		const by = ar.y + 80 + Math.random() * (ar.h - 160);
 		positions.push({x: bx, y: by});
-		spawnTelegraph(bx - 25, by - 25, 50, 50, 120, 'rgba(255,120,0,0.35)', 'circle', '🧶');
+		spawnTelegraph(bx - 25, by - 25, 50, 50, 200, 'rgba(255,120,0,0.35)', 'circle', '🧶');
 	}
-	// Spawn yarn balls after 1 second (indicators visible first)
+	// Spawn yarn balls after 2 seconds (indicators visible first)
 	setTimeout(() => {
 		if(en.dead || kb.phase !== 'active') { kb.yarnActive = false; return; }
 		for(const pos of positions){
 			const ball = { x: pos.x, y: pos.y, angle: Math.random() * Math.PI * 2, speed: 4.5 + Math.random() * 3.0, life: 360 };
 			kb.yarnBalls.push(ball);
 		}
-	}, 1000);
-	// Web strings connect after another 1 second delay
+	}, 2200);
+	// Web strings connect after another delay
 	setTimeout(() => {
 		if(en.dead || kb.phase !== 'active') return;
 		kb._yarnWebActive = true;
-	}, 2000);
+	}, 3500);
 }
 
 function updateKittenYarnAttack(){
@@ -5546,10 +5551,11 @@ function updateKittenYarnAttack(){
 /* Attack 3 — INFERNAL POUNCE: Lock-on indicator → teleport → slam → lava pool */
 function castKittenPounce(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 40;
 	const px = player.x + player.w/2, py = player.y + player.h/2;
 	// Telegraph: target reticle on player
-	spawnTelegraph(px - 80, py - 80, 160, 160, 100, 'rgba(255,0,0,0.3)', 'circle', '🐾 POUNCE');
+	spawnTelegraph(px - 80, py - 80, 160, 160, 200, 'rgba(255,0,0,0.3)', 'circle', '🐾 POUNCE');
 	kb.pounceTargetX = px;
 	kb.pounceTargetY = py;
 	kb.pouncing = true;
@@ -5561,7 +5567,7 @@ function updateKittenPounce(){
 	const en = kb.entity;
 	if(!en || en.dead){ kb.pouncing = false; return; }
 	kb.pounceTimer++;
-	if(kb.pounceTimer === 80){
+	if(kb.pounceTimer === 170){
 		// Teleport to indicator position (locked at cast time)
 		const oldX = en.x, oldY = en.y;
 		for(let i = 0; i < 10; i++) particles.push({x:oldX+en.w/2, y:oldY+en.h/2, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6, life:25, color:'#ff8800'});
@@ -5570,7 +5576,7 @@ function updateKittenPounce(){
 		en.y = kb.pounceTargetY - en.h/2;
 		en.baseY = en.y;
 	}
-	if(kb.pounceTimer === 85){
+	if(kb.pounceTimer === 175){
 		// SLAM — shockwave at indicator position
 		const cx = en.x + en.w/2, cy = en.y + en.h/2;
 		shakeScreen(16, 25);
@@ -5586,7 +5592,7 @@ function updateKittenPounce(){
 			linger: true, lingerMax: 300, lingerDmgInterval: 35,
 		});
 	}
-	if(kb.pounceTimer === 145){
+	if(kb.pounceTimer === 245){
 		// Teleport back to idle spot (arena center) after ~1 second
 		const oldX2 = en.x, oldY2 = en.y;
 		for(let i = 0; i < 10; i++) particles.push({x:oldX2+en.w/2, y:oldY2+en.h/2, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6, life:25, color:'#ff8800'});
@@ -5594,16 +5600,17 @@ function updateKittenPounce(){
 		en.baseY = kb.arenaCy - en.h/2;
 		en.y = en.baseY;
 	}
-	if(kb.pounceTimer >= 155) kb.pouncing = false;
+	if(kb.pounceTimer >= 255) kb.pouncing = false;
 }
 
 /* Attack 4 — ROTATING FLAME CROSS: Two beams in cross shape slowly rotating */
 function castKittenFlameCross(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 60;
 	const cx = en.x + en.w/2, cy = en.y + en.h/2;
 	// Telegraph
-	spawnTelegraph(cx - 700, cy - 400, 1400, 800, 130, 'rgba(255,60,0,0.1)', 'circle', '✝ FLAME CROSS');
+	spawnTelegraph(cx - 700, cy - 400, 1400, 800, 220, 'rgba(255,60,0,0.1)', 'circle', '✝ FLAME CROSS');
 	kb.crossActive = true;
 	kb.crossAngle = Math.random() * Math.PI;
 	kb.crossTimer = 0;
@@ -5614,11 +5621,11 @@ function updateKittenCrossAttack(){
 	const en = kb.entity;
 	if(!en || en.dead){ kb.crossActive = false; return; }
 	kb.crossTimer++;
-	if(kb.crossTimer < 100) return; // wait for telegraph
+	if(kb.crossTimer < 190) return; // wait for telegraph
 	const dur = kb.attackPhase >= 2 ? 420 : 300; // 5-7 seconds of cross
 	if(kb.crossTimer > 100 + dur){ kb.crossActive = false; return; }
 	// Rotate cross slowly
-	kb.crossAngle += 0.010;
+	kb.crossAngle += 0.005;
 	// Spawn beam particles along 4 arms every few frames
 	if(kb.crossTimer % 4 === 0){
 		const cx = en.x + en.w/2, cy = en.y + en.h/2;
@@ -5642,6 +5649,7 @@ function updateKittenCrossAttack(){
 /* Attack 5 — METEOR RAIN: Patterned meteor fall in lines and spirals */
 function castKittenMeteorRain(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 80;
 	const ar = KITTEN_ARENA_RECT;
 	const meteorCount = kb.attackPhase >= 2 ? 20 : 14;
@@ -5660,7 +5668,7 @@ function castKittenMeteorRain(en){
 		// Clamp to arena
 		targetX = Math.max(ar.x + 40, Math.min(ar.x + ar.w - 40, targetX));
 		targetY = Math.max(ar.y + 40, Math.min(ar.y + ar.h - 40, targetY));
-		spawnTelegraph(targetX - 45, targetY - 45, 90, 90, 100 + i * 10, 'rgba(255,50,0,0.25)', 'circle', '');
+		spawnTelegraph(targetX - 45, targetY - 45, 90, 90, 180 + i * 10, 'rgba(255,50,0,0.25)', 'circle', '');
 		setTimeout(() => {
 			if(en.dead || kb.phase !== 'active') return;
 			spawnEnemyProj(targetX, ar.y - 100, 0, 7, {
@@ -5669,13 +5677,14 @@ function castKittenMeteorRain(en){
 				gravity: 0.12, noWallCollide: true,
 				linger: true, lingerMax: 100, lingerDmgInterval: 40,
 			});
-		}, 800 + i * 80);
+		}, 2000 + i * 80);
 	}
 }
 
 /* Attack 6 — CATACLYSM BEAM: Sweeping beam that splits */
 function castKittenCataclysmBeam(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.mouthOpen = true; kb.mouthTimer = 120;
 	const cx = en.x + en.w/2, cy = en.y + en.h/2;
 	const px = player.x + player.w/2, py = player.y + player.h/2;
@@ -5684,7 +5693,7 @@ function castKittenCataclysmBeam(en){
 	kb.beamTimer = 0;
 	kb.beamSplitCount = 0;
 	// Telegraph — line toward player
-	spawnTelegraph(cx - 20, cy - 20, 40, 40, 110, 'rgba(255,0,0,0.3)', 'circle', '💥 BEAM');
+	spawnTelegraph(cx - 20, cy - 20, 40, 40, 190, 'rgba(255,0,0,0.3)', 'circle', '💥 BEAM');
 }
 
 function updateKittenBeamAttack(){
@@ -5692,9 +5701,9 @@ function updateKittenBeamAttack(){
 	const en = kb.entity;
 	if(!en || en.dead){ kb.beamActive = false; return; }
 	kb.beamTimer++;
-	if(kb.beamTimer < 80) return; // charge-up
+	if(kb.beamTimer < 160) return; // charge-up
 	const dur = kb.attackPhase >= 2 ? 300 : 200;
-	if(kb.beamTimer > 80 + dur){ kb.beamActive = false; return; }
+	if(kb.beamTimer > 160 + dur){ kb.beamActive = false; return; }
 	// Sweep beam slowly
 	kb.beamAngle += 0.016;
 	// Spawn beam segments every 3 frames
@@ -5711,7 +5720,7 @@ function updateKittenBeamAttack(){
 		}
 	}
 	// Phase 2: split beam at halfway
-	if(kb.attackPhase >= 2 && kb.beamTimer === 80 + Math.floor(dur / 2) && kb.beamSplitCount === 0){
+	if(kb.attackPhase >= 2 && kb.beamTimer === 160 + Math.floor(dur / 2) && kb.beamSplitCount === 0){
 		kb.beamSplitCount = 1;
 		const cx = en.x + en.w/2, cy = en.y + en.h/2;
 		// Spawn secondary beams as ring burst
@@ -5730,6 +5739,7 @@ function updateKittenBeamAttack(){
 /* Attack 7 — FAKE CUTE → INSTANT PUNISH: Cat sits smiling, safe zone appears, then BOOM */
 function castKittenFakeCute(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.fakeCuteActive = true;
 	kb.fakeCuteTimer2 = 0;
 	kb.mouthOpen = false; // cute face
@@ -5747,16 +5757,16 @@ function updateKittenFakeCute(){
 	kb.fakeCuteTimer2++;
 	const t = kb.fakeCuteTimer2;
 	const SAFE_RADIUS = 250; // much larger safe zone
-	if(t === 60){
+	if(t === 120){
 		// Show safe zone indicator — very large + obvious
 		const ar = KITTEN_ARENA_RECT;
 		kb._fakeSafeX = ar.x + 300 + Math.random() * (ar.w - 600);
 		kb._fakeSafeY = ar.y + 200 + Math.random() * (ar.h - 400);
 		kb._fakeSafeVisible = true;
-		spawnTelegraph(kb._fakeSafeX - SAFE_RADIUS, kb._fakeSafeY - SAFE_RADIUS, SAFE_RADIUS*2, SAFE_RADIUS*2, 300, 'rgba(0,255,100,0.35)', 'circle', '✅ SAFE ZONE — GET HERE!');
+		spawnTelegraph(kb._fakeSafeX - SAFE_RADIUS, kb._fakeSafeY - SAFE_RADIUS, SAFE_RADIUS*2, SAFE_RADIUS*2, 360, 'rgba(0,255,100,0.35)', 'circle', '✅ SAFE ZONE — GET HERE!');
 		dmgNumbers.push({x: kb._fakeSafeX, y: kb._fakeSafeY - 40, text:'🟢 SAFE ZONE!', age:0, color:'#00ff66'});
 	}
-	if(t === 160){
+	if(t === 280){
 		kb.dialogText = '"...MEOW."'; kb.dialogAlpha = 1;
 		kb.mouthOpen = true; kb.mouthTimer = 80;
 	}
@@ -5790,7 +5800,7 @@ function updateKittenFakeCute(){
 			particles.push({x:rx, y:ry, vx:(Math.random()-0.5)*6, vy:-3-Math.random()*6, life:30+Math.random()*20, color:['#ff2200','#ff6600','#ffaa00','#ffdd00'][i%4]});
 		}
 	}
-	if(t >= 300){
+	if(t >= 420){
 		kb.fakeCuteActive = false;
 		kb.mouthOpen = false;
 		kb._fakeSafeVisible = false;
@@ -5802,6 +5812,7 @@ function updateKittenFakeCute(){
 /* Attack 8 — MOLTEN CARPET SWEEP: Area denial, lava carpet spreads forward from boss */
 function castKittenCarpetSweep(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.carpetActive = true; kb.carpetTimer = 0;
 	const ar = KITTEN_ARENA_RECT;
 	const dir = (player.x + player.w/2) > (en.x + en.w/2) ? 1 : -1;
@@ -5819,7 +5830,7 @@ function castKittenCarpetSweep(en){
 function updateKittenCarpetSweep(){
 	const kb = kittenBoss; if(!kb.carpetActive) return;
 	const cd = kb.carpetData; kb.carpetTimer++;
-	if(kb.carpetTimer < 48) return; // telegraph phase
+	if(kb.carpetTimer < 100) return; // telegraph phase
 	cd.length = Math.min(cd.length + cd.speed, cd.maxLen);
 	const px = player.x + player.w/2, py = player.y + player.h/2;
 	const cL = cd.dir === 1 ? cd.sx : cd.sx - cd.length;
@@ -5841,12 +5852,13 @@ function updateKittenCarpetSweep(){
 			health -= Math.round(15*1.5); dmgNumbers.push({x:px,y:py-20,text:'-'+Math.round(15*1.5),age:0,color:'#ff8800'}); player.iFrames = 20;
 		}
 	}
-	if(cd.length >= cd.maxLen && kb.carpetTimer > 48 + Math.ceil(cd.maxLen/cd.speed) + 60) kb.carpetActive = false;
+	if(cd.length >= cd.maxLen && kb.carpetTimer > 100 + Math.ceil(cd.maxLen/cd.speed) + 60) kb.carpetActive = false;
 }
 
 /* Attack 9 — ASHFALL DRIFT: Vision pressure + delayed ember explosions (PHASE 2 ONLY) */
 function castKittenAshfallDrift(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.ashfallActive = true; kb.ashfallTimer = 0; kb.ashfallEmbers = [];
 	dmgNumbers.push({x:en.x+en.w/2, y:en.y-30, text:'🌫️ Ashfall!', age:0, color:'#996644'});
 }
@@ -5891,13 +5903,14 @@ function updateKittenAshfallDrift(){
 /* Attack 10 — BLAZING ORBITALS: Fire orbs orbit boss then launch outward */
 function castKittenBlazingOrbitals(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.orbitalsActive = true; kb.orbitalsTimer = 0;
 	const count = 5; // always 5 large orbs
 	kb.orbitals = [];
 	for(let i = 0; i < count; i++){
 		kb.orbitals.push({ angle: (Math.PI*2/count)*i, radius: 130, speed: 0.03, launched: false, lx:0, ly:0, expandRate: 0 });
 	}
-	spawnTelegraph(en.x+en.w/2-180, en.y+en.h/2-180, 360, 360, 90, 'rgba(255,100,0,0.15)', 'circle', '🔥 ORBITALS');
+	spawnTelegraph(en.x+en.w/2-180, en.y+en.h/2-180, 360, 360, 180, 'rgba(255,100,0,0.15)', 'circle', '🔥 ORBITALS');
 	dmgNumbers.push({x:en.x+en.w/2, y:en.y-30, text:'☄️ Blazing Orbitals!', age:0, color:'#ff8800'});
 }
 function updateKittenBlazingOrbitals(){
@@ -5906,11 +5919,10 @@ function updateKittenBlazingOrbitals(){
 	kb.orbitalsTimer++;
 	const cx = en.x + en.w/2, cy = en.y + en.h/2;
 	const px = player.x + player.w/2, py = player.y + player.h/2;
-	const launchTime = 120; // orbit for 2s then spiral outward
+	const launchTime = 210; // orbit for 3.5s then spiral outward
 	const hitRadius = 30; // larger hitbox
 	for(const orb of kb.orbitals){
 		if(!orb.launched){
-			// Accelerate spin before launch
 			if(kb.orbitalsTimer > launchTime - 30) orb.speed = 0.06;
 			orb.angle += orb.speed;
 			orb.lx = cx + Math.cos(orb.angle) * orb.radius;
@@ -5947,6 +5959,7 @@ function updateKittenBlazingOrbitals(){
 /* Attack 11 — SEARING DASH LINES: Boss disappears, dash lines appear, boss dashes along them (PHASE 2 ONLY) */
 function castKittenDashLines(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.dashLinesActive = true; kb.dashLinesTimer = 0; kb.dashLineIdx = 0;
 	const ar = KITTEN_ARENA_RECT;
 	const lineCount = 3 + Math.floor(Math.random() * 2);
@@ -5966,7 +5979,7 @@ function castKittenDashLines(en){
 	for(const line of kb.dashLines){
 		const mx = Math.min(line.x1, line.x2), my = Math.min(line.y1, line.y2);
 		const mw = Math.abs(line.x2-line.x1)+20, mh = Math.abs(line.y2-line.y1)+20;
-		spawnTelegraph(mx-10, my-10, mw, mh, 42, 'rgba(255,200,0,0.15)', 'rect', '');
+		spawnTelegraph(mx-10, my-10, mw, mh, 100, 'rgba(255,200,0,0.15)', 'rect', '');
 	}
 }
 function updateKittenDashLines(){
@@ -5974,15 +5987,15 @@ function updateKittenDashLines(){
 	const en = kb.entity; if(!en){ kb.dashLinesActive = false; return; }
 	kb.dashLinesTimer++;
 	const px = player.x + player.w/2, py = player.y + player.h/2;
-	// Telegraph phase (42 frames = ~0.7s)
-	if(kb.dashLinesTimer < 42) return;
+	// Telegraph phase (100 frames = ~1.7s)
+	if(kb.dashLinesTimer < 100) return;
 	// Dash along lines sequentially
 	const dashFrames = 15; // frames per dash
 	const gapFrames = 10;  // gap between dashes
 	const idx = kb.dashLineIdx;
 	if(idx < kb.dashLines.length){
 		const line = kb.dashLines[idx];
-		const localT = kb.dashLinesTimer - 42 - idx * (dashFrames + gapFrames);
+		const localT = kb.dashLinesTimer - 100 - idx * (dashFrames + gapFrames);
 		if(localT >= 0 && localT < dashFrames){
 			line.active = true;
 			line.dashProgress = localT / dashFrames;
@@ -6024,13 +6037,14 @@ function updateKittenDashLines(){
 		}
 	}
 	// End
-	const totalFrames = 42 + kb.dashLines.length * (dashFrames + gapFrames) + 60;
+	const totalFrames = 100 + kb.dashLines.length * (dashFrames + gapFrames) + 60;
 	if(kb.dashLinesTimer > totalFrames) kb.dashLinesActive = false;
 }
 
 /* Attack 12 — FLAME PILLAR ERUPTION: Timed sequence of erupting pillars in patterns */
 function castKittenFlamePillars(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.pillarsActive = true; kb.pillarsTimer = 0; kb.pillars = [];
 	const ar = KITTEN_ARENA_RECT;
 	const pattern = Math.floor(Math.random() * 3); // 0=lines, 1=rings, 2=checkerboard
@@ -6040,7 +6054,7 @@ function castKittenFlamePillars(en){
 			kb.pillars.push({
 				x: ar.x + 100 + (ar.w - 200) * (i / (count-1)),
 				y: ar.y + ar.h/2 + (Math.random()-0.5)*200,
-				radius: 40, warningPhase: 60 + i*12, activePhase: 30, coolPhase: 20,
+				radius: 40, warningPhase: 120 + i*12, activePhase: 30, coolPhase: 20,
 				timer: 0, state: 'waiting'
 			});
 		}
@@ -6051,7 +6065,7 @@ function castKittenFlamePillars(en){
 			kb.pillars.push({
 				x: kb.arenaCx + Math.cos(ang)*r,
 				y: kb.arenaCy + Math.sin(ang)*r,
-				radius: 40, warningPhase: 60 + (i%4)*15, activePhase: 30, coolPhase: 20,
+				radius: 40, warningPhase: 120 + (i%4)*15, activePhase: 30, coolPhase: 20,
 				timer: 0, state: 'waiting'
 			});
 		}
@@ -6062,7 +6076,7 @@ function castKittenFlamePillars(en){
 			kb.pillars.push({
 				x: ar.x + 150 + c * ((ar.w-300)/(cols-1||1)),
 				y: ar.y + 120 + r * ((ar.h-240)/(rows-1||1)),
-				radius: 40, warningPhase: 60 + ((r+c)%2)*30, activePhase: 30, coolPhase: 20,
+				radius: 40, warningPhase: 120 + ((r+c)%2)*30, activePhase: 30, coolPhase: 20,
 				timer: 0, state: 'waiting'
 			});
 		}
@@ -6081,7 +6095,7 @@ function updateKittenFlamePillars(){
 			allDone = false;
 		} else if(p.state === 'warning'){
 			allDone = false;
-			if(p.timer >= 30){ p.state = 'active'; p.timer = 0; shakeScreen(3, 5); }
+			if(p.timer >= 50){ p.state = 'active'; p.timer = 0; shakeScreen(3, 5); }
 		} else if(p.state === 'active'){
 			allDone = false;
 			// Damage
@@ -6101,10 +6115,11 @@ function updateKittenFlamePillars(){
 /* Attack 13 — INFERNAL TETHER: Chain links boss to player, must stay in sweet spot (PHASE 2 ONLY) */
 function castKittenInfernalTether(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.tetherActive = true; kb.tetherTimer = 0;
 	kb.tetherSnapDist = 350; // max distance before snap
 	const tMin = 100, tMax = kb.tetherSnapDist;
-	spawnTelegraph(en.x-tMax, en.y-tMax, tMax*2+en.w, tMax*2+en.h, 60, 'rgba(255,60,0,0.1)', 'circle', '🔗 TETHER!');
+	spawnTelegraph(en.x-tMax, en.y-tMax, tMax*2+en.w, tMax*2+en.h, 120, 'rgba(255,60,0,0.1)', 'circle', '🔗 TETHER!');
 	dmgNumbers.push({x:en.x+en.w/2, y:en.y-30, text:'🔗 Infernal Tether!', age:0, color:'#ff4400'});
 }
 function updateKittenInfernalTether(){
@@ -6134,6 +6149,7 @@ function updateKittenInfernalTether(){
 /* Attack 14 — HEATWAVE PULSE: Expanding rings with safe gaps between them */
 function castKittenHeatwavePulse(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.heatwaveActive = true; kb.heatwaveTimer = 0; kb.heatwaveRings = [];
 	const ringCount = kb.attackPhase >= 2 ? 5 : 3;
 	for(let i = 0; i < ringCount; i++){
@@ -6167,6 +6183,7 @@ function updateKittenHeatwavePulse(){
 /* Attack 15 — EMBER RECALL: Projectiles fly out, stick, then fly back to boss (PHASE 2 ONLY) */
 function castKittenEmberRecall(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.emberRecallActive = true; kb.emberRecallTimer = 0;
 	kb.recallEmbers = [];
 	const count = 14;
@@ -6232,14 +6249,15 @@ function updateKittenEmberRecall(){
 /* Attack 16 — LAVA SURGE: Three rapid lava blasts fired toward successive player positions */
 function castKittenLavaSurge(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.surgeWallsActive = true; kb.surgeWallsTimer = 0;
 	kb._surgePhase = 'arm';
 	kb._surgeBurstCount = 0;
-	kb._surgeNextBurst = 40; // first burst at frame 40
+	kb._surgeNextBurst = 90; // first burst at frame 90
 	kb.surgeWalls = []; // unused but keep to avoid reference errors
 	dmgNumbers.push({x:en.x+en.w/2, y:en.y-30, text:'🌋 Lava Surge!', age:0, color:'#ff2200'});
 	// Warn player with a short screen flash
-	spawnTelegraph(en.x-40, en.y-40, en.w+80, en.h+80, 35, 'rgba(255,80,0,0.3)', 'circle', '🌋 SURGE');
+	spawnTelegraph(en.x-40, en.y-40, en.w+80, en.h+80, 80, 'rgba(255,80,0,0.3)', 'circle', '🌋 SURGE');
 }
 function updateKittenLavaSurge(){
 	const kb = kittenBoss; if(!kb.surgeWallsActive) return;
@@ -6284,12 +6302,29 @@ function updateKittenLavaSurge(){
 /* Attack 17 — COMBUSTION MARK: Delayed explosion at player's marked position */
 function castKittenCombustionMark(en){
 	const kb = kittenBoss;
+	if(!kb || kb.entity !== en){ castKittenSummonRandom(en); return; }
 	kb.combustionActive = true; kb.combustionTimer = 0;
 	const px = player.x + player.w/2, py = player.y + player.h/2;
-	kb.combustionMark = { x: px, y: py, lockTimer: 90, exploded: false, lingerZone: null };
+	kb.combustionMark = { x: px, y: py, lockTimer: 150, exploded: false, lingerZone: null };
 	dmgNumbers.push({x:en.x+en.w/2, y:en.y-30, text:'🎯 Combustion Mark!', age:0, color:'#ff4400'});
 }
 // ── Infernal Kitten summon attack functions (no kittenBoss state dependency) ──
+function castKittenSummonRingAttack(en){
+	const cx=en.x+en.w/2, cy=en.y+en.h/2;
+	const orbCount=10, gapAngle=Math.random()*Math.PI*2, gapSize=0.9;
+	for(let i=0;i<orbCount;i++){
+		const angle=(i/orbCount)*Math.PI*2;
+		const diff=Math.abs(((angle-gapAngle+Math.PI)%(Math.PI*2))-Math.PI);
+		if(diff<gapSize/2) continue;
+		spawnEnemyProj(cx, cy, Math.cos(angle)*5, Math.sin(angle)*5, {
+			color:'#ff6600', color2:'#ffcc00', power:28, width:20, height:20, shape:'circle', maxAge:160,
+		});
+	}
+}
+function castKittenSummonRandom(en){
+	const fns = [castKittenSummonFireball, castKittenSummonFlameSpread, castKittenSummonFireBurst, castKittenSummonLavaBolt, castKittenSummonRingAttack];
+	fns[Math.floor(Math.random()*fns.length)](en);
+}
 function castKittenSummonFireball(en){
 	const px=player.x+player.w/2, py=player.y+player.h/2;
 	const cx=en.x+en.w/2, cy=en.y+en.h/2;
@@ -6337,7 +6372,7 @@ function updateKittenCombustionMark(){
 		m.lockTimer--;
 		if(m.lockTimer === 0){
 			// Position locked — telegraph at locked position
-			spawnTelegraph(m.x - 60, m.y - 60, 120, 120, 60, 'rgba(255,0,0,0.3)', 'circle', '💥 BOOM');
+			spawnTelegraph(m.x - 60, m.y - 60, 120, 120, 90, 'rgba(255,0,0,0.3)', 'circle', '💥 BOOM');
 		}
 	}
 	// Explosion after lock
@@ -8674,24 +8709,24 @@ infernalKitten: {
 	name: 'Infernal Kitten', w: 60, h: 60, hp: 80000, color: '#ff4400', color2: '#ffaa00',
 	flies: true, moveSpeed: 3.5, detectRange: 2200, isBoss: true,
 	spells: [
-		{ name:'fireball',    cooldown:120, range:900, castFn:'castKittenSummonFireball' },
-		{ name:'flameSpread', cooldown:180, range:800, castFn:'castKittenSummonFlameSpread' },
-		{ name:'fireBurst',   cooldown:200, range:700, castFn:'castKittenSummonFireBurst' },
-		{ name:'lavaBolt',    cooldown:150, range:900, castFn:'castKittenSummonLavaBolt' },
-		{ name:'fireball',    cooldown:120, range:900, castFn:'castKittenSummonFireball' },
-		{ name:'flameSpread', cooldown:180, range:800, castFn:'castKittenSummonFlameSpread' },
-		{ name:'fireBurst',   cooldown:200, range:700, castFn:'castKittenSummonFireBurst' },
-		{ name:'lavaBolt',    cooldown:150, range:900, castFn:'castKittenSummonLavaBolt' },
-		{ name:'fireball',    cooldown:120, range:900, castFn:'castKittenSummonFireball' },
-		{ name:'flameSpread', cooldown:180, range:800, castFn:'castKittenSummonFlameSpread' },
-		{ name:'fireBurst',   cooldown:200, range:700, castFn:'castKittenSummonFireBurst' },
-		{ name:'lavaBolt',    cooldown:150, range:900, castFn:'castKittenSummonLavaBolt' },
-		{ name:'fireball',    cooldown:120, range:900, castFn:'castKittenSummonFireball' },
-		{ name:'flameSpread', cooldown:180, range:800, castFn:'castKittenSummonFlameSpread' },
-		{ name:'fireBurst',   cooldown:200, range:700, castFn:'castKittenSummonFireBurst' },
-		{ name:'lavaBolt',    cooldown:150, range:900, castFn:'castKittenSummonLavaBolt' },
-		{ name:'fireball',    cooldown:120, range:900, castFn:'castKittenSummonFireball' },
-		{ name:'flameSpread', cooldown:180, range:800, castFn:'castKittenSummonFlameSpread' },
+		{ name:'solarFlare',      cooldown:300, range:900, castFn:'castKittenSolarFlare' },      // 0
+		{ name:'infernoGrid',     cooldown:400, range:900, castFn:'castKittenInfernoGrid' },     // 1
+		{ name:'hellYarn',        cooldown:300, range:900, castFn:'castKittenHellYarn' },        // 2
+		{ name:'pounce',          cooldown:200, range:700, castFn:'castKittenPounce' },          // 3
+		{ name:'flameCross',      cooldown:250, range:900, castFn:'castKittenFlameCross' },      // 4
+		{ name:'meteorRain',      cooldown:300, range:900, castFn:'castKittenMeteorRain' },      // 5
+		{ name:'cataclysmBeam',   cooldown:500, range:900, castFn:'castKittenCataclysmBeam' },  // 6
+		{ name:'fakeCute',        cooldown:900, range:900, castFn:'castKittenFakeCute' },        // 7
+		{ name:'carpetSweep',     cooldown:250, range:900, castFn:'castKittenCarpetSweep' },    // 8
+		{ name:'ashfallDrift',    cooldown:280, range:900, castFn:'castKittenAshfallDrift' },   // 9
+		{ name:'blazingOrbitals', cooldown:350, range:900, castFn:'castKittenBlazingOrbitals' },// 10
+		{ name:'dashLines',       cooldown:320, range:900, castFn:'castKittenDashLines' },      // 11
+		{ name:'flamePillars',    cooldown:300, range:900, castFn:'castKittenFlamePillars' },   // 12
+		{ name:'infernalTether',  cooldown:260, range:900, castFn:'castKittenInfernalTether' }, // 13
+		{ name:'heatwavePulse',   cooldown:280, range:900, castFn:'castKittenHeatwavePulse' },  // 14
+		{ name:'emberRecall',     cooldown:300, range:900, castFn:'castKittenEmberRecall' },    // 15
+		{ name:'lavaSurge',       cooldown:280, range:900, castFn:'castKittenLavaSurge' },      // 16
+		{ name:'combustionMark',  cooldown:250, range:900, castFn:'castKittenCombustionMark' }, // 17
 	],
 },
 
@@ -11168,7 +11203,7 @@ function castSpell(){
 	}
 }
 
-function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,castId,sourceSlot){
+function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,castId,sourceSlot,targetOriginX,targetOriginY){
 	if(phaseIdx>=spell.phases.length)return;
 	let totalProj=1;
 	for(const p of spell.phases)totalProj*=(p.behavior==='aroundSelf'?(p.aroundSelfCount||4):(p.count||1));
@@ -11432,9 +11467,9 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		if(effectiveBehavior==='barrage'){const s2=200*(ph.height||1);proj.x=originX+facing*120;proj.y=originY+(i-(count-1)/2)*(s2/Math.max(count-1,1));const barrageAngle=(facing===1?0:Math.PI)+spreadAngle;proj.vx=Math.cos(barrageAngle)*spd*0.8;proj.vy=Math.sin(barrageAngle)*spd*0.8;proj.startX=proj.x;proj.startY=proj.y;proj.beamAngle=barrageAngle;}
 		if(effectiveBehavior==='stationary'){proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='groundSurge'){proj.vy=0;const mWorldX=mouseScreenX+camera.x;const gsDir=mWorldX>(player.x+player.w/2)?1:-1;proj.vx=gsDir*spd;proj._gsTrack=true;}
-		if(effectiveBehavior==='underfoot'){proj.x=player.x+player.w/2;proj.y=player.y+player.h+4;proj.vx=0;proj.vy=0;}
-		if(effectiveBehavior==='selfCast'){proj.x=player.x+player.w/2;proj.y=player.y+player.h/2;proj.vx=0;proj.vy=0;}
-		if(effectiveBehavior==='aroundSelf'){const radius=ph.aroundSelfRadius||50;const sa=(i/count)*Math.PI*2;proj.x=player.x+player.w/2+Math.cos(sa)*radius;proj.y=player.y+player.h/2+Math.sin(sa)*radius;proj.vx=0;proj.vy=0;}
+		if(effectiveBehavior==='underfoot'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;proj.x=toX;proj.y=toY+20;proj.vx=0;proj.vy=0;}
+		if(effectiveBehavior==='selfCast'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;proj.x=toX;proj.y=toY;proj.vx=0;proj.vy=0;}
+		if(effectiveBehavior==='aroundSelf'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;const radius=ph.aroundSelfRadius||50;const sa=(i/count)*Math.PI*2;proj.x=toX+Math.cos(sa)*radius;proj.y=toY+Math.sin(sa)*radius;proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='ground'){
 			// Ground: spawns at nearest enemy within radius (if auto-lock on), +40% damage bonus
 			const groundRadius=ph.groundRadius||200;
@@ -11570,7 +11605,7 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 		p.shape=resolvedShape;p.behavior=ph.behavior||'straight';
 		p.effects=ph.effects||[];p.trailParts=[];p.hasHit=false;p.phaseTriggered=false;
 		p.hitTargets=new Set();p.startX=ox;p.startY=oy;
-		p.beamLen=0;p.beamAngle=angle;p.chainHits=0;p.chainMax=3;
+		p.beamLen=0;p.beamAngle=angle;p.chainHits=0;p.chainMax=3;p._chainPrevX=ox;p._chainPrevY=oy;
 		p.timedReleaseDelay=(ph.timedReleaseDelay||0.5)*FPS;p.timedReleaseTriggered=false;
 		p.phaseForkDelay=(ph.phaseForkDelay||1)*FPS;p.phaseForkRepeats=ph.phaseForkRepeats||1;
 		p.phaseForkCount=0;p.phaseForkNextAge=(ph.phaseForkDelay||1)*FPS;p.isSolidPlatform=false;
@@ -16023,6 +16058,13 @@ const CAST_FNS = {
 	// Void Arbiter (enemy-system version for chrono domain summons)
 	castVoidSlam, castVoidDarkOrbs, castVoidPillars, castVoidWave, castVoidDash,
 	castVoidGravityCrush, castVoidMeteorBarrage, castVoidCage, castVoidDimensionalRift, castVoidTeleportStrike,
+	// Infernal Kitten — boss functions (guard-checked) + summon fallbacks
+	castKittenSolarFlare, castKittenInfernoGrid, castKittenHellYarn, castKittenPounce,
+	castKittenFlameCross, castKittenMeteorRain, castKittenCataclysmBeam, castKittenFakeCute,
+	castKittenCarpetSweep, castKittenAshfallDrift, castKittenBlazingOrbitals, castKittenDashLines,
+	castKittenFlamePillars, castKittenInfernalTether, castKittenHeatwavePulse, castKittenEmberRecall,
+	castKittenLavaSurge, castKittenCombustionMark,
+	castKittenSummonFireball, castKittenSummonFlameSpread, castKittenSummonFireBurst, castKittenSummonLavaBolt,
 };
 
 /* =============================================================
@@ -16355,7 +16397,13 @@ function updateProjectiles(){
 					p._gravWellSpawned=true;
 					gravityWells.push({x:en.x+en.w/2,y:en.y+en.h/2,radius:120,life:FPS*2,age:0,color:p.color,power:p.power});
 				}
-				if(p.shape==='chain'&&p.chainHits<p.chainMax){p.chainHits++;p.hitTargets.add(en);let next=null,nd=Infinity;for(const e2 of getAllTargets()){if(e2===en||e2.dead||p.hitTargets.has(e2))continue;const dd2=dist(p.x,p.y,e2.x+e2.w/2,e2.y+e2.h/2);if(dd2<nd&&dd2<500){nd=dd2;next=e2;}}if(next){const ang=Math.atan2(next.y+next.h/2-p.y,next.x+next.w/2-p.x);const spd3=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;p.vx=Math.cos(ang)*spd3;p.vy=Math.sin(ang)*spd3;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));continue;}}
+				// Chain stun: applied whenever chain hits an enemy
+				if(p.shape==='chain'&&(p.phase.chainStunTime||0)>0){
+					const cs=Math.round(p.phase.chainStunTime*FPS);
+					en.stunTimer=Math.max(en.stunTimer,cs);
+					dmgNumbers.push({x:en.x+en.w/2,y:en.y-20,text:'⛓CHAINED',age:0,color:'#ffee44'});
+				}
+				if(p.shape==='chain'&&p.chainHits<p.chainMax){p.chainHits++;p.hitTargets.add(en);let next=null,nd=Infinity;for(const e2 of getAllTargets()){if(e2===en||e2.dead||p.hitTargets.has(e2))continue;const dd2=dist(p.x,p.y,e2.x+e2.w/2,e2.y+e2.h/2);if(dd2<nd&&dd2<500){nd=dd2;next=e2;}}if(next){p._chainPrevX=en.x+en.w/2;p._chainPrevY=en.y+en.h/2;const ang=Math.atan2(next.y+next.h/2-p.y,next.x+next.w/2-p.x);const spd3=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;p.vx=Math.cos(ang)*spd3;p.vy=Math.sin(ang)*spd3;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));continue;}}
 				if(PIERCE_SET.has(p.shape)){p.hitTargets.add(en);
 					/* Vortex: pull enemies toward center + damage over time */
 					if(p.shape==='vortex'){
@@ -16391,6 +16439,12 @@ function updateProjectiles(){
 					}
 				}
 				p.hasHit=true;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));
+				if(!p.phaseTriggered&&p.phase.nextTrigger==='afterHitDelay'&&p.phaseIdx+1<p.spell.phases.length){
+					p.phaseTriggered=true;p._afterHitDelayActive=true;
+					p._afterHitDelayTimer=Math.round((p.phase.nextTriggerDelay||0.5)*FPS);
+					p._afterHitX=en.x+en.w/2;p._afterHitY=en.y+en.h/2;
+					p.vx=0;p.vy=0; // freeze projectile at hit spot until delay fires
+				}
 				if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
 				break;
 			}
@@ -16525,22 +16579,34 @@ function updateProjectiles(){
 		/* Ground/platform collision in open-sky modes */
 		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&(IS_SANDBOX||IS_RAID||IS_OPENWORLD||IS_CITY||IS_OBSERVATORY||IS_DRAGONGRAVEYARD||(IS_BLACKSANDS&&p.y<=BLACKSANDS_CONFIG.groundY)||(IS_SYLVARIS&&p.y<=SYLVARIS_CONFIG.groundY)||(IS_STORMISLANDS&&p.y<=STORMISLANDS_CONFIG.groundY))){
 			let groundHit=false;
+			let groundHitNormalY=0; // -1=bounce up (floor/platform), 1=bounce down (ceiling)
 			// Ground collision
-			if(p.y>=GROUND_Y){ groundHit=true; p.y=GROUND_Y-1; }
+			if(p.y>=GROUND_Y){ groundHit=true; p.y=GROUND_Y-1; groundHitNormalY=-1; }
 			// Ceiling collision
 			const ceilY=IS_RAID?RAID_CONFIG.ceilY:0;
-			if(p.y<=ceilY){ groundHit=true; p.y=ceilY+1; }
+			if(p.y<=ceilY){ groundHit=true; p.y=ceilY+1; groundHitNormalY=1; }
 			// Platform collision
 			if(!groundHit){
 				for(const plat of sandboxPlatforms){
 					if(p.x>=plat.x&&p.x<=plat.x+plat.w&&p.y>=plat.y&&p.y<=plat.y+plat.h){
-						groundHit=true;break;
+						groundHit=true;groundHitNormalY=-1;break;
 					}
 				}
 			}
 			if(groundHit){
-				spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));p.hasHit=true;
-				if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
+				if(p.effects.includes('ricochet')&&(p._bounces||0)<5){
+					p._bounces=(p._bounces||0)+1;
+					if(groundHitNormalY<0) p.vy=-Math.abs(p.vy);
+					else if(groundHitNormalY>0) p.vy=Math.abs(p.vy);
+					else p.vy=-p.vy;
+					p.aimAngle=Math.atan2(p.vy,p.vx);
+					p.facing=p.vx>=0?1:-1;
+					spawnImpact(p.x,p.y,p.color);
+					p.hitTargets.clear(); // can re-hit after bounce
+				} else {
+					spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));p.hasHit=true;
+					if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
+				}
 			}
 		}
 		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD&&(!IS_BLACKSANDS||p.y>BLACKSANDS_CONFIG.groundY)&&(!IS_SYLVARIS||p.y>SYLVARIS_CONFIG.groundY)&&(!IS_STORMISLANDS||p.y>STORMISLANDS_CONFIG.groundY)){
@@ -16595,6 +16661,18 @@ function updateProjectiles(){
 			p.phaseTriggered=true;
 			if(p.phaseIdx+1<p.spell.phases.length){if(p.effects.includes('resetProjectiles')){spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);} else morphProjectile(p,p.phaseIdx+1);}
 		}
+		/* after hit delay trigger: count down and fire next phase at stored hit position */
+		if(p._afterHitDelayActive){
+			p._afterHitDelayTimer--;
+			if(p._afterHitDelayTimer<=0){
+				p._afterHitDelayActive=false;
+				if(p.phaseIdx+1<p.spell.phases.length){
+					const nx=p._afterHitX,ny=p._afterHitY;
+					if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,nx,ny,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot,nx,ny);
+					else morphProjectile(p,p.phaseIdx+1);
+				}
+			}
+		}
 		/* timed release */
 		if(!p.timedReleaseTriggered&&p.effects.includes('timedRelease')&&p.age>=p.timedReleaseDelay){p.timedReleaseTriggered=true;applyPlayerEffects(p);spawnImpact(p.x,p.y,p.color);}
 		/* phase fork */
@@ -16602,7 +16680,7 @@ function updateProjectiles(){
 			if(p.phaseForkCount<p.phaseForkRepeats&&p.age>=p.phaseForkNextAge){p.phaseForkCount++;p.phaseForkNextAge=p.age+p.phaseForkDelay;const dm=1/(1+p.phaseForkCount*0.3);spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,dm,p.isUltimate,p.castId,p.sourceSlot);spawnImpact(p.x,p.y,p.color);}}
 
 		/* expire */
-		const shouldRemove=!p._held&&(p.age>=p.maxAge||(p.hasHit&&!PIERCE_SET.has(p.shape)));
+		const shouldRemove=!p._held&&(p.age>=p.maxAge||(p.hasHit&&!PIERCE_SET.has(p.shape)&&!p._afterHitDelayActive));
 		if(shouldRemove){
 			/* Meteor: explode on expire/ground contact too */
 			if(p.shape==='meteor'&&!p._meteorExploded){
@@ -19763,11 +19841,10 @@ function chronoTryArenaSwitch(){
 	// Switch arena platforms/theme
 	switchChronoArena(targetStage);
 
-	// Restore relative positions
+	// Restore relative X, snap to floor Y for safety (avoids spawning inside new platforms)
 	player.x = CHRONO_RAID_CONFIG.arenaLeft + playerRelX * arenaW;
-	player.y = CHRONO_RAID_CONFIG.arenaTop + playerRelY * arenaH;
-	// Clamp player above floor
-	if(player.y + player.h > CHRONO_BOTTOM_Y) player.y = CHRONO_BOTTOM_Y - player.h;
+	player.x = Math.max(CHRONO_RAID_CONFIG.arenaLeft + 50, Math.min(CHRONO_RAID_CONFIG.arenaRight - 50 - player.w, player.x));
+	player.y = CHRONO_BOTTOM_Y - player.h;
 	player.vx = 0; player.vy = 0;
 	chronoBoss.x = CHRONO_RAID_CONFIG.arenaLeft + bossRelX * arenaW;
 	chronoBoss.y = CHRONO_RAID_CONFIG.arenaTop + bossRelY * arenaH;
@@ -26418,6 +26495,8 @@ function render(){
 		if(px<-500||px>canvas.width+500||py<-500||py>canvas.height+500)continue;
 		drawTrail(p);
 		ctx.fillStyle=p.color;ctx.strokeStyle=p.color;ctx.globalAlpha=0.9;
+		const _doRotate=p.effects&&p.effects.includes('rotate');
+		if(_doRotate){if(!p._rotAngle)p._rotAngle=0;p._rotAngle+=0.06;ctx.save();ctx.translate(px,py);ctx.rotate(p._rotAngle);ctx.translate(-px,-py);}
 		switch(p.shape){
 			case'allyOrb':{const r2=p.width*1.3;ctx.fillStyle='#44ff88';ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#aaffcc';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.5,0,Math.PI*2);ctx.fill();break;}
 			case'missile':case'orb':{const r2=p.shape==='orb'?p.width*1.3:p.width*0.7;ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();break;}
@@ -26429,7 +26508,34 @@ function render(){
 				else{ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);ctx.closePath();}
 				ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();break;}
 			case'nova':{const eR=progress*p.width*8;ctx.globalAlpha=0.25*(1-progress);ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.globalAlpha=0.6*(1-progress);ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.stroke();break;}
-			case'chain':{ctx.beginPath();ctx.arc(px,py,p.width*0.7,0,Math.PI*2);ctx.fill();break;}
+			case'chain':{
+				const cr=p.width*0.7;
+				// Draw chain links along path from last bounce point to current position
+				if(p._chainPrevX!==undefined){
+					const prevPx=p._chainPrevX-camera.x,prevPy=p._chainPrevY-camera.y;
+					const segDist=Math.hypot(px-prevPx,py-prevPy)||1;
+					const pathAng=Math.atan2(py-prevPy,px-prevPx);
+					const linkSpacing=cr*1.4;
+					const linkCount=Math.max(1,Math.floor(segDist/linkSpacing));
+					ctx.strokeStyle=p.color;ctx.lineWidth=2.5;ctx.globalAlpha=0.65;
+					for(let ci=0;ci<=linkCount;ci++){
+						const t=ci/Math.max(linkCount,1);
+						const lx=prevPx+(px-prevPx)*t,ly=prevPy+(py-prevPy)*t;
+						const linkAng=pathAng+(ci%2===0?0:Math.PI/2);
+						ctx.save();ctx.translate(lx,ly);ctx.rotate(linkAng);
+						ctx.beginPath();ctx.ellipse(0,0,cr*0.6,cr*0.35,0,0,Math.PI*2);ctx.stroke();
+						ctx.restore();
+					}
+				}
+				// Chain link at current projectile position
+				ctx.save();ctx.translate(px,py);
+				const chainAng=p.vx||p.vy?Math.atan2(p.vy,p.vx):0;
+				ctx.rotate(chainAng);
+				ctx.strokeStyle=p.color;ctx.lineWidth=3;ctx.globalAlpha=0.95;
+				ctx.beginPath();ctx.ellipse(0,0,cr*0.65,cr*0.40,0,0,Math.PI*2);ctx.stroke();
+				ctx.strokeStyle='#fff';ctx.lineWidth=1.2;ctx.globalAlpha=0.4;
+				ctx.beginPath();ctx.ellipse(0,0,cr*0.38,cr*0.22,0,0,Math.PI*2);ctx.stroke();
+				ctx.restore();break;}
 			case'wall':{const ww=p.width*2,wh=p.height*6;ctx.globalAlpha=0.45;ctx.fillRect(px-ww/2,py-wh/2,ww,wh);ctx.globalAlpha=0.7;ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.strokeRect(px-ww/2,py-wh/2,ww,wh);break;}
 			case'solidify':{const sw2=p.width*3,sh2=p.height*1.5;ctx.globalAlpha=0.7;ctx.fillRect(px-sw2/2,py-sh2/2,sw2,sh2);break;}
 			case'spike':{ctx.save();ctx.translate(px,py);const skA=Math.atan2(p.vy,p.vx);ctx.rotate(skA);const sk=Math.max(p.width,p.height)*0.9;ctx.beginPath();ctx.moveTo(sk*2,0);ctx.lineTo(-sk,-sk*0.8);ctx.lineTo(-sk*0.3,0);ctx.lineTo(-sk,sk*0.8);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.beginPath();ctx.moveTo(sk*1.5,0);ctx.lineTo(-sk*0.2,-sk*0.25);ctx.lineTo(-sk*0.2,sk*0.25);ctx.closePath();ctx.fill();ctx.restore();break;}
@@ -26521,6 +26627,7 @@ function render(){
 				ctx.restore();break;
 			}
 		}
+		if(_doRotate)ctx.restore();
 		ctx.globalAlpha=1;
 	}
 

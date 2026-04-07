@@ -640,6 +640,13 @@
 				</div>
 				<button id="resetQuestsBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#e74c3c;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Reset</button>
 			</div>
+			<div class="setting-row">
+				<div>
+					<div class="setting-label">💀 Reset All Progress</div>
+					<div class="setting-desc">Wipes everything: items, spells, equipment, XP, and story. Cannot be undone!</div>
+				</div>
+				<button id="resetAllProgressBtn" style="padding:6px 16px;border:none;border-radius:6px;background:#8b0000;color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">Reset All</button>
+			</div>
 			<button id="settingsClose">Close</button>
 		</div>
 	</div>
@@ -1011,6 +1018,14 @@
 				const stats = computeAndSyncQuestXp();
 				alert('Quest progress has been reset.\nXP: ' + stats.xp + ' | Rank: ' + stats.rankName);
 			}
+		});
+
+		document.getElementById('resetAllProgressBtn').addEventListener('click', () => {
+			if(!confirm('This will permanently delete ALL progress: items, spells, equipment, XP, quests, and story. This cannot be undone. Are you absolutely sure?')) return;
+			const keys = Object.keys(localStorage).filter(k => k.startsWith('magicBattle_'));
+			keys.forEach(k => localStorage.removeItem(k));
+			settingsOverlay.classList.remove('open');
+			alert('All progress has been reset. Refresh the page to start fresh.');
 		});
 
 		/* ============ WORLD MAP ============ */

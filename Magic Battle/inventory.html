@@ -630,6 +630,7 @@ const EFFECTS = {
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
 	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
 	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
+	rotate:       { label:'Rotate',      icon:'🔃', controlReq:1, manaCost:4, desc:'Spins the projectile around its own center as it travels', category:'utility', dmgNote:'' },
 };
 
 /* Effect category rules: 'exclusive' means only one per phase */
@@ -648,9 +649,10 @@ const TRAILS = ['none','sparkle','smoke','flame','ice','lightning'];
 
 /* -- Phase trigger (what starts NEXT phase) -- */
 const TRIGGERS = {
-	onHit:     { label:'On Hit',      desc:'Next phase starts when this one hits' },
-	afterDelay:{ label:'After Delay', desc:'Next phase starts after duration' },
-	onExpire:  { label:'On Expire',   desc:'Next phase starts when this one ends' },
+	onHit:          { label:'On Hit',          desc:'Next phase starts when this one hits' },
+	afterHitDelay:  { label:'After Hit Delay', desc:'Next phase starts at hit position after a customizable delay' },
+	afterDelay:     { label:'After Delay',     desc:'Next phase starts after duration' },
+	onExpire:       { label:'On Expire',       desc:'Next phase starts when this one ends' },
 };
 
 /* =============================================================
@@ -1057,6 +1059,7 @@ function makeDefaultSpell(){
 			phaseForkDelay:1, phaseForkRepeats:1,
 			aroundSelfCount:4, aroundSelfRadius:50,
 			chainStunTime:0,
+			nextTriggerDelay:0.5,
 			rainHeight:150,
 			effectPower:1, effectDuration:1,
 			randomDelayMax:0.5,
@@ -1301,13 +1304,16 @@ function calcSpellManaCost(spell){
 	let cost = 5;
 	for(const ph of spell.phases){
 		cost += (SHAPES[ph.shape]?.manaCost||0);
-		cost += (BEHAVIORS[ph.behavior]?.manaCost||0);
+		cost += (ph.behavior === 'aroundSelf'
+			? (BEHAVIORS[ph.behavior]?.manaCost||0) * (ph.aroundSelfCount || 4)
+			: (BEHAVIORS[ph.behavior]?.manaCost||0));
 		// power costs scale — count multiplies power cost (rain/barrage much cheaper)
 		const isAreaBeh = ph.behavior === 'rain' || ph.behavior === 'barrage';
-		const countMult = 1 + (ph.count - 1) * (isAreaBeh ? 0.1 : 0.4);
+		const effectiveCount = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : ph.count;
+		const countMult = 1 + (effectiveCount - 1) * (isAreaBeh ? 0.1 : 0.4);
 		const powerCost = ph.power * 50 * countMult;
 		cost += powerCost;
-		cost += (ph.count - 1) * (isAreaBeh ? 1 : 4);
+		cost += (effectiveCount - 1) * (isAreaBeh ? 1 : 4);
 		cost += (ph.width - 1) * 2;
 		cost += (ph.height - 1) * 2;
 		// chain stun costs significant mana
@@ -2631,6 +2637,12 @@ const BESTIARY_ENTRIES = [
 	{ id:'mummyWarrior',    name:'Mummy Warrior',      icon:'⚔️', hp:2200,  zone:'Desert Pyramid', boss:false },
 	{ id:'scarabSwarm',     name:'Scarab Swarm',       icon:'🪲', hp:1200,  zone:'Desert Pyramid', boss:false },
 	{ id:'sandstormDjinn',  name:'Sandstorm Djinn',    icon:'🌪️', hp:3000,  zone:'Desert Pyramid', boss:false },
+	// Floating Cathedral
+	{ id:'seraphel',        name:'Seraphel, the Severed Light', icon:'✨', hp:85000, zone:'Floating Cathedral', boss:true },
+	// The Void
+	{ id:'voidArbiter',    name:'The Void Arbiter',    icon:'🌀', hp:50000, zone:'The Void',       boss:true },
+	// Special / Secret
+	{ id:'infernalKitten', name:'Infernal Kitten',     icon:'🔥', hp:80000, zone:'???',            boss:true },
 ];
 
 function loadBestiary(){
@@ -4286,6 +4298,15 @@ function renderBuilder(){
 				html += `<option value="${k}" ${ph.nextTrigger===k?'selected':''}>${v.label}</option>`;
 			}
 			html += `</select></div>`;
+			// afterHitDelay: show delay slider
+			if(ph.nextTrigger === 'afterHitDelay'){
+				if(ph.nextTriggerDelay == null) ph.nextTriggerDelay = 0.5;
+				html += `<div class="prow"><label>Hit Delay: ${ph.nextTriggerDelay.toFixed(1)}s</label>
+					<div class="range-row">
+						<input type="range" min="0.1" max="4" step="0.1" value="${ph.nextTriggerDelay}" data-idx="${idx}" data-prop="nextTriggerDelay"/>
+						<span class="range-val">${ph.nextTriggerDelay.toFixed(1)}s</span>
+					</div></div>`;
+			}
 			// arrow between phases
 			html += `<div class="arrow-between">→</div>`;
 		}
@@ -4427,6 +4448,7 @@ function generateSpellDescription(spell){
 		if(i < spell.phases.length - 1){
 			const trig = ph.nextTrigger;
 			if(trig === 'onHit') s += ' On hit:';
+			else if(trig === 'afterHitDelay') s += ` After ${(ph.nextTriggerDelay||0.5).toFixed(1)}s at target:`;
 			else if(trig === 'afterDelay') s += ' After a moment:';
 			else if(trig === 'onExpire') s += ' When it fades:';
 		}
@@ -4453,8 +4475,12 @@ const pctx = previewCanvas.getContext('2d');
 
 function startPreview(){
 	stopPreview();
-	resizePreview();
-	previewRAF = requestAnimationFrame(previewLoop);
+	// Defer one tick so the modal is fully rendered before measuring canvas size
+	setTimeout(() => {
+		resizePreview();
+		previewTime = 0;
+		previewRAF = requestAnimationFrame(previewLoop);
+	}, 0);
 }
 function stopPreview(){ if(previewRAF){ cancelAnimationFrame(previewRAF); previewRAF = null; } }
 function resizePreview(){
