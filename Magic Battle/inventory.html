@@ -255,8 +255,8 @@ input,select{font-family:inherit}
 
 /* preview canvas */
 #spellPreview{
-	width:100%;height:180px;background:#0e0c1a;border:1px solid var(--border);
-	border-radius:8px;
+	width:100%;height:80px;background:#0e0c1a;border:1px solid var(--border);
+	border-radius:8px;display:block;
 }
 
 /* modal footer */
@@ -469,6 +469,7 @@ input,select{font-family:inherit}
 				<button class="dict-cat-btn" data-cat="domains" onclick="renderDictSection('domains')">⚡ Domains</button>
 				<button class="dict-cat-btn" data-cat="ultimates" onclick="renderDictSection('ultimates')">🌟 Ultimates</button>
 				<button class="dict-cat-btn" data-cat="phases" onclick="renderDictSection('phases')">🔗 Phases &amp; Triggers</button>
+			<button class="dict-cat-btn" data-cat="classes" onclick="renderDictSection('classes')">🧙 Classes</button>
 			</div>
 			<div id="dictContent" style="display:flex;flex-direction:column;gap:8px"></div>
 		</div>
@@ -612,7 +613,7 @@ const EFFECTS = {
 	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you', category:'movement', dmgNote:'' },
 	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump', category:'movement', dmgNote:'' },
 	horizontalLaunch:{ label:'H. Launch',icon:'💨', controlReq:2, manaCost:5, desc:'Launches target horizontally', category:'movement', dmgNote:'' },
-	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target', category:'elemental', dmgNote:'' },
+	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target (max ~0.3s, resistance stacks up quickly)', category:'elemental', dmgNote:'' },
 	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit', category:'support', dmgNote:'' },
 	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
 	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:6, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
@@ -626,7 +627,7 @@ const EFFECTS = {
 	damageHeal:   { label:'Dmg Heal',   icon:'💗', controlReq:3, manaCost:5, desc:'Ally Orb converts stored damage into health (50%)', category:'store', dmgNote:'' },
 	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:8, desc:'Destroys enemy projectiles and magic walls on contact', category:'utility', dmgNote:'' },
 	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Reduces enemy detection range temporarily', category:'cc', dmgNote:'' },
-	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'On kill, enemy explodes into damaging fragments', category:'elemental', dmgNote:'on-kill AoE' },
+	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'Spawns 12 crystal shards on every hit (5-frame cooldown). On enemy death, triggers a full 16-shard burst. Archmage: each shard cascades into 3 micro-shards.', category:'elemental', dmgNote:'on-hit shards + kill burst' },
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
 	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
 	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
@@ -677,6 +678,7 @@ const MAGE_CLASSES = [
 	{ id:'ranger',      name:'Ranger',       icon:'🏹', color:'#27ae60', desc:'Swift and precise. Spells gain massive range and deal more damage the farther they travel. Slightly reduced max HP.' },
 	{ id:'warrior',     name:'Warrior',      icon:'⚔️', color:'#f39c12', desc:'Close-range combat specialist. Bonus melee damage, reduced spell range. Press F for Spell Blade to reflect projectiles. Speed & defence buffed.' },
 	{ id:'healer',      name:'Healer',       icon:'💚', color:'#2ecc71', desc:'Masters of restoration. Incoming damage reduced. All positive effects on the player are strengthened.' },
+	{ id:'archmage',    name:'Archmage',     icon:'🔮', color:'#3498db', desc:'Elemental spell master. +5 Magic Control. Elemental spells deal +20% damage and gain powerful secondary effects based on their element: Burn reduces healing, Freeze locks enemy attacks, Poison escalates each tick, Stun triiples missile speed, Lifesteal increases to 30% and blinds enemies, Shatter spawns mini-shards. Summoned minions gain elemental behaviors.' },
 ];
 
 const SHAPE_RANK_REQ = {
@@ -1022,6 +1024,7 @@ function defaultPlayerState(){
 		mageRank: 0, // Starting rank — Novice
 		xp: 0, // XP toward next rank
 		mageClass: 'none', // current class specialization
+		mageClass2: 'none', // second class (from Dual Classes vow)
 		equipment: { staff:null, robe:null, relic1:null, relic2:null },
 		/* inventory: array of { itemId, qty } */
 		inventory: [
@@ -1094,6 +1097,7 @@ function loadState(){
 			if(s.mageRank == null) s.mageRank = 0;
 			if(s.xp == null) s.xp = 0;
 			if(!s.mageClass) s.mageClass = 'none';
+			if(!s.mageClass2) s.mageClass2 = 'none';
 			return s;
 		}
 	} catch(e){}
@@ -1167,6 +1171,7 @@ const VOW_BOOST_TYPES = {
 	spellVamp:  { label:'Spell Vamp',   icon:'🩸', desc:'+3% of spell damage returned as health per point (global)' },
 	thorns:     { label:'Thorns',       icon:'🌹', desc:'Return 8% of damage taken back to attackers per point (global)' },
 	manaEfficiency:{ label:'Mana Efficiency',icon:'💎', desc:'-2.5% mana cost on ALL spells per point (global, half of per-slot manaCost)' },
+	dualClass:     { label:'Dual Class',     icon:'👤', desc:'Unlock a second mage class (costs 15 pts). Choose your class below.', binary:true },
 };
 
 /* Domain Vow boost types — special buffs only available in the 4th (domain) vow slot */
@@ -1270,8 +1275,13 @@ function calcVowPoints(vow, vowIdx){
 function calcVowSpent(vow){
 	if(!vow) return 0;
 	let spent = 0;
-	if(vow.boostAmount != null) spent += vow.boostAmount;
-	else if(vow.boosts){ for(const k in vow.boosts) spent+=vow.boosts[k]; }
+	if(vow.boostType === 'dualClass'){
+		spent += vow.secondClass ? 15 : 0;
+	} else if(vow.boostAmount != null){
+		spent += vow.boostAmount;
+	} else if(vow.boosts){
+		for(const k in vow.boosts) spent+=vow.boosts[k];
+	}
 	/* Each vow unlock costs 5 points */
 	if(vow.vowUnlocks) spent += vow.vowUnlocks.length * 5;
 	return spent;
@@ -1334,7 +1344,7 @@ function calcSpellManaCost(spell){
 			cost += (ph.phaseForkRepeats || 1) * 35;
 		}
 	}
-	cost *= (0.6 + spell.phases.length * 0.4);
+	cost *= (0.5 + spell.phases.length * 0.25);
 	return Math.round(cost);
 }
 
@@ -1703,7 +1713,7 @@ const DICT_EFFECT_DETAILS = {
 	pull:      { phaseNote:'Pulls target toward you (opposite of knockback).', extraNote:'' },
 	forceJump: { phaseNote:'Forces the target to jump upward.', extraNote:'' },
 	horizontalLaunch:{ phaseNote:'Launches target horizontally. Strength multiplier: ×0.75.', extraNote:'Reduced from ×1.5 to ×0.75' },
-	stun:      { phaseNote:'Briefly stuns target (prevents movement and attacks). Enemies build stun resistance — each stun is 15% shorter. Domain element: matching grants +50% damage.', extraNote:'Resistance: −15% duration per consecutive stun' },
+	stun:      { phaseNote:'Briefly stuns the target (prevents movement and attacks). Max ~0.3 seconds — cannot permanently stun an enemy. Enemies build stun resistance with each hit (−25% duration per stack, min 10%). Resistance gradually decays every ~2 seconds when the enemy is not being stunned. Domain element: matching grants +50% damage.', extraNote:'Max: ~0.3s | Resistance: −25% per stun, min 10% | Decay: −1 stack every 2s of no stun' },
 	healSelf:  { phaseNote:'Heals you on each hit.', extraNote:'' },
 	shield:    { phaseNote:'Provides a temporary defence boost on hit.', extraNote:'' },
 	lifesteal: { phaseNote:'Heals you for 20% of damage dealt. Domain element: matching grants +50% damage.', extraNote:'Heal: 20% of damage dealt' },
@@ -1717,10 +1727,11 @@ const DICT_EFFECT_DETAILS = {
 	damageHeal:{ phaseNote:'Ally Orb shape + Damage Heal converts 50% of stored damage into healing.', extraNote:'Requires Ally Orb shape' },
 	dispel:    { phaseNote:'Destroys enemy projectiles and magic walls on contact. Compares power — can block projectiles up to its own power level.', extraNote:'Mana cost: 25 (highest of all effects)' },
 	blind:     { phaseNote:'Reduces enemy detection range temporarily, causing them to lose track of the player.', extraNote:'' },
-	shatter:   { phaseNote:'When killing an enemy, the corpse explodes into damaging fragments that hit nearby enemies.', extraNote:'On-kill AoE' },
+	shatter:   { phaseNote:'Spawns 12 damaging crystal shard projectiles on each enemy hit (5-frame internal cooldown). When the enemy dies, an enhanced 16-shard burst erupts from the corpse. <b>Archmage bonus:</b> each shard itself cascades — when a shard hits an enemy, 3 additional micro-shards spawn, creating a chain reaction of crystal fragments.', extraNote:'On-hit: 12 shards (5-frame cd) | On-death: 16-shard burst | Archmage: +3 micro-shards per shard hit' },
 	mark:      { phaseNote:'Tags an enemy — all attacks deal +30% bonus damage to marked targets for 3 seconds.', extraNote:'+30% damage debuff for 3s' },
 	gravityWell:{ phaseNote:'Creates a gravitational pull zone around the impact point for 2 seconds, pulling enemies inward.', extraNote:'2 second duration' },
 	ricochet:  { phaseNote:'Bounces off walls up to 5 times. Works with homing, lob, and other behaviors.', extraNote:'Max 5 bounces' },
+	rotate:    { phaseNote:'The projectile spins around its own center axis as it travels. Visual effect only — does not affect hitbox, trajectory, or damage. Combine with any shape for aesthetic flair.', extraNote:'Cosmetic rotation — no gameplay impact' },
 };
 
 function rankName(idx){
@@ -1743,6 +1754,180 @@ function renderDictSection(cat){
 	else if(cat === 'domains')   el.innerHTML = renderDictDomains();
 	else if(cat === 'ultimates') el.innerHTML = renderDictUltimates();
 	else if(cat === 'phases')    el.innerHTML = renderDictPhases();
+	else if(cat === 'classes')   el.innerHTML = renderDictClasses();
+}
+
+/* ---------- CLASSES ---------- */
+function renderDictClasses(){
+	let html = '<div class="dict-section-title">\ud83e\uddd9 Mage Classes</div>';
+	html += '<p class="dict-detail">Your class is chosen in the <b>Stats</b> tab. Classes grant permanent passive bonuses affecting specific shapes, behaviors, or effects. A class can be changed at any time; it affects all spells you cast.</p>';
+	html += '<p class="dict-detail"><b style="color:#ffcc44">\ud83d\udc64 Dual Class:</b> Use a <b>Vow Enhancement</b> of type "Dual Class" (costs 15 Vow Points) to unlock a second mage class. Both classes\' full bonuses apply simultaneously. Only one Dual Class vow is allowed at a time.</p>';
+
+	const classInfo = [
+		{
+			id:'none', icon:'\u26aa', color:'#aaaaaa', name:'Unspecialized',
+			overview:'No specialization. A balanced mage with no bonuses or penalties. Full access to all spell tiers and no trade-offs — ideal for experimenting.',
+			general:[], shapes:[], behaviors:[], effects:[]
+		},
+		{
+			id:'necromancer', icon:'\ud83d\udc80', color:'#8e44ad', name:'Necromancer',
+			overview:'Masters of death magic. Summon spells are completely transformed — instead of generic minions, you raise defeated enemies from your Bestiary as powerful undead servants.',
+			general:[
+				'Summon shape raises actual defeated enemies from the Bestiary as undead minions',
+				'Each summon costs your full current mana at cast time',
+				'Maximum 3 necro-summons active simultaneously',
+				'Bestiary enemies must be defeated first before they can be raised'
+			],
+			shapes:[
+				{ name:'Summon \ud83d\udc7e', note:'Raises a random defeated enemy from Bestiary. Inherits the enemy\'s full stats, scaled to your power. Max 3 active at once. Costs all current mana.' },
+				{ name:'Domain (Summon shape)', note:'Raises 3 strong defeated enemies from the Bestiary over the domain\'s full duration. Standard domain behavior otherwise.' }
+			],
+			behaviors:[], effects:[]
+		},
+		{
+			id:'dominion', icon:'\ud83d\udc41\ufe0f', color:'#e74c3c', name:'Dominion Master',
+			overview:'Controllers of the battlefield. Massively amplifies Domain Expansion — wider zones and increased sub-phase damage. The strongest domain user in any class combo.',
+			general:[
+				'+30% Domain radius (larger zone covering more area)',
+				'+40% damage to all domain sub-phase projectiles',
+				'Domain Vow enhancements are further amplified'
+			],
+			shapes:[],
+			behaviors:[
+				{ name:'Domain \u26a1', note:'+30% domain radius AND +40% sub-phase damage. "Same" domain shape\'s +30% player damage buff stacks on top for +70% total on all spells while active.' }
+			],
+			effects:[]
+		},
+		{
+			id:'ranger', icon:'\ud83c\udfb9', color:'#27ae60', name:'Ranger',
+			overview:'Swift and precise. All projectile spells scale in damage the further they travel before hitting a target. Excellent synergy with slow, long-range builds.',
+			general:[
+				'All spells deal increasing damage with distance traveled (up to ~+60%)',
+				'Slightly reduced max HP as a trade-off',
+				'Works on every non-domain, non-summon projectile'
+			],
+			shapes:[
+				{ name:'Meteor \u2604\ufe0f', note:'BEST SYNERGY: Meteor already has its own distance-damage scaling (+200% max). Ranger\'s bonus stacks on top \u2014 the further the meteor falls, the more extreme the multiplier.' }
+			],
+			behaviors:[
+				{ name:'Straight \ud83d\udcab', note:'BEST SYNERGY: Fire at maximum range for full Ranger distance bonus. Aim away from yourself for maximum travel.' },
+				{ name:'Rain \ud83c\udf27\ufe0f', note:'Good synergy \u2014 rain projectiles fall the full vertical height of the screen before landing, accumulating distance the whole way down.' },
+				{ name:'Homing \ud83c\udfe0', note:'ANTI-SYNERGY: Homing locks onto nearby enemies, minimizing travel distance and negating most of the Ranger bonus. Prefer Straight for Ranger builds.' },
+				{ name:'Orbit \ud83d\udd04', note:'Moderate synergy \u2014 orbit projectiles circle you then launch outward, gaining partial distance bonus once released.' }
+			],
+			effects:[]
+		},
+		{
+			id:'warrior', icon:'\u2694\ufe0f', color:'#f39c12', name:'Warrior',
+			overview:'Close-range combat specialist. Gains massive damage at melee distance but loses power at range. Excels at physical combos and point-blank spell bursts.',
+			general:[
+				'Significant damage bonus at melee range',
+				'Significant damage penalty at long range',
+				'F key: activates Spell Blade (deals melee damage + reflects nearby enemy projectiles)',
+				'Increased movement speed and base defense',
+				'Blade Combo deals bonus melee damage in close range'
+			],
+			shapes:[
+				{ name:'Chain \u26d3\ufe0f', note:'Chain stun synergizes with Warrior melee follow-up \u2014 chain an enemy then press F for Spell Blade while they\'re stunned.' }
+			],
+			behaviors:[
+				{ name:'Underfoot \ud83d\udc63', note:'BEST SYNERGY: Spawns directly at your feet \u2014 always in melee range, always at full Warrior damage bonus.' },
+				{ name:'Orbit \ud83d\udd04', note:'Great synergy \u2014 orbit circles your position at melee range the entire time, dealing full melee bonus with every pass.' },
+				{ name:'Straight \ud83d\udcab', note:'Good synergy when fired point-blank at nearby enemies.' },
+				{ name:'Rain \ud83c\udf27\ufe0f', note:'ANTI-SYNERGY: Rain falls from above \u2014 long travel distance means it lands at reduced Warrior damage.' }
+			],
+			effects:[
+				{ name:'Pull \ud83e\udde2', note:'BEST SYNERGY: Pulls enemies toward you, directly into melee range for maximum Warrior damage bonus.' },
+				{ name:'Knockback \ud83d\udca8', note:'ANTI-SYNERGY: Sends enemies away from you \u2014 contradicts Warrior\'s melee strength. Avoid on Warrior builds.' }
+			]
+		},
+		{
+			id:'healer', icon:'\ud83d\udc9a', color:'#2ecc71', name:'Healer',
+			overview:'Masters of restoration. Incoming damage is reduced and all healing mechanics are amplified. Ideal for survival-focused or support-style play.',
+			general:[
+				'Incoming damage significantly reduced',
+				'HealSelf effect heals for more per hit',
+				'Lifesteal percentage increased (above the standard 20%)'
+			],
+			shapes:[
+				{ name:'Ally Orb \ud83d\udc9a', note:'BEST SYNERGY: Ally Orb\'s healing projectiles benefit directly from Healer amplification. Use with Damage Heal for massive stored-damage healing bursts.' }
+			],
+			behaviors:[
+				{ name:'Beam \u26a1', note:'Great synergy with HealSelf \u2014 beam hits multiple times per second, each hit triggering the amplified heal for sustained recovery.' }
+			],
+			effects:[
+				{ name:'HealSelf \ud83d\udc9a', note:'Amplified beyond the base heal. Best with multi-hit spells (Beam, Orbit) for continuous healing.' },
+				{ name:'Lifesteal \ud83e\ude78', note:'Increased steal rate. Makes aggressive play self-sustaining.' },
+				{ name:'DamageHeal \ud83d\udc97', note:'Converts stored damage to health (50% efficiency + Healer bonus). Use with Damage Store \u2192 Damage Heal chain.' }
+			]
+		},
+		{
+			id:'archmage', icon:'\ud83d\udd2e', color:'#3498db', name:'Archmage',
+			overview:'Elemental spell master. Gains +5 Magic Control (unlocking high-tier effects sooner) and +20% damage on all elemental spells. Each elemental effect gains a unique secondary bonus.',
+			general:[
+				'+5 Magic Control \u2014 access to higher-tier effects earlier than other classes',
+				'+20% damage on spells with Burn, Freeze, Poison, Stun, Lifesteal, or Shatter',
+				'Summoned minions inherit elemental behaviors from the spell\'s effect type',
+				'Archmage elemental bonuses apply even on a secondary (Dual Class) slot'
+			],
+			shapes:[
+				{ name:'Summon \ud83d\udc7e', note:'ARCHMAGE: Minions gain elemental behaviors matching the summon spell\'s effect \u2014 burn minions apply burn DoT, freeze minions slow enemies, poison minions escalate ticks, etc.' }
+			],
+			behaviors:[],
+			effects:[
+				{ name:'Burn \ud83d\udd25', note:'ARCHMAGE: Burning enemies also receive a <b>heal-block</b> debuff \u2014 they cannot regenerate HP or be healed while the burn DoT is active.' },
+				{ name:'Freeze \u2744\ufe0f', note:'ARCHMAGE: Frozen/slowed enemies have their attack ability <b>locked</b> \u2014 they cannot fire projectiles or make contact-attack triggers while frozen.' },
+				{ name:'Poison \u2620\ufe0f', note:'ARCHMAGE: Each poison DoT tick <b>escalates by +15%</b> \u2014 early ticks deal light damage, but sustained poison becomes exponentially deadlier over time.' },
+				{ name:'Stun \u26a1', note:'ARCHMAGE: Stun highlights the enemy. Brief burst of +speed on the stun source projectile. Note: stun durations are intentionally short to prevent permanent crowd-control.' },
+				{ name:'Lifesteal \ud83e\ude78', note:'ARCHMAGE: Lifesteal rate increases from 20% \u2192 <b>30%</b>. Additionally, any enemy you steal life from is also <b>blinded</b>, reducing their detection range.' },
+				{ name:'Shatter \ud83d\udc8e', note:'ARCHMAGE: Each shard projectile spawned by Shatter will, when it hits an enemy, <b>cascade into 3 additional micro-shards</b>. One shatter hit can become a chain reaction of crystal explosions across a group of enemies.' }
+			]
+		}
+	];
+
+	for(const c of classInfo){
+		const cls = MAGE_CLASSES.find(m=>m.id===c.id);
+		if(!cls) continue;
+		html += '<div class="dict-card">';
+		html += '<h4 style="color:'+cls.color+'">'+cls.icon+' '+cls.name+'</h4>';
+		html += '<p class="dict-detail">'+cls.desc+'</p>';
+		html += '<p class="dict-detail"><em>'+c.overview+'</em></p>';
+		if(c.general.length){
+			html += '<ul style="margin:4px 0 6px 18px;font-size:12px;color:var(--fg)">';
+			for(const g of c.general) html += '<li>'+g+'</li>';
+			html += '</ul>';
+		}
+		const sections=[
+			{label:'Shape Interactions', items:c.shapes},
+			{label:'Behavior Interactions', items:c.behaviors},
+			{label:'Effect Interactions', items:c.effects}
+		];
+		for(const sec of sections){
+			if(!sec.items.length) continue;
+			html += '<div style="margin-top:5px"><b style="font-size:12px;color:var(--accent2)">'+sec.label+':</b></div>';
+			html += '<ul style="margin:3px 0 4px 18px;font-size:12px;color:var(--muted)">';
+			for(const item of sec.items) html += '<li><b style="color:'+cls.color+'">'+item.name+'</b> \u2014 '+item.note+'</li>';
+			html += '</ul>';
+		}
+		html += '</div>';
+	}
+
+	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">\ud83d\udc64 Dual Class System</div>';
+	html += '<div class="dict-card">';
+	html += '<p class="dict-detail">Assign a <b>Vow Enhancement</b> of type "Dual Class" (costs <b>15 Vow Points</b>) to unlock a second mage class. Both your primary and secondary class bonuses activate simultaneously for every spell cast.</p>';
+	html += '<p class="dict-detail"><b>Setup:</b> Open any Vow slot \u2192 choose a sacrifice \u2192 select "Dual Class" as the Enhancement type \u2192 pick your secondary class. You need at least 15 Vow Points after your sacrifice to afford it.</p>';
+	html += '<p class="dict-detail"><b style="color:#ffcc44">Limit:</b> Only ONE Dual Class enhancement is allowed across all vow slots at a time.</p>';
+	html += '<div style="margin-top:5px"><b style="font-size:12px;color:var(--accent2)">Powerful Combinations:</b></div>';
+	html += '<ul style="margin:3px 0 4px 18px;font-size:12px;color:var(--muted)">';
+	html += '<li><b style="color:#3498db">\ud83d\udd2e Archmage</b> + <b style="color:#27ae60">\ud83c\udfb9 Ranger</b> \u2014 Elemental +20% damage AND distance scaling stack. Long-range elemental casts deal maximum damage.</li>';
+	html += '<li><b style="color:#8e44ad">\ud83d\udc80 Necromancer</b> + <b style="color:#3498db">\ud83d\udd2e Archmage</b> \u2014 Necro-summons raised from Bestiary AND those minions gain Archmage elemental behaviors.</li>';
+	html += '<li><b style="color:#f39c12">\u2694\ufe0f Warrior</b> + <b style="color:#27ae60">\ud83c\udfb9 Ranger</b> \u2014 Maximum damage at both melee and max range. High risk/reward build with two distance extremes.</li>';
+	html += '<li><b style="color:#e74c3c">\ud83d\udc41\ufe0f Dominion</b> + <b style="color:#3498db">\ud83d\udd2e Archmage</b> \u2014 +30%/+40% domain bonuses combined with elemental +20%. Massive domain DPS for ultimate spam.</li>';
+	html += '<li><b style="color:#2ecc71">\ud83d\udc9a Healer</b> + <b style="color:#3498db">\ud83d\udd2e Archmage</b> \u2014 Archmage boosts Lifesteal rate further on top of Healer\'s own Lifesteal amplification, plus heal-block on burning targets.</li>';
+	html += '</ul>';
+	html += '</div>';
+
+	return html;
 }
 
 /* ---------- SHAPES ---------- */
@@ -2890,10 +3075,20 @@ function renderVowSlots(){
 			const spent = calcVowSpent(v);
 			const sacLabel = v.sacrifice === 'spellSlot'
 				? `🔒 Slots: ${(v.slots||[]).map(s=>s===9?'Ult':(s+1)).join(',')}`
-				: v.sacrifice === 'health' ? `❤️ -${v.amount} HP` : `💧 -${v.amount} Mana`;
+				: v.sacrifice === 'health' ? `❤️ -${v.amount}% HP`
+				: v.sacrifice === 'maxMana' ? `💧 -${v.amount} Mana`
+				: v.sacrifice === 'effects' ? `✨ ${(v.sacrificedEffects||[]).length} effects`
+				: v.sacrifice === 'shapes' ? `⬡ ${(v.sacrificedShapes||[]).length} shapes`
+				: v.sacrifice === 'movement' ? `🐢 -${v.amount}% Spd`
+				: v.sacrifice === 'visibility' ? `🌫️ -${v.amount}% Vision`
+				: v.sacrifice === 'items' ? `🎒 ${(v.sacrificedItemSlots||[]).length} items`
+				: `${v.sacrifice}`;
 			const targetLabel = v.targetSlot===9?'⚡Ult':`Spell ${(v.targetSlot||0)+1}`;
 			let boostLabel = '';
-			if(v.boostType != null){
+			if(v.boostType === 'dualClass'){
+				const sc = MAGE_CLASSES.find(c=>c.id===v.secondClass);
+				boostLabel = sc ? `👤 ${sc.icon} ${sc.name}` : '👤 (choose class)';
+			} else if(v.boostType != null){
 				const info = VOW_BOOST_TYPES[v.boostType];
 				boostLabel = `${info?info.icon:''} ${info?info.label:v.boostType} ×${v.boostAmount||0}`;
 				if(v.sizeBonus) boostLabel += ' 🎨+50%sz';
@@ -2997,9 +3192,9 @@ function renderVowEditor(){
 		}
 	}
 
-	// Target spell slot selector
+	// Target spell slot selector (not applicable for dualClass boost)
 	const globalBoosts = new Set(['maxHealth','jumpHeight','playerSpeed','defense','elementalDmg','critChance','spellVamp','thorns','manaEfficiency']);
-	const isGlobal = globalBoosts.has(v.boostType);
+	const isGlobal = globalBoosts.has(v.boostType) || v.boostType === 'dualClass';
 	if(!isGlobal){
 		html += `<div style="font-size:13px;color:var(--muted);margin-bottom:2px">Target Spell (boosts apply to this spell only):</div>`;
 		html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">`;
@@ -3132,8 +3327,8 @@ function renderVowEditor(){
 	html += `<div style="font-size:13px;color:#ffcc44;padding:6px 0;border-top:1px solid var(--border)">
 		Vow Points: <strong>${spent}</strong> / <strong>${pts}</strong> available (${remaining} remaining)</div>`;
 
-	// Single Boost Type Selection (pick ONE)
-	html += `<div style="font-size:12px;color:var(--muted);margin-bottom:2px">Choose ONE boost type to enhance:</div>`;
+	// Enhancement: pick ONE boost type
+	html += `<div style="font-size:12px;color:var(--muted);margin-bottom:2px">Choose ONE enhancement:</div>`;
 	html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">`;
 	for(const [k,info] of Object.entries(VOW_BOOST_TYPES)){
 		const sel = v.boostType === k;
@@ -3141,8 +3336,23 @@ function renderVowEditor(){
 	}
 	html += `</div>`;
 
-	// Boost amount (all points into the chosen type)
-	if(v.boostType){
+	// Dual Class enhancement: class picker
+	if(v.boostType === 'dualClass'){
+		const primaryClass2 = STATE.mageClass || 'none';
+		html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Choose your second class (costs 15 pts):</div>`;
+		html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+		for(const cls of MAGE_CLASSES){
+			if(cls.id === 'none' || cls.id === primaryClass2) continue;
+			const isSelected = v.secondClass === cls.id;
+			html += `<div class="fx-chip ${isSelected?'active':''}" data-secondclass="${cls.id}" style="cursor:pointer;padding:6px 12px;font-size:12px;border-color:${cls.color}" title="${cls.desc}">${cls.icon} ${cls.name}</div>`;
+		}
+		html += `</div>`;
+		if(v.secondClass){
+			const sc2 = MAGE_CLASSES.find(c=>c.id===v.secondClass);
+			if(sc2) html += `<div style="font-size:11px;color:${sc2.color};margin-top:6px">${sc2.icon} <strong>${sc2.name}</strong> selected — ${sc2.desc}</div>`;
+		}
+	} else if(v.boostType){
+		// Boost amount (all points into the chosen type)
 		const info = VOW_BOOST_TYPES[v.boostType];
 		const amt = v.boostAmount || 0;
 		html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
@@ -3297,6 +3507,7 @@ function renderVowEditor(){
 		el.addEventListener('click', () => {
 			vowEditor.boostType = el.dataset.boosttype;
 			if(vowEditor.boostType !== 'power') vowEditor.sizeBonus = false;
+			if(vowEditor.boostType !== 'dualClass') delete vowEditor.secondClass;
 			renderVowEditor();
 		});
 	});
@@ -3317,6 +3528,14 @@ function renderVowEditor(){
 			vowEditor.sizeBonus = sizeEl.checked;
 		});
 	}
+
+	// Second class selection (for dualClass enhancement)
+	document.querySelectorAll('#vowModalBody [data-secondclass]').forEach(el => {
+		el.addEventListener('click', () => {
+			vowEditor.secondClass = el.dataset.secondclass;
+			renderVowEditor();
+		});
+	});
 
 	// Vow unlock toggles (5pts each to unlock item-gated abilities)
 	document.querySelectorAll('#vowModalBody [data-vowunlock]').forEach(el => {
@@ -3743,11 +3962,30 @@ function handleVowSave(){
 		const pts = calcVowPoints(vowEditor, editingVowSlot);
 		const spent = calcVowSpent(vowEditor);
 		if(spent > pts){ alert('Not enough vow points! Remove some boosts or sacrifice more.'); return; }
+		// Dual class enhancement: require a second class to be chosen
+		if(vowEditor.boostType === 'dualClass' && !vowEditor.secondClass){
+			alert('Please choose a second class for the Dual Class enhancement.'); return;
+		}
+		// Enforce only one dualClass boost across all slots
+		if(vowEditor.boostType === 'dualClass'){
+			for(let i=0; i<STATE.vows.length; i++){
+				if(i===editingVowSlot) continue;
+				if(STATE.vows[i] && STATE.vows[i].boostType === 'dualClass'){
+					alert('You can only use Dual Class in one vow at a time.'); return;
+				}
+			}
+		}
 		if(vowEditor.boosts) delete vowEditor.boosts;
-		if(vowEditor.boostType == null) vowEditor.boostType = 'power';
-		if(vowEditor.boostAmount == null) vowEditor.boostAmount = 0;
-		if(vowEditor.sizeBonus == null) vowEditor.sizeBonus = false;
+		// For non-dualClass, apply default boost fields
+		if(vowEditor.boostType !== 'dualClass'){
+			if(vowEditor.boostType == null) vowEditor.boostType = 'power';
+			if(vowEditor.boostAmount == null) vowEditor.boostAmount = 0;
+			if(vowEditor.sizeBonus == null) vowEditor.sizeBonus = false;
+		}
 		STATE.vows[editingVowSlot] = vowEditor;
+		// Sync mageClass2 from active dual class boost
+		const dualVow = STATE.vows.find(v => v && v.boostType === 'dualClass' && v.secondClass);
+		STATE.mageClass2 = dualVow ? dualVow.secondClass : 'none';
 		saveState();
 		renderVowSlots();
 		renderSpellSlots();
@@ -3763,6 +4001,9 @@ function handleVowClear(){
 		document.getElementById('vowModal').style.display='none';
 	} else {
 		STATE.vows[editingVowSlot] = null;
+		// Sync mageClass2 after clearing
+		const dualVow = STATE.vows.find(v => v && v.boostType === 'dualClass' && v.secondClass);
+		STATE.mageClass2 = dualVow ? dualVow.secondClass : 'none';
 		saveState();
 		renderVowSlots();
 		renderSpellSlots();
@@ -3789,7 +4030,7 @@ function newPhase(){
 		chainStunTime:0,
 		rainHeight:150,
 		groundRadius:200, groundAutoLock:true,
-		summonRange:0, summonHealth:0, summonSpeed:0, summonClose:false,
+		summonRange:0, summonHealth:0, summonSpeed:0, summonClose:false, summonSelfReliance:false,
 		effectPower:1, effectDuration:1,
 		randomDelayMax:0.5,
 		afterHitEffect:'none', polygonSides:6,
@@ -4128,16 +4369,21 @@ function renderBuilder(){
 			if(ph.summonRange==null) ph.summonRange = 0;
 			if(ph.summonHealth==null) ph.summonHealth = 0;
 			if(ph.summonSpeed==null) ph.summonSpeed = 0;
+			if(ph.summonSelfReliance==null) ph.summonSelfReliance = false;
 			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Summon Upgrades</label></div>`;
 			html += `<div class="prow"><label>+Range: ${ph.summonRange} (${600+ph.summonRange*100}px)</label>
 				<input type="range" min="0" max="10" step="1" value="${ph.summonRange}" data-idx="${idx}" data-prop="summonRange"/></div>`;
 			html += `<div class="prow"><label>+Health: ${ph.summonHealth} (${40+ph.summonHealth*10} HP)</label>
 				<input type="range" min="0" max="10" step="1" value="${ph.summonHealth}" data-idx="${idx}" data-prop="summonHealth"/></div>`;
-			html += `<div class="prow"><label>+Speed: ${ph.summonSpeed} (${(2.5+ph.summonSpeed*0.5).toFixed(1)})</label>
+			html += `<div class="prow"><label>+Speed: ${ph.summonSpeed} (${(1.0+ph.summonSpeed*0.5).toFixed(1)})</label>
 				<input type="range" min="0" max="10" step="1" value="${ph.summonSpeed}" data-idx="${idx}" data-prop="summonSpeed"/></div>`;
 			html += `<div class="prow"><label>Close Range</label><select data-idx="${idx}" data-prop="summonClose">
 				<option value="false" ${!ph.summonClose?'selected':''}>No — stay at range</option>
 				<option value="true" ${ph.summonClose?'selected':''}>Yes — rush enemies</option>
+			</select></div>`;
+			html += `<div class="prow"><label>Self Reliance</label><select data-idx="${idx}" data-prop="summonSelfReliance">
+				<option value="false" ${!ph.summonSelfReliance?'selected':''}>No — follow cursor</option>
+				<option value="true" ${ph.summonSelfReliance?'selected':''}>Yes — auto-target enemies</option>
 			</select></div>`;
 		}
 		} // end if(!isDomainPhase)

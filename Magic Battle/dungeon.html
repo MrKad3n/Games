@@ -515,11 +515,20 @@ if(!playerData.spellBoosts) playerData.spellBoosts = new Array(10).fill(1.0);
 if(playerData.mageRank == null) playerData.mageRank = 0;
 if(playerData.xp == null) playerData.xp = 0;
 if(!playerData.mageClass) playerData.mageClass = 'none';
+if(!playerData.mageClass2) playerData.mageClass2 = 'none';
 /* --- Ensure equipment object exists (migration for saves predating equipment feature) --- */
 if(!playerData.equipment) playerData.equipment = {staff:null,robe:null,relic1:null,relic2:null};
 
 /* Active mage class for quick access */
 const activeMageClass = playerData.mageClass || 'none';
+/* Second class — derive from vow data or fallback to persisted mageClass2 */
+{
+	const _dcVow = playerData.vows && playerData.vows.find(v => v && v.boostType === 'dualClass' && v.secondClass);
+	if(_dcVow) playerData.mageClass2 = _dcVow.secondClass;
+}
+const activeMageClass2 = playerData.mageClass2 || 'none';
+/* Helper: returns true if the player has a given class (either primary or secondary) */
+function hasClass(cls){ return activeMageClass===cls || activeMageClass2===cls; }
 
 /* =============================================================
    MAGE RANK SYSTEM
@@ -735,7 +744,9 @@ function computeStats(){
 		for(const k in ITEM_DB[id].stats)s[k]=(s[k]||0)+ITEM_DB[id].stats[k];
 	}
 	// Warrior class: +10 defence
-	if(activeMageClass === 'warrior') s.magicDefence = (s.magicDefence||0) + 10;
+	if(hasClass('warrior')) s.magicDefence = (s.magicDefence||0) + 10;
+	// Archmage class: +5 magic control
+	if(hasClass('archmage')) s.magicControl = (s.magicControl||0) + 5;
 	return s;
 }
 const stats=computeStats();
@@ -4110,7 +4121,7 @@ addEventListener('keydown', e => {
 	// F key — class ability
 	if(e.key.toLowerCase() === 'f'){
 		// Ranger teleport
-		if(activeMageClass === 'ranger' && rangerTP.cooldown <= 0){
+		if(hasClass('ranger') && rangerTP.cooldown <= 0){
 			const worldMX = mouseScreenX + camera.x;
 			const worldMY = mouseScreenY + camera.y;
 			// Save old position for ghost afterimage
@@ -4181,7 +4192,7 @@ addEventListener('keydown', e => {
 	
 	// B key — Lightstep Blade backstep anchor teleport
 	if(e.key.toLowerCase() === 'b'){
-		if(activeMageClass === 'warrior' && playerData.equipment.staff === 'lightstep_blade' && lightAnchors.length > 0){
+		if(hasClass('warrior') && playerData.equipment.staff === 'lightstep_blade' && lightAnchors.length > 0){
 			const anchor = lightAnchors.pop();
 			// Ghost afterimage at old position
 			rangerTP.ghostX = player.x;
@@ -4285,7 +4296,7 @@ const player = {
 	x: playerSpawn.x, y: playerSpawn.y,
 	w: 38, h: 56,
 	vx: 0, vy: 0, launchVx: 0,
-	speed: activeMageClass === 'warrior' ? 7.5 : 7.0,
+	speed: hasClass('warrior') ? (hasClass('ranger') ? 7.8 : 7.5) : (hasClass('ranger') ? 7.2 : 7.0),
 	jumpPow: -20,
 	onGround: false,
 	facing: 1,
@@ -4325,7 +4336,7 @@ function spawnTelegraph(x, y, w, h, duration, color, type, label){
 }
 
 /* Player health — flat 500 base + vow bonuses + defence grants health buff */
-const rangerHpMult = activeMageClass === 'ranger' ? 0.85 : 1;
+const rangerHpMult = (hasClass('ranger') && !hasClass('warrior')) ? 0.85 : 1;
 const defHealthBonus = Math.round(stats.magicDefence * 6);
 const baseHp = 500 + defHealthBonus;
 const healthBoostPct = vowMaxHealthBonus / 100; // percent-based increase
@@ -4457,6 +4468,8 @@ function selectNecroSummon(index){
 		necroFlies:entry.flies,
 		spellCooldowns: (ENEMY_TYPES[entry.id] && ENEMY_TYPES[entry.id].spells) ? ENEMY_TYPES[entry.id].spells.map(() => Math.round(FPS*1.5)) : [],
 		onGround:false,
+		// Archmage dual-class: player-selected necro summons inherit elemental behaviors from the original spell
+		archmageElement: hasClass('archmage') ? (ns.effects && ns.effects[0] ? ns.effects[0] : null) : null,
 	};
 	playerMinions.push(necroMinion);
 	dmgNumbers.push({x:ns.x,y:ns.y-20,text:`💀 ${entry.name} Risen!`,age:0,color:'#8e44ad'});
@@ -8685,6 +8698,7 @@ const playerMinions = [];
 
 /* --- Gravity wells (from gravityWell effect) --- */
 const gravityWells = [];
+const groundFlames = []; // Archmage burn-summon death flames
 
 /* =============================================================
    ENEMY TYPE DEFINITIONS
@@ -9380,6 +9394,7 @@ if(_dummyCfg){
 			vx: 0, vy: 0,
 			dead: false,
 			deathTimer: 0,
+			isDummy: true,
 		});
 		dummyDmgAccum.push([]);
 	}
@@ -10805,7 +10820,7 @@ function updateWarriorSlashes(){
 				dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:dmg+'⚔️',age:0,color:s.color});
 				spawnImpact(en.x+en.w/2, en.y+en.h/2, s.color);
 				if(s.type === 'bladeCombo'){
-					{const sr=en._stunResist||0;en.stunTimer=(en.stunTimer||0)+Math.round(15*Math.max(0.2,1-sr*0.15));en._stunResist=sr+1;}
+					{const sr=en._stunResist||0;en.stunTimer=Math.max(en.stunTimer||0,Math.min(20,Math.round(8*Math.max(0.1,1-sr*0.25))));en._stunResist=sr+1;}
 				}
 			}
 		}
@@ -11254,7 +11269,7 @@ function castSpell(){
 		player.castTimer=12; player.castColor=spell.phases[0]?.color||'#4488ff';
 		const castId=nextCastId++;spellHitCounts[castId]=0;
 		const ox=player.x+player.w/2, oy=player.y+player.h/2-6;
-		if(activeMageClass==='warrior' && !hasClassDisable(spell)){
+		if(hasClass('warrior') && !hasClassDisable(spell)){
 			spawnWarriorMelee(spell, spell.phases[0].shape||'missile', spell.phases[0].behavior||'straight', player.facing, castId, activeSlot, ox, oy, undefined);
 		} else {
 			spawnPhase(spell,0,ox,oy,player.facing,undefined,undefined,castId,activeSlot);
@@ -11274,7 +11289,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	// DOMAIN EXPANSION: spawn domain zone instead of projectiles
 	if(ph.behavior==='domain' && phaseIdx===0){
 		// Dominion Master class: +30% domain range
-		const domainSizeMult = activeMageClass === 'dominion' ? 1.3 : 1.0;
+		const domainSizeMult = hasClass('dominion') ? 1.3 : 1.0;
 		// Domain Vow: +12% range per point
 		const dvRangeMult = 1 + (domainVowBuffs.domainRange || 0) * 0.12;
 		// Domain sacrifice: reduce range
@@ -11368,7 +11383,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		}
 
 		// Necromancer domain: summon 3 strong enemies over the domain's duration (only with summon shape)
-		if(activeMageClass === 'necromancer' && domainShapeEffect === 'summon'){
+		if(hasClass('necromancer') && domainShapeEffect === 'summon'){
 			let bestiary = {};
 			try{ const raw = localStorage.getItem('magicBattle_bestiary'); if(raw) bestiary = JSON.parse(raw); }catch(e){}
 			const strongIds = [];
@@ -11436,7 +11451,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	const vowSizeBonus=vb._sizeBonus?1.5:1;
 	// Class-based range modifier: Ranger +60%, Warrior -40% (disabled by classDisable effect)
 	const spellHasClassDisable = spell.phases.some(p2 => p2.effects && p2.effects.includes('classDisable'));
-	const classRangeMult = spellHasClassDisable ? 1 : (activeMageClass === 'ranger' ? 1.6 : activeMageClass === 'warrior' ? 0.6 : 1);
+	const classRangeMult = spellHasClassDisable ? 1 : (hasClass('ranger') && hasClass('warrior') ? 1.1 : hasClass('ranger') ? 1.6 : hasClass('warrior') ? 0.6 : 1);
 	// Damage release size bonus
 	const releaseSizeMult=(ph.effects&&ph.effects.includes('damageRelease')&&damageStored>0)?(1+damageStored/1000):1;
 
@@ -11592,6 +11607,8 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 							detectRange: et.detectRange||400,
 							moveSpeed: et.moveSpeed||1.5,
 							spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*1.5)) : [],
+							// Archmage dual-class: necro summons inherit elemental behaviors
+							archmageElement: hasClass('archmage') ? (proj.effects && proj.effects[0] ? proj.effects[0] : null) : null,
 						});
 						dmgNumbers.push({x:proj.x,y:proj.y-20,text:`💀 ${et.name}`,age:0,color:'#8e44ad'});
 					}
@@ -11612,8 +11629,10 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 				};
 				continue;
 			}
+			const _smW = Math.max(14, Math.round(20 + (ph.width-1)*18));
+			const _smH = Math.max(14, Math.round(20 + (ph.height-1)*18));
 			playerMinions.push({
-				x:proj.x, y:proj.y, w:20, h:20,
+				x:proj.x, y:proj.y, w:_smW, h:_smH,
 				vx:0, vy:0,
 				color:proj.color,
 				spell:spell, phaseIdx:phaseIdx,
@@ -11623,14 +11642,22 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 				isUltimate:proj.isUltimate,
 				power:proj.power,
 				hp:20+(ph.summonHealth||0)*5, maxHp:20+(ph.summonHealth||0)*5,
-				age:0, maxAge:proj.maxAge*2,
+				age:0, maxAge:proj.maxAge*3,
 				fireTimer:0, fireCooldown:Math.round(FPS*2.5),
 				target:null, animTimer:0,
 				detectRange:600+(ph.summonRange||0)*100,
-				moveSpeed:2.5+(ph.summonSpeed||0)*0.5,
+				moveSpeed:1.0+(ph.summonSpeed||0)*0.5,
 				summonClose:!!ph.summonClose,
+				selfReliance:!!ph.summonSelfReliance,
+				// Archmage: tag summon with elemental variant based on first effect
+				archmageElement: hasClass('archmage') ? (proj.effects && proj.effects[0] ? proj.effects[0] : null) : null,
 			});
 			continue;
+		}
+		// Archmage stun: triple projectile speed for missile/orb/spike shapes
+		if(hasClass('archmage') && proj.effects && proj.effects.includes('stun') && (proj.shape==='missile'||proj.shape==='orb'||proj.shape==='spike')){
+			proj.vx *= 3;
+			proj.vy *= 3;
 		}
 		projectiles.push(proj);
 	}
@@ -16384,8 +16411,9 @@ function updateProjectiles(){
 				const homingMult=p.behavior==='homing'?0.5:1;
 				const lobMult=p.behavior==='lob'?1.25:1; // lob: 25% damage bonus
 				const orbitMult=p.behavior==='orbit'?0.7:1; // orbit: 30% damage reduction
-				const rainMult=p.behavior==='rain'?1.5:1; // rain: 50% damage bonus
-				const barrageMult=p.behavior==='barrage'?1.35:1; // barrage: 35% damage bonus
+				// rain/barrage bonus only on first phase — prevents multi-phase/phaseFork exploit
+				const rainMult=(p.behavior==='rain'&&p.phaseIdx===0)?1.5:1; // rain: 50% damage bonus
+				const barrageMult=(p.behavior==='barrage'&&p.phaseIdx===0)?1.35:1; // barrage: 35% damage bonus
 				const hitNum=(p.castId>=0&&spellHitCounts[p.castId]!=null)?spellHitCounts[p.castId]++:0;
 				const dimMult=p._fromDomain?1:1/(1+hitNum*0.04); // no diminishing for domain; halved for others (was 0.08)
 				const beamMult=p.shape==='beam'?0.65:1; // beam: less harsh penalty (was 0.5)
@@ -16403,24 +16431,24 @@ function updateProjectiles(){
 				if(p.shape==='meteor'){const md=Math.hypot(p.x-p.startX,p.y-p.startY);meteorDistMult=1+Math.min(md/300,2.0);}
 				// Meteor: 25% base damage nerf
 				const meteorNerf=p.shape==='meteor'?0.75:1;
-				// Spread damage bonus: +0.25% per degree of spread per projectile
+				// Spread damage bonus: capped at +20% at 180° spread (not affected by count)
 				let spreadMult=1;
-				if(p.phase&&p.phase.spread>0&&p.phase.count>1){spreadMult=1+(p.phase.spread*0.0025*p.phase.count);}
+				if(p.phase&&(p.phase.spread||0)>0&&p.phase.count>1){spreadMult=1+Math.min(0.2,(p.phase.spread/180)*0.2);}
 				// Item equipment boost: multiplier from equipped items matching spell components
 				const itemBoost=getItemBoostForSlot(p.sourceSlot);
 				// === MAGE CLASS DAMAGE MULTIPLIERS ===
 				const pClassDisabled = p.effects.includes('classDisable');
 				// Dominion Master: domain projectiles deal +40% damage
-				const dominionMult = (!pClassDisabled && activeMageClass === 'dominion' && p._fromDomain) ? 1.4 : 1;
+				const dominionMult = (!pClassDisabled && hasClass('dominion') && p._fromDomain) ? 1.4 : 1;
 				// Ranger: damage scales with distance from player — up to +80% at 800px+
 				let rangerDistMult = 1;
-				if(!pClassDisabled && activeMageClass === 'ranger'){
+				if(!pClassDisabled && hasClass('ranger')){
 					const rd = Math.hypot(p.x-(player.x+player.w/2), p.y-(player.y+player.h/2));
 					rangerDistMult = 1 + Math.min(rd / 1000, 0.8);
 				}
 				// Warrior: +50% damage when enemy is within 200px of player (disabled by classDisable)
 				let warriorMeleeMult = 1;
-				if(!pClassDisabled && activeMageClass === 'warrior'){
+				if(!pClassDisabled && hasClass('warrior')){
 					const wd = Math.hypot(en.x+en.w/2-(player.x+player.w/2), en.y+en.h/2-(player.y+player.h/2));
 					if(wd < 200) warriorMeleeMult = 1.5;
 					else if(wd < 350) warriorMeleeMult = 1.2;
@@ -16429,14 +16457,21 @@ function updateProjectiles(){
 				const domSameDmgMult = (activeDomain && activeDomain._sameBuff) ? 1.3 : 1;
 				// Domain Vow: player spell damage buff
 				const domVowPlayerPow = getDomainPlayerPowerMult();
+				// Archmage: +20% elemental damage
+				let archmageElemMult = 1;
+				if(!pClassDisabled && hasClass('archmage') && p.effects && p.effects.some(fx => ['burn','freeze','poison','stun','lifesteal','shatter'].includes(fx))){
+					archmageElemMult = 1.2;
+				}
 				// Summon projectiles: flat scaling only (no class/domain/item stacking)
 				const rawDmg = p.isSummonProj
-					? p.power * 3.5 * elemMult * phaseMult * meteorNerf * spreadMult
-					: p.power*8*homingMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*domSameDmgMult*domVowPlayerPow;
+					? p.power * 4.375 * elemMult * phaseMult * meteorNerf * spreadMult
+					: p.power*8*homingMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*archmageElemMult*domSameDmgMult*domVowPlayerPow;
 				let dotSteal=0;
 				if(p.effects.includes('burn'))dotSteal=0.15;
 				if(p.effects.includes('poison'))dotSteal=0.1;
 				let baseDmg=rawDmg*(1-dotSteal);
+				/* NOVA: 25% less damage because it has large area */
+				if(p.shape==='nova') baseDmg*=0.75;
 				// Chrono Tyrant immunity: must defeat summoned arena boss first
 				if(IS_CHRONORAID && en === chronoBoss && chronoBoss.domainActive && chronoBoss.domainSummoned.some(s => !s.dead)){
 					en.flash=4;
@@ -16459,9 +16494,20 @@ function updateProjectiles(){
 					en._shatterPhW=p.phase?.width||1;
 					en._shatterPhH=p.phase?.height||1;
 					if(!(en._shatterCooldown>0)){
-						en._shatterCooldown=15;
-						spawnShatterShards(en.x+en.w/2,en.y+en.h/2,p.color,p.power,p.phase?.width||1,p.phase?.height||1,false,en);
+						// Sandbox dummies: no cooldown (shatter every hit); live enemies: 5-frame cooldown
+						en._shatterCooldown = (IS_SANDBOX && en.isDummy) ? 0 : 5;
+						const _shatArch=!p.archmageShatter&&!p.isSummonProj&&!pClassDisabled&&hasClass('archmage');
+						spawnShatterShards(en.x+en.w/2,en.y+en.h/2,p.color,p.power,p.phase?.width||1,p.phase?.height||1,false,en,_shatArch);
 					}
+				}
+				// Archmage shatter cascade: each shard projectile spawns 3 micro-shards on hit
+				if(p.archmageShatter){
+					const _msx=en.x+en.w/2,_msy=en.y+en.h/2;
+					for(let _mi=0;_mi<3;_mi++){
+						const _ma=Math.random()*Math.PI*2,_ms=10+Math.random()*6;
+						projectiles.push({spell:{phases:[]},phaseIdx:0,phase:{effects:[],width:0.4,height:0.4,speed:1,duration:0.2},x:_msx,y:_msy,vx:Math.cos(_ma)*_ms,vy:Math.sin(_ma)*_ms-1,facing:Math.cos(_ma)>=0?1:-1,age:0,maxAge:Math.round(FPS*0.28),width:5,height:5,power:p.power*0.5,color:p.color,trail:'sparkle',shape:'spike',behavior:'straight',effects:[],trailParts:[],orbitAngle:0,orbitRadius:0,orbitSpeed:0,orbitDur:0,orbitOriginX:0,orbitOriginY:0,startX:_msx,startY:_msy,beamLen:0,beamAngle:0,chainHits:0,chainMax:0,hasHit:false,phaseTriggered:true,hitTargets:new Set([en]),aimAngle:_ma,timedReleaseDelay:0,timedReleaseTriggered:true,phaseForkDelay:0,phaseForkRepeats:0,phaseForkCount:0,phaseForkNextAge:9999,isSolidPlatform:false,isUltimate:false,castId:-1,sourceSlot:-1,randomDelay:0,afterHitEffect:'none',polygonSides:6,rotAngle:_ma,rotSpeed:0.3});
+					}
+					dmgNumbers.push({x:en.x+en.w/2,y:en.y-20,text:'\ud83d\udc8e\u2728',age:0,color:p.color});
 				}
 				/* GRAVITY WELL: spawn a pull zone at impact point */
 				if(p.effects.includes('gravityWell')&&!p._gravWellSpawned){
@@ -16470,11 +16516,35 @@ function updateProjectiles(){
 				}
 				// Chain stun: applied whenever chain hits an enemy
 				if(p.shape==='chain'&&(p.phase.chainStunTime||0)>0){
-					const cs=Math.round(p.phase.chainStunTime*FPS);
+					const cs=Math.min(25,Math.round(p.phase.chainStunTime*FPS));
 					en.stunTimer=Math.max(en.stunTimer,cs);
 					dmgNumbers.push({x:en.x+en.w/2,y:en.y-20,text:'⛓CHAINED',age:0,color:'#ffee44'});
 				}
-				if(p.shape==='chain'&&p.chainHits<p.chainMax){p.chainHits++;p.hitTargets.add(en);let next=null,nd=Infinity;for(const e2 of getAllTargets()){if(e2===en||e2.dead||p.hitTargets.has(e2))continue;const dd2=dist(p.x,p.y,e2.x+e2.w/2,e2.y+e2.h/2);if(dd2<nd&&dd2<500){nd=dd2;next=e2;}}if(next){p._chainPrevX=en.x+en.w/2;p._chainPrevY=en.y+en.h/2;const ang=Math.atan2(next.y+next.h/2-p.y,next.x+next.w/2-p.x);const spd3=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;p.vx=Math.cos(ang)*spd3;p.vy=Math.sin(ang)*spd3;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));continue;}}
+				if(p.shape==='chain'&&p.chainHits<p.chainMax){p.chainHits++;p.hitTargets.add(en);let next=null,nd=Infinity;for(const e2 of getAllTargets()){if(e2===en||e2.dead||p.hitTargets.has(e2))continue;const dd2=dist(p.x,p.y,e2.x+e2.w/2,e2.y+e2.h/2);if(dd2<nd&&dd2<500){nd=dd2;next=e2;}}if(next){p._chainPrevX=en.x+en.w/2;p._chainPrevY=en.y+en.h/2;const ang=Math.atan2(next.y+next.h/2-p.y,next.x+next.w/2-p.x);const spd3=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;p.vx=Math.cos(ang)*spd3;p.vy=Math.sin(ang)*spd3;p.aimAngle=ang;p.facing=p.vx>=0?1:-1;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));continue;}}
+				/* RICOCHET (enemy-to-enemy): bounce toward nearest unhit enemy after impact, like chain but for any non-pierce shape */
+				if(p.effects.includes('ricochet')&&!PIERCE_SET.has(p.shape)&&!p.returning&&!(p._ricBounces>=5)){
+					const _isMP=p.spell&&p.spell.phases.length>1;
+					let _rNext=null,_rNd=Infinity;
+					for(const _e2 of getAllTargets()){
+						if(_e2===en||_e2.dead||p.hitTargets.has(_e2))continue;
+						const _ex=_e2.x+_e2.w/2,_ey=_e2.y+_e2.h/2;
+						const _dd2=dist(p.x,p.y,_ex,_ey);
+						if(_dd2>=_rNd||_dd2>650)continue;
+						if(!_isMP&&IS_DUNGEON&&!basicLoS(p.x,p.y,_ex,_ey))continue;
+						_rNd=_dd2;_rNext=_e2;
+					}
+					if(_rNext){
+						p._ricBounces=(p._ricBounces||0)+1;
+						p.hitTargets.add(en);
+						const _rAng=Math.atan2(_rNext.y+_rNext.h/2-p.y,_rNext.x+_rNext.w/2-p.x);
+						const _rSpd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||8;
+						p.vx=Math.cos(_rAng)*_rSpd;p.vy=Math.sin(_rAng)*_rSpd;
+						p.aimAngle=_rAng;p.facing=p.vx>=0?1:-1;
+						spawnImpact(p.x,p.y,p.color);
+						if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));
+						continue;
+					}
+				}
 				if(PIERCE_SET.has(p.shape)){p.hitTargets.add(en);
 					/* Vortex: pull enemies toward center + damage over time */
 					if(p.shape==='vortex'){
@@ -16771,6 +16841,38 @@ function updateProjectiles(){
 				}
 			}
 			if(!p.phaseTriggered&&p.phase.nextTrigger==='onExpire'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles')){spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);projectiles.splice(i,1);}else{morphProjectile(p,p.phaseIdx+1);}continue;}
+			// Archmage shatter shard expiry cascade: when a shard times out, split into 2 new shards
+			if(p.archmageShatter && !p._cascaded && p.age>=p.maxAge){
+				for(let _ci=0;_ci<2;_ci++){
+					const _ca=Math.random()*Math.PI*2, _cs=7+Math.random()*5;
+					projectiles.push({
+						x:p.x, y:p.y, vx:Math.cos(_ca)*_cs, vy:Math.sin(_ca)*_cs,
+						age:0, maxAge:Math.round(FPS*0.35), gravity:0,
+						shape:'spike', width:p.width||6, height:p.height||6,
+						color:p.color, power:p.power*0.6, effects:[],
+						spell:p.spell, phase:p.phase, phaseIdx:p.phaseIdx,
+						sourceSlot:p.sourceSlot, castId:p.castId, facing:Math.cos(_ca)>=0?1:-1,
+						isUltimate:p.isUltimate,
+						hasHit:false, phaseTriggered:true,
+						hitTargets:new Set(),
+						archmageShatter:false, _cascaded:true,
+						_afterHitDelayActive:false,
+						trailParts:[], trail:'sparkle',
+						orbitAngle:0, orbitRadius:0, orbitSpeed:0, orbitDur:0,
+						orbitOriginX:0, orbitOriginY:0,
+						startX:p.x, startY:p.y,
+						beamLen:0, beamAngle:0,
+						chainHits:0, chainMax:0,
+						aimAngle:_ca,
+						timedReleaseDelay:0, timedReleaseTriggered:true,
+						phaseForkDelay:0, phaseForkRepeats:0, phaseForkCount:0, phaseForkNextAge:9999,
+						isSolidPlatform:false, randomDelay:0,
+						afterHitEffect:'none', polygonSides:6,
+						rotAngle:_ca, rotSpeed:0.25,
+						behavior:'straight',
+					});
+				}
+			}
 			projectiles.splice(i,1);continue;
 		}
 		if(p.x<-100||p.x>WORLD_W+100||p.y<-600||p.y>WORLD_H+100)projectiles.splice(i,1);
@@ -17115,7 +17217,7 @@ function damagePlayer(amount,effects){
 	if(player.iFrames>0)return;
 	const vowDefMult = Math.max(0.3, 1 - vowDefenseBonus * 0.05);
 	// Healer class: 20% damage reduction
-	const healerMult = activeMageClass === 'healer' ? 0.8 : 1;
+	const healerMult = hasClass('healer') ? 0.8 : 1;
 	// Same-shape domain: 35% damage reduction
 	const domSameDefMult = (activeDomain && activeDomain._sameBuff) ? 0.65 : 1;
 	// Domain vow: defense reduces incoming damage, enemy power hubris increases it
@@ -17367,7 +17469,7 @@ function applyPlayerEffects(proj){
 	const ePow=proj.phase.effectPower||1;
 	const eDur=proj.phase.effectDuration||1;
 	// Healer class: +40% potency and duration on positive effects
-	const healerBoost = activeMageClass === 'healer' ? 1.4 : 1;
+	const healerBoost = hasClass('healer') ? 1.4 : 1;
 	for(const fx of proj.effects){
 		switch(fx){
 			case'healSelf':{
@@ -17415,14 +17517,41 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 	const vowFxMult=1+_vb2.effects*0.15; // vow effect power boost
 	const ePow=(proj.phase.effectPower||1)*vowFxMult;
 	const eDur=(proj.phase.effectDuration||1)*vowFxMult;
+	const isArchmage = !!(proj.effects && !proj.effects.includes('classDisable') && hasClass('archmage'));
 	for(const fx of proj.effects){
 		switch(fx){
-			case'burn':{if(rawDmg){const stolen=rawDmg*0.15;const tks=Math.round(5*eDur*ultMult);en.dots.push({type:'burn',dmg:stolen/tks,ticks:tks,interval:60,timer:0,color:'#ff6a00'});}break;}
-			case'poison':{if(rawDmg){const stolen=rawDmg*0.1;const tks=Math.round(6*eDur*ultMult);en.dots.push({type:'poison',dmg:stolen/tks,ticks:tks,interval:75,timer:0,color:'#44dd44'});}break;}
-			case'freeze':en.slowTimer=Math.max(en.slowTimer,Math.round(90*eDur*ultMult));en.flash=15;break;
+			case'burn':{
+				if(rawDmg){
+					const stolen=rawDmg*(isArchmage?0.22:0.15); // archmage: stronger burn
+					const tks=Math.round(5*eDur*ultMult);
+					en.dots.push({type:'burn',dmg:stolen/tks,ticks:tks,interval:60,timer:0,color:isArchmage?'#ff2200':'#ff6a00'});
+					if(isArchmage) en._amHealBlock=Math.round(120*eDur*ultMult); // block healing
+				}
+				break;
+			}
+			case'poison':{
+				if(rawDmg){
+					const stolen=rawDmg*0.1;const tks=Math.round(6*eDur*ultMult);
+					const dot={type:'poison',dmg:stolen/tks,ticks:tks,interval:75,timer:0,color:'#44dd44'};
+					if(isArchmage) dot.escalate=true; // archmage: each tick grows in damage
+					en.dots.push(dot);
+				}
+				break;
+			}
+			case'freeze':{
+				en.slowTimer=Math.max(en.slowTimer,Math.round(90*eDur*ultMult));en.flash=15;
+				// Archmage: extend all enemy spell cooldowns while frozen
+				if(isArchmage && en.spellCooldowns){
+					for(let _si=0;_si<en.spellCooldowns.length;_si++){
+						en.spellCooldowns[_si]=Math.max(en.spellCooldowns[_si],Math.round(90*eDur*ultMult));
+					}
+					en._amFreezeExtend=Math.round(90*eDur*ultMult);
+				}
+				break;
+			}
 			case'knockback':en.x+=proj.facing*40*ePow*ultMult;break;
 			case'pull':{const dx2=player.x+player.w/2-(en.x+en.w/2);const dy2=player.y+player.h/2-(en.y+en.h/2);const d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;en.x+=dx2/d2*50*ePow*ultMult;en.y+=dy2/d2*30*ePow*ultMult;break;}
-			case'stun':{const sr=en._stunResist||0;const sd=Math.round(60*eDur*ultMult*Math.max(0.2,1-sr*0.15));en.stunTimer=Math.max(en.stunTimer,sd);en._stunResist=sr+1;break;}
+			case'stun':{const sr=en._stunResist||0;const sd=Math.min(30,Math.round(18*eDur*ultMult*Math.max(0.1,1-sr*0.25)));en.stunTimer=Math.max(en.stunTimer,sd);en._stunResist=sr+1;break;}
 			case'horizontalLaunch':{const launchPow=proj.facing*(proj.power*0.75*ePow);player.vx=launchPow;dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:proj.isUltimate?'⚡ MEGA LAUNCH!':'LAUNCHED!',age:0,color:'#ff8800'});break;}
 			case'forceJump':{const _fjPow2=proj.phase?.power||1;en.y-=Math.min(300,40+_fjPow2*15)*ultMult;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:'🚀 Launched!',age:0,color:'#ff8800'});break;}
 			case'lifesteal':{
@@ -17431,11 +17560,14 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 					dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:'⏪ REWOUND',age:0,color:'#ff4466'});
 					break;
 				}
-				const lsAmt=Math.round(rawDmg*0.2*ePow*ultMult);
+				// Archmage: lifesteal heals 30% and reduces enemy vision
+				const lsRate = isArchmage ? 0.30 : 0.20;
+				const lsAmt=Math.round(rawDmg*lsRate*ePow*ultMult);
 				if(lsAmt>0){
 					health=Math.min(maxHealth,health+lsAmt);
 					updateHealthHUD();
-					dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:'+'+lsAmt,age:0,color:'#bb44ff'});
+					dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:'+'+lsAmt,age:0,color:isArchmage?'#cc44ff':'#bb44ff'});
+					if(isArchmage) en._amVisionReduce=Math.round(120*eDur*ultMult); // reduce enemy detect range
 				}
 				break;
 			}
@@ -17447,13 +17579,25 @@ function applyEnemyHitEffects(proj,en,rawDmg){
    PARTICLES / IMPACT
    ============================================================= */
 function hexToRgb(hex){return{r:parseInt(hex.slice(1,3),16)||100,g:parseInt(hex.slice(3,5),16)||150,b:parseInt(hex.slice(5,7),16)||255};}
+/* Tile line-of-sight check: returns true if no solid tiles obstruct the path (only in IS_DUNGEON) */
+function basicLoS(x1, y1, x2, y2){
+	if(!IS_DUNGEON) return true;
+	const dx=x2-x1, dy=y2-y1;
+	const steps=Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/(TILE*0.5));
+	if(steps===0) return true;
+	for(let i=1;i<steps;i++){
+		if(isSolid(Math.floor((x1+dx*i/steps)/TILE),Math.floor((y1+dy*i/steps)/TILE))) return false;
+	}
+	return true;
+}
+
 /* SHATTER — spawn crystal shards flying outward from impact point */
-function spawnShatterShards(cx, cy, color, spellPow, phWidth, phHeight, isBurst, excludeEn){
+function spawnShatterShards(cx, cy, color, spellPow, phWidth, phHeight, isBurst, excludeEn, isArchmage){
 	const shardCount = isBurst ? 16 : 12;
 	const baseSpeed = isBurst ? 14 : 10;
 	const sW = Math.max(8, Math.min(40, Math.round((phWidth||1) * 6)));
 	const sH = Math.max(8, Math.min(40, Math.round((phHeight||1) * 6)));
-	const shardPow = spellPow * (isBurst ? 0.25 : 0.12);
+	const shardPow = spellPow * (isBurst ? 0.12 : 0.05);
 	for(let si = 0; si < shardCount; si++){
 		const sa = si * Math.PI*2/shardCount + (Math.random()-0.5)*0.7;
 		const sSpd = baseSpeed + Math.random() * 8;
@@ -17470,6 +17614,7 @@ function spawnShatterShards(cx, cy, color, spellPow, phWidth, phHeight, isBurst,
 			effects:[], trailParts:[], orbitAngle:0, orbitRadius:0, orbitSpeed:0, orbitDur:0,
 			orbitOriginX:0, orbitOriginY:0, startX:cx, startY:cy,
 			beamLen:0, beamAngle:0, chainHits:0, chainMax:0,
+			archmageShatter:!!isArchmage,
 			hasHit:false, phaseTriggered:true,
 			hitTargets:new Set(excludeEn ? [excludeEn] : []),
 			aimAngle:sa,
@@ -17539,6 +17684,30 @@ function updateGravityWells(){
 				const strength=3*(1-d/gw.radius)*(1-gw.age/gw.life);
 				en.x+=dx/d*strength; en.y+=dy/d*strength;
 			}
+		}
+	}
+}
+
+/* Ground flames — left by archmage burn summons on death/expire */
+function updateGroundFlames(){
+	for(let i=groundFlames.length-1;i>=0;i--){
+		const gf=groundFlames[i];
+		gf.age++;
+		if(gf.age>=gf.life){groundFlames.splice(i,1);continue;}
+		// Every 25 frames burn any enemy standing in the flame
+		if(gf.age%25===0){
+			for(const en of getAllTargets()){
+				if(en.dead)continue;
+				const dd=Math.hypot(en.x+en.w/2-gf.x, en.y+en.h/2-gf.y);
+				if(dd<gf.radius){
+					en.dots.push({type:'burn',dmg:gf.power,ticks:3,interval:30,timer:0,color:'#ff3300'});
+					spawnImpact(gf.x+(Math.random()-0.5)*gf.radius*0.8, gf.y+(Math.random()-0.5)*gf.radius*0.4, '#ff4400');
+				}
+			}
+		}
+		// Occasional flame particles
+		if(Math.random()<0.25){
+			particles.push({x:gf.x+(Math.random()-0.5)*gf.radius,y:gf.y+(Math.random()-0.5)*gf.radius*0.4,vx:(Math.random()-0.5)*1.2,vy:-1.5-Math.random()*2,life:20+Math.random()*20|0,maxLife:40,r:3+Math.random()*4,color:{r:255,g:80+(Math.random()*120|0),b:0}});
 		}
 	}
 }
@@ -17903,7 +18072,7 @@ function updateCaptainDuel(){
 				for(const eff of p.effects){
 					if(eff === 'burn' || eff.type === 'burn') c.dots.push({dmg:3,interval:30,ticks:3,timer:0,color:'#ff4400'});
 					if(eff === 'freeze' || eff.type === 'freeze') c.slowTimer = Math.max(c.slowTimer, 60);
-					if(eff === 'stun' || eff.type === 'stun'){const sr=c._stunResist||0;c.stunTimer=Math.max(c.stunTimer,Math.round(30*Math.max(0.2,1-sr*0.15)));c._stunResist=sr+1;}
+					if(eff === 'stun' || eff.type === 'stun'){const sr=c._stunResist||0;c.stunTimer=Math.max(c.stunTimer,Math.min(20,Math.round(12*Math.max(0.1,1-sr*0.25))));c._stunResist=sr+1;}
 				}
 			}
 			if(!p.pierce){
@@ -20316,12 +20485,17 @@ function updateEnemies(){
 		if(en.stunTimer>0)en.stunTimer--;
 		if(en.slowTimer>0)en.slowTimer--;
 		if(en._shatterCooldown>0)en._shatterCooldown--;
+		if(en._stunResist>0&&!(en.stunTimer>0)&&en.animTimer%120===0)en._stunResist=Math.max(0,en._stunResist-1);
+		if(en._amHealBlock>0)en._amHealBlock--;
+		if(en._amVisionReduce>0)en._amVisionReduce--;
+		if(en._amFreezeExtend>0)en._amFreezeExtend--;
 
 		// DoTs
 		for(let di=en.dots.length-1;di>=0;di--){
 			const dot=en.dots[di];dot.timer++;
 			if(dot.timer>=dot.interval){dot.timer=0;en.hp-=dot.dmg;en.flash=4;
 				dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:Math.round(dot.dmg)+'',age:0,color:dot.color});
+				if(dot.escalate) dot.dmg*=1.15; // Archmage poison: each tick grows stronger
 				dot.ticks--;if(dot.ticks<=0)en.dots.splice(di,1);}
 		}
 
@@ -21576,11 +21750,92 @@ function update(){
 		if(m.hp<=0){
 			spawnImpact(m.x+m.w/2,m.y+m.h/2,m.color);
 			if(m.isNecroSummon) dmgNumbers.push({x:m.x+m.w/2,y:m.y-20,text:`💀 ${m.necroName||'Summon'} Fallen!`,age:0,color:'#8e44ad'});
+			// Archmage summon death effects
+			if(m.archmageElement){
+				const mcx=m.x+m.w/2, mcy=m.y+m.h/2;
+				const _ael = m.archmageElement==='stun_boosted' ? 'stun' : m.archmageElement;
+				if(_ael==='burn'){
+					// Leave a long-lasting flame hazard at death position
+					groundFlames.push({x:mcx, y:mcy, radius:55, life:m.maxAge*2||FPS*12, age:0, power:m.power*0.6, color:'#ff4400', dmgTimer:0});
+					dmgNumbers.push({x:mcx,y:mcy-25,text:'\ud83d\udd25 Flame Left!',age:0,color:'#ff4400'});
+				} else if(_ael==='freeze'){
+					// Snow explosion + freeze nearby enemies for 0.5s (30 frames)
+					for(let _si=0;_si<18;_si++){
+						const _sa=_si/18*Math.PI*2, _ss=6+Math.random()*8;
+						particles.push({x:mcx,y:mcy,vx:Math.cos(_sa)*_ss,vy:Math.sin(_sa)*_ss-2,life:35+Math.random()*20,color:'#aaddff',size:4+Math.random()*4});
+					}
+					for(const _en of getAllTargets()){
+						if(_en.dead)continue;
+						if(Math.hypot(_en.x+_en.w/2-mcx,_en.y+_en.h/2-mcy)<160){
+							const _sr=_en._stunResist||0;
+							const _sd=Math.min(30,Math.round(30*Math.max(0.1,1-_sr*0.25)));
+							_en.stunTimer=Math.max(_en.stunTimer||0,_sd);
+							_en._stunResist=(_en._stunResist||0)+1;
+							_en.flash=15;
+						}
+					}
+					dmgNumbers.push({x:mcx,y:mcy-25,text:'\u2744\ufe0f Frost Nova!',age:0,color:'#88ccff'});
+				} else if(_ael==='shatter'){
+					spawnShatterShards(mcx,mcy,m.color,m.power,1,1,true,null);
+				} else if(_ael==='stun'){
+					// Stun-summon: no extra death effect (already served its purpose as fast chaser)
+				} else if(_ael==='lifesteal'){
+					// Lifesteal-summon: small heal burst on death
+					health=Math.min(maxHealth,health+8);updateHealthHUD();
+					dmgNumbers.push({x:player.x+player.w/2,y:player.y-18,text:'+8 \u2665 Fade',age:0,color:'#cc44ff'});
+				} else if(_ael==='poison'){
+					// Poison cloud on death: infect all nearby enemies
+					for(const _en of getAllTargets()){
+						if(_en.dead)continue;
+						if(Math.hypot(_en.x+_en.w/2-mcx,_en.y+_en.h/2-mcy)<120){
+							_en.dots.push({type:'poison',dmg:m.power*0.4,ticks:5,interval:50,timer:0,color:'#44dd44',escalate:true});
+						}
+					}
+					dmgNumbers.push({x:mcx,y:mcy-25,text:'\u2620\ufe0f Poison Cloud!',age:0,color:'#44dd44'});
+				}
+			}
 			playerMinions.splice(mi,1);continue;
 		}
-		// Non-necro summons still have a lifespan
+		// Non-necro summons still have a lifespan — trigger same death effects on expire
 		if(!m.isNecroSummon && m.age >= m.maxAge){
 			spawnImpact(m.x+m.w/2,m.y+m.h/2,m.color);
+			if(m.archmageElement){
+				const mcx2=m.x+m.w/2, mcy2=m.y+m.h/2;
+				const _ael2 = m.archmageElement==='stun_boosted'?'stun':m.archmageElement;
+				if(_ael2==='burn'){
+					groundFlames.push({x:mcx2,y:mcy2,radius:55,life:m.maxAge*2||FPS*12,age:0,power:m.power*0.6,color:'#ff4400',dmgTimer:0});
+					dmgNumbers.push({x:mcx2,y:mcy2-25,text:'\ud83d\udd25 Flame Left!',age:0,color:'#ff4400'});
+				} else if(_ael2==='freeze'){
+					for(let _si=0;_si<18;_si++){
+						const _sa=_si/18*Math.PI*2,_ss=6+Math.random()*8;
+						particles.push({x:mcx2,y:mcy2,vx:Math.cos(_sa)*_ss,vy:Math.sin(_sa)*_ss-2,life:35+Math.random()*20,color:'#aaddff',size:4+Math.random()*4});
+					}
+					for(const _en of getAllTargets()){
+						if(_en.dead)continue;
+						if(Math.hypot(_en.x+_en.w/2-mcx2,_en.y+_en.h/2-mcy2)<160){
+							const _sr=_en._stunResist||0;
+							const _sd=Math.min(30,Math.round(30*Math.max(0.1,1-_sr*0.25)));
+							_en.stunTimer=Math.max(_en.stunTimer||0,_sd);
+							_en._stunResist=(_en._stunResist||0)+1;
+							_en.flash=15;
+						}
+					}
+					dmgNumbers.push({x:mcx2,y:mcy2-25,text:'\u2744\ufe0f Frost Nova!',age:0,color:'#88ccff'});
+				} else if(_ael2==='shatter'){
+					spawnShatterShards(mcx2,mcy2,m.color,m.power,1,1,true,null);
+				} else if(_ael2==='poison'){
+					for(const _en of getAllTargets()){
+						if(_en.dead)continue;
+						if(Math.hypot(_en.x+_en.w/2-mcx2,_en.y+_en.h/2-mcy2)<120){
+							_en.dots.push({type:'poison',dmg:m.power*0.4,ticks:5,interval:50,timer:0,color:'#44dd44',escalate:true});
+						}
+					}
+					dmgNumbers.push({x:mcx2,y:mcy2-25,text:'\u2620\ufe0f Poison Cloud!',age:0,color:'#44dd44'});
+				} else if(_ael2==='lifesteal'){
+					health=Math.min(maxHealth,health+8);updateHealthHUD();
+					dmgNumbers.push({x:player.x+player.w/2,y:player.y-18,text:'+8 \u2665 Fade',age:0,color:'#cc44ff'});
+				}
+			}
 			playerMinions.splice(mi,1);continue;
 		}
 		// Find nearest alive enemy (also dummies); prioritize player's target
@@ -21754,11 +22009,69 @@ function update(){
 		} else {
 			// Normal summons: fire next spell phase periodically
 			m.fireTimer++;
+			// Archmage summon passive behaviors
+			if(m.archmageElement){
+				// STUN: one-time massive speed boost
+				if(m.archmageElement==='stun' && !m._amStunBoosted){
+					m.moveSpeed = (m.moveSpeed||1.0) * 5;
+					m._amStunBoosted = true;
+					m.archmageElement='stun_boosted';
+				}
+				// POISON: chase and infect enemies on contact
+				const _pael = m.archmageElement==='stun_boosted'?'stun':m.archmageElement;
+				if(_pael==='poison'){
+					// Also try to close in on nearest enemy (behave like summonClose)
+					if(m.target && !m.target.dead){
+						const _ptx=m.target.x+m.target.w/2-m.x-m.w/2, _pty=m.target.y+m.target.h/2-m.y-m.h/2;
+						const _ptd=Math.hypot(_ptx,_pty)||1;
+						m.vx+=(_ptx/_ptd)*(m.moveSpeed||2.5)*0.18;
+						m.vy+=(_pty/_ptd)*(m.moveSpeed||2.5)*0.18;
+					}
+					// Infect on contact with any target
+					for(const _en of getAllTargets()){
+						if(_en.dead)continue;
+						if(Math.hypot(_en.x+_en.w/2-m.x-m.w/2,_en.y+_en.h/2-m.y-m.h/2)<50 && m.age%60===0){
+							_en.dots.push({type:'poison',dmg:m.power*0.3,ticks:4,interval:55,timer:0,color:'#44dd44',escalate:true});
+						}
+					}
+				}
+				// LIFESTEAL: stay near player, drain own HP to heal player
+				if(_pael==='lifesteal'){
+					if(m.age%90===0 && health<maxHealth){
+						const _heal=Math.min(8, m.power*0.5);
+						health=Math.min(maxHealth,health+_heal);
+						m.hp=Math.max(1,m.hp-_heal*0.6);
+						updateHealthHUD();
+						dmgNumbers.push({x:player.x+player.w/2,y:player.y-15,text:'+'+Math.round(_heal)+' \u2665',age:0,color:'#cc44ff'});
+					}
+					// Override: stay near player rather than chasing enemies
+					const _ldx=player.x+player.w/2-m.x-m.w/2, _ldy=player.y+player.h/2-m.y-m.h/2;
+					const _ld=Math.hypot(_ldx,_ldy)||1;
+					if(_ld>80){m.vx+=(_ldx/_ld)*(m.moveSpeed||2)*0.12;m.vy+=(_ldy/_ld)*(m.moveSpeed||2)*0.12;}
+					m.target=null; // don't chase enemies
+				}
+				// FREEZE: apply ice stats once on first frame
+				if(_pael==='freeze' && !m._amIceApplied){
+					m.maxHp = Math.round(m.maxHp * 1.5);
+					m.hp = m.maxHp;
+					m.moveSpeed = (m.moveSpeed||2.5) * 0.6;
+					m._amIceApplied = true;
+				}
+			}
 			if(m.fireTimer>=m.fireCooldown&&m.phaseIdx+1<m.spell.phases.length){
 				m.fireTimer=0;
 				const castId=nextCastId++;spellHitCounts[castId]=0;
 				const projBefore=projectiles.length;
+				// Self Reliance: aim at nearest enemy instead of mouse cursor
+				let _srMX, _srMY;
+				if(m.selfReliance){
+					_srMX=mouseScreenX; _srMY=mouseScreenY;
+					const tgt=m.target;
+					if(tgt){ mouseScreenX=tgt.x+tgt.w/2-camera.x; mouseScreenY=tgt.y+tgt.h/2-camera.y; }
+					else{ mouseScreenX=m.x+m.w/2+(m.facing===1?300:-300)-camera.x; mouseScreenY=m.y+m.h/2-camera.y; }
+				}
 				spawnPhase(m.spell,m.phaseIdx+1,m.x+m.w/2,m.y+m.h/2,m.facing,0.6,m.isUltimate,castId,m.sourceSlot);
+				if(m.selfReliance){ mouseScreenX=_srMX; mouseScreenY=_srMY; }
 				// Tag summon projectiles so damage formula uses flat scaling
 				for(let si=projBefore;si<projectiles.length;si++) projectiles[si].isSummonProj=true;
 				spawnImpact(m.x+m.w/2,m.y+m.h/2,m.color);
@@ -21888,7 +22201,7 @@ function update(){
 				if(Math.abs(ecx-domCX)<domHW && Math.abs(ecy-domCY)<domHH){
 					// Check if enemy is near ground level
 					if(en.onGround || (en.y+en.h >= GROUND_Y - 5)){
-						{const sr=en._stunResist||0;en.stunTimer=Math.max(en.stunTimer||0,Math.round(30*Math.max(0.2,1-sr*0.15)));en._stunResist=sr+1;} // stun with resistance
+						{const sr=en._stunResist||0;en.stunTimer=Math.max(en.stunTimer||0,Math.min(25,Math.round(12*Math.max(0.1,1-sr*0.25))));en._stunResist=sr+1;} // stun with resistance
 					}
 				}
 			}
@@ -21998,6 +22311,8 @@ function update(){
 				detectRange: et.detectRange || 500,
 				moveSpeed: (et.moveSpeed || 1.5) * 1.3,
 				spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*1.5)) : [],
+				// Archmage dual-class: domain necro summons inherit elemental behaviors
+				archmageElement: hasClass('archmage') && pendingNecroSummon ? (pendingNecroSummon.effects && pendingNecroSummon.effects[0] ? pendingNecroSummon.effects[0] : null) : null,
 			});
 			dmgNumbers.push({x:spawnX,y:spawnY-30,text:`💀 ${et.name} Champion!`,age:0,color:'#8e44ad'});
 			spawnImpact(spawnX, spawnY, '#8e44ad');
@@ -22124,6 +22439,7 @@ function update(){
 	updateEnemies();
 	updateSeraphelFight();
 	updateGravityWells();
+	updateGroundFlames();
 	updateRaidIndicators();
 	updateChronoIndicators();
 	
@@ -26587,7 +26903,70 @@ function render(){
 		if(_doRotate){if(!p._rotAngle)p._rotAngle=0;p._rotAngle+=0.06;ctx.save();ctx.translate(px,py);ctx.rotate(p._rotAngle);ctx.translate(-px,-py);}
 		switch(p.shape){
 			case'allyOrb':{const r2=p.width*1.3;ctx.fillStyle='#44ff88';ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#aaffcc';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.5,0,Math.PI*2);ctx.fill();break;}
-			case'missile':case'orb':{const r2=p.shape==='orb'?p.width*1.3:p.width*0.7;ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();break;}
+			case'missile':case'orb':{
+				const r2=p.shape==='orb'?p.width*1.3:p.width*0.7;
+				// Archmage: draw elemental missile variants
+				if(hasClass('archmage') && p.effects && p.shape==='missile'){
+					const _ae=p.effects[0]; // first effect determines visual
+					if(_ae==='burn'){
+						// Flame teardrop
+						const tAng=Math.atan2(p.vy,p.vx);
+						ctx.save();ctx.translate(px,py);ctx.rotate(tAng);
+						ctx.fillStyle='#ff4400';ctx.shadowColor='#ff6600';ctx.shadowBlur=12;
+						ctx.beginPath();ctx.moveTo(r2*1.8,0);ctx.quadraticCurveTo(r2*0.3,r2*0.7,-r2*0.8,0);ctx.quadraticCurveTo(r2*0.3,-r2*0.7,r2*1.8,0);ctx.fill();
+						ctx.fillStyle='#ffcc00';ctx.shadowBlur=6;
+						ctx.beginPath();ctx.arc(-r2*0.2,0,r2*0.5,0,Math.PI*2);ctx.fill();
+						ctx.restore();
+					} else if(_ae==='freeze'){
+						// Ice crystal spikes
+						ctx.save();ctx.translate(px,py);
+						ctx.fillStyle='#88ddff';ctx.strokeStyle='#ccf0ff';ctx.lineWidth=1.5;ctx.shadowColor='#aaddff';ctx.shadowBlur=10;
+						for(let _ci=0;_ci<6;_ci++){
+							ctx.save();ctx.rotate((_ci/6)*Math.PI*2+(p.age*0.04));
+							ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(r2*0.4,r2*1.3);ctx.lineTo(-r2*0.4,r2*1.3);ctx.closePath();ctx.fill();ctx.stroke();
+							ctx.restore();
+						}
+						ctx.restore();
+					} else if(_ae==='poison'){
+						// Green pulsing orb with ring
+						const pulse=0.85+Math.sin(p.age*0.2)*0.15;
+						ctx.beginPath();ctx.arc(px,py,r2*pulse,0,Math.PI*2);ctx.fill();
+						ctx.strokeStyle='#aaffaa';ctx.lineWidth=2;ctx.globalAlpha=0.5*(1-((p.age%20)/20));
+						ctx.beginPath();ctx.arc(px,py,r2*1.8*pulse,0,Math.PI*2);ctx.stroke();
+						ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();
+					} else if(_ae==='stun'){
+						// Yellow lightning bolt zigzag
+						const bAng=Math.atan2(p.vy,p.vx);
+						ctx.save();ctx.translate(px,py);ctx.rotate(bAng);
+						ctx.strokeStyle='#ffee00';ctx.shadowColor='#ffff44';ctx.shadowBlur=14;ctx.lineWidth=3;ctx.globalAlpha=0.95;
+						ctx.beginPath();ctx.moveTo(r2*1.6,0);ctx.lineTo(r2*0.4,r2*0.5);ctx.lineTo(r2*0.9,-r2*0.5);ctx.lineTo(-r2*0.4,r2*0.6);ctx.lineTo(-r2*1.6,0);ctx.stroke();
+						ctx.fillStyle='#ffff88';ctx.shadowBlur=8;ctx.globalAlpha=0.7;ctx.beginPath();ctx.arc(0,0,r2*0.5,0,Math.PI*2);ctx.fill();
+						ctx.restore();
+					} else if(_ae==='lifesteal'){
+						// Purple swirling orb
+						ctx.save();ctx.translate(px,py);
+						ctx.fillStyle='#9922cc';ctx.shadowColor='#cc44ff';ctx.shadowBlur=14;
+						ctx.beginPath();ctx.arc(0,0,r2,0,Math.PI*2);ctx.fill();
+						ctx.strokeStyle='#ee88ff';ctx.lineWidth=1.5;ctx.globalAlpha=0.7;
+						const swAng=p.age*0.1;
+						ctx.beginPath();ctx.arc(0,0,r2*0.7,swAng,swAng+Math.PI*1.5);ctx.stroke();
+						ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(0,0,r2*0.35,0,Math.PI*2);ctx.fill();
+						ctx.restore();
+					} else if(_ae==='shatter'){
+						// White crystal shard
+						ctx.save();ctx.translate(px,py);ctx.rotate(p.age*0.12);
+						ctx.fillStyle='#eeeeff';ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.shadowColor='#aaddff';ctx.shadowBlur=10;
+						ctx.beginPath();ctx.moveTo(0,-r2*1.5);ctx.lineTo(r2*0.6,r2*0.3);ctx.lineTo(r2*0.15,r2*0.7);ctx.lineTo(-r2*0.15,r2*0.7);ctx.lineTo(-r2*0.6,r2*0.3);ctx.closePath();ctx.fill();ctx.stroke();
+						ctx.restore();
+					} else {
+						// Default archmage orb
+						ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();
+					}
+				} else {
+					ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();
+				}
+				break;
+			}
 			case'blade':{ctx.save();ctx.translate(px,py);ctx.rotate(p.age*0.3);ctx.fillRect(-p.width*1.8,-p.height*0.3,p.width*3.6,p.height*0.6);ctx.restore();break;}
 			case'beam':{const bx=p.startX-camera.x,by=p.startY-camera.y;ctx.save();ctx.translate(bx,by);ctx.rotate(p.beamAngle);ctx.globalAlpha=0.7;ctx.fillRect(0,-p.height/2,p.beamLen,p.height);ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.fillRect(0,-p.height*0.15,p.beamLen,p.height*0.3);ctx.restore();break;}
 			case'ring':{const eR=p.width*4;ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.lineWidth=3;ctx.globalAlpha=0.7*(1-progress);ctx.stroke();break;}
@@ -26876,6 +27255,25 @@ function render(){
 		ctx.restore();
 	}
 
+	/* Ground flames (archmage burn-summon death hazards) */
+	for(const gf of groundFlames){
+		const gfx=gf.x-camera.x, gfy=gf.y-camera.y;
+		const prog=gf.age/gf.life;
+		const alpha=(1-prog*0.7)*0.65;
+		ctx.save();
+		const fgrad=ctx.createRadialGradient(gfx,gfy,0,gfx,gfy,gf.radius);
+		fgrad.addColorStop(0,'rgba(255,120,0,'+(alpha*0.95)+')');
+		fgrad.addColorStop(0.45,'rgba(255,55,0,'+(alpha*0.65)+')');
+		fgrad.addColorStop(1,'rgba(255,20,0,0)');
+		ctx.globalAlpha=alpha;ctx.fillStyle=fgrad;
+		ctx.beginPath();ctx.ellipse(gfx,gfy,gf.radius,gf.radius*0.55,0,0,Math.PI*2);ctx.fill();
+		// Flicker ring
+		ctx.strokeStyle='rgba(255,180,0,'+(alpha*0.5)+')';ctx.lineWidth=2;
+		const flicker=Math.sin(gf.age*0.3)*8;
+		ctx.beginPath();ctx.ellipse(gfx,gfy,gf.radius*0.6+flicker,gf.radius*0.3+flicker*0.4,0,0,Math.PI*2);ctx.stroke();
+		ctx.restore();
+	}
+
 	/* Player */
 	if(player.iFrames<=0||(player.iFrames%4<2)){
 		const ppx=player.x-camera.x,ppy=player.y-camera.y;
@@ -27028,9 +27426,9 @@ function render(){
 	}
 
 	// Ranger teleport / Domain TP cooldown HUD
-	const showTPHud = activeMageClass === 'ranger' || (activeDomain && activeDomain.vowBuffs && activeDomain.vowBuffs.domainTP > 0);
+	const showTPHud = hasClass('ranger') || (activeDomain && activeDomain.vowBuffs && activeDomain.vowBuffs.domainTP > 0);
 	if(showTPHud){
-		const isDomTP = activeMageClass !== 'ranger' && activeDomain;
+		const isDomTP = !hasClass('ranger') && activeDomain;
 		const tpColor = isDomTP ? (activeDomain.color || '#e74c3c') : '#27ae60';
 		const hudX = 10, hudY = canvas.height - 50;
 		const cdPct = rangerTP.cooldown / rangerTP.maxCooldown;
@@ -27061,7 +27459,7 @@ function render(){
 	}
 
 	// Lightstep Blade backstep HUD
-	if(activeMageClass === 'warrior' && playerData.equipment.staff === 'lightstep_blade'){
+	if(hasClass('warrior') && playerData.equipment.staff === 'lightstep_blade'){
 		const bHudX = showTPHud ? 52 : 10, bHudY = canvas.height - 50;
 		const hasAnchors = lightAnchors.length > 0;
 		ctx.save();
