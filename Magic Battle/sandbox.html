@@ -186,8 +186,8 @@ const SHAPE_MANA = {missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chai
 const SHAPE_CTRL = {missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,spike:3,polygon:3,allyOrb:1,meteor:6,vortex:7,slash:2,same:0};
 const BEH_MANA   = {straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,spiral:6,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5,ground:4,zigzag:5};
 const BEH_CTRL   = {straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4};
-const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10};
-const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7};
+const FX_MANA    = {burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:8,speedBoost:4,jumpBoost:4,manaRegen:5,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,evenDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10};
+const FX_CTRL    = {burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:6,speedBoost:3,jumpBoost:3,manaRegen:4,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,evenDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7};
 
 /* --- Damage Store (for sandbox testing) --- */
 let damageStored = 0;
@@ -626,7 +626,12 @@ function spawnPhase(spell, phaseIdx, originX, originY, facing, dmgMult, isUltima
 			isUltimate: ultFlag,
 			castId: castId != null ? castId : -1,
 			sourceSlot: sourceSlot != null ? sourceSlot : -1,
-			randomDelay: (ph.effects && ph.effects.includes('randomDelay')) ? Math.round(Math.random() * (ph.randomDelayMax || 0.5) * FPS) : 0,
+			randomDelay: (()=>{
+				let _d = 0;
+				if(ph.effects && ph.effects.includes('randomDelay')) _d = Math.max(_d, Math.round(Math.random() * (ph.randomDelayMax || 0.5) * FPS));
+				if(ph.effects && ph.effects.includes('evenDelay')) _d = Math.max(_d, Math.round(i * (ph.evenDelayDuration || 0.5) * FPS / Math.max(1, effectiveCount - 1)));
+				return _d;
+			})(),
 			afterHitEffect: ph.afterHitEffect || 'none',
 			polygonSides: ph.polygonSides || 6,
 			_held: !!ph.holdDown,

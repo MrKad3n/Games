@@ -518,6 +518,14 @@ if(!playerData.mageClass) playerData.mageClass = 'none';
 if(!playerData.mageClass2) playerData.mageClass2 = 'none';
 /* --- Ensure equipment object exists (migration for saves predating equipment feature) --- */
 if(!playerData.equipment) playerData.equipment = {staff:null,robe:null,relic1:null,relic2:null};
+/* --- Enforce: never start with transformation loadout as active spells --- */
+if(playerData.loadouts && playerData.activeLoadoutIdx >= 0){
+	const _al = playerData.loadouts[playerData.activeLoadoutIdx];
+	if(_al && _al.type === 'transformation'){
+		const _stdIdx = playerData.loadouts.findIndex(l => l.type !== 'transformation');
+		if(_stdIdx >= 0) playerData.spells = JSON.parse(JSON.stringify(playerData.loadouts[_stdIdx].spells));
+	}
+}
 
 /* Active mage class for quick access */
 const activeMageClass = playerData.mageClass || 'none';
@@ -545,7 +553,7 @@ const MAGE_RANKS = [
 // Which rank unlocks each shape (index into MAGE_RANKS)
 const SHAPE_RANK_REQ = {
 	missile:0, orb:0, allyOrb:0, same:0,
-	blade:1, spike:1, polygon:1, solidify:1, slash:1,
+	blade:1, spike:1, polygon:1, slash:1,
 	beam:2, cone:2, wall:2,
 	ring:3, nova:3, meteor:3,
 	chain:4, vortex:4, summon:4,
@@ -554,7 +562,7 @@ const SHAPE_RANK_REQ = {
 const BEHAVIOR_RANK_REQ = {
 	straight:0, stationary:0, selfCast:0,
 	lob:1, underfoot:1,
-	homing:2, boomerang:2, groundSurge:2,
+	homing:2, boomerang:2, groundSurge:2, control:2,
 	aroundSelf:3, ground:3, zigzag:3,
 	orbit:4, rain:4, barrage:4, teleport:4,
 	domain:5,
@@ -562,7 +570,7 @@ const BEHAVIOR_RANK_REQ = {
 // Which rank unlocks each effect
 const EFFECT_RANK_REQ = {
 	knockback:0, randomDelay:0, resetProjectiles:0, classDisable:0,
-	burn:1, freeze:1, forceJump:1,
+	burn:1, freeze:1, forceJump:1, solidify:1,
 	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
 	stun:3, healSelf:3, shield:3, phaseFork:3, damageRelease:3, damageHeal:3,
 	lifesteal:4, blind:4, shatter:4, mark:4, dispel:4,
@@ -752,12 +760,12 @@ function computeStats(){
 const stats=computeStats();
 
 /* --- Spell cost helpers --- */
-const SHAPE_MANA={missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,solidify:10,spike:8,allyOrb:6,polygon:9,meteor:16,vortex:18,same:0};
-const SHAPE_CTRL={missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,solidify:4,spike:3,allyOrb:1,polygon:3,meteor:6,vortex:7,same:0};
-const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:5,ground:4,zigzag:5,teleport:7,domain:1000};
-const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,domain:10};
-const FX_MANA={burn:5,freeze:5,knockback:3,pull:4,poison:5,stun:7,healSelf:6,shield:6,lifesteal:6,timedRelease:3,phaseFork:6,resetProjectiles:0,forceJump:4,horizontalLaunch:5,randomDelay:2,phaseThrough:20,damageStore:4,damageRelease:6,damageHeal:5,dispel:25,ricochet:18,shatter:8,gravityWell:10,classDisable:0,rotate:4};
-const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0,rotate:2};
+const SHAPE_MANA={missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,spike:8,allyOrb:6,polygon:9,meteor:16,vortex:18,same:0,explosion:14};
+const SHAPE_CTRL={missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,spike:3,allyOrb:1,polygon:3,meteor:6,vortex:7,same:0,explosion:5};
+const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:6,ground:4,zigzag:5,teleport:7,control:30,domain:1000};
+const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,control:3,domain:10};
+const FX_MANA={burn:36,freeze:36,knockback:8,pull:10,poison:36,stun:54,healSelf:15,shield:15,lifesteal:48,timedRelease:8,phaseFork:6,resetProjectiles:0,forceJump:10,horizontalLaunch:12,randomDelay:5,evenDelay:5,phaseThrough:35,damageStore:10,damageRelease:15,damageHeal:12,dispel:45,ricochet:35,shatter:60,gravityWell:25,classDisable:0,rotate:8,solidify:0,awayFromPlayer:5,solidObjectBreak:100};
+const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,horizontalLaunch:2,randomDelay:1,evenDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0,rotate:2,solidify:4,awayFromPlayer:2,solidObjectBreak:1};
 
 function calcSpellCost(spell){
 	if(!spell||!spell.phases.length)return 0;
@@ -767,12 +775,13 @@ function calcSpellCost(spell){
 		const isAreaBeh=ph.behavior==='rain'||ph.behavior==='barrage';
 		const effectiveCount=ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):ph.count;
 		const countMult=1+(effectiveCount-1)*(isAreaBeh?0.1:0.4);
-		cost+=ph.power*50*countMult+(effectiveCount-1)*(isAreaBeh?1:4)+(ph.width-1)*2+(ph.height-1)*2;
+		cost+=ph.power*50*countMult+(effectiveCount-1)*(isAreaBeh?1:4)+(ph.width-1)*6+Math.max(0,ph.width-2)*4+(ph.height-1)*6+Math.max(0,ph.height-2)*4+Math.max(0,(ph.speed||1)-1)*18+Math.max(0,(ph.duration||1)-1)*22;
 		if(ph.shape==='chain'&&ph.chainStunTime>0)cost+=ph.chainStunTime*25;
 		if(ph.behavior==='ground'&&ph.groundRadius>200)cost+=Math.floor((ph.groundRadius-200)/50)*3;
 		if(ph.shape==='summon'){cost+=(ph.summonRange||0)*4+(ph.summonHealth||0)*3+(ph.summonSpeed||0)*3;}
 		for(const fx of ph.effects)cost+=(FX_MANA[fx]||0);
-		if(ph.effects.includes('phaseFork')){cost+=(ph.phaseForkRepeats||1)*35;}
+		if(ph.effects.includes('solidify')){const _solNonOutward=new Set(['stationary','underfoot','selfCast','aroundSelf','ground']);cost+=_solNonOutward.has(ph.behavior)?10:100;}
+		if(ph.effects.includes('phaseFork')){const _bfm=ph.shape==='beam'?2.5:1;cost+=(ph.phaseForkRepeats||1)*35*_bfm;}
 	}
 	cost*=(0.6+spell.phases.length*0.25);
 	return Math.round(cost);
@@ -2859,7 +2868,7 @@ const SYLVARIS_CONFIG = {
 		// Corridor 3 (going right - boss path)
 		{ x:7320, y:3840, w:3760, h:200 },
 		// Boss chamber (tall room at end)
-		{ x:10400, y:3640, w:800, h:600 },
+		{ x:10200, y:3440, w:1200, h:800 },
 		// === CORRUPTED ROOT TUNNELS (entrance at x:18400, underground) ===
 		// Entrance shaft (drops from surface)
 		{ x:18400, y:3000, w:200, h:400 },
@@ -2894,9 +2903,7 @@ const SYLVARIS_CONFIG = {
 		{ type:'mossWraith', x:2600, y:3000, patrol:[2300,2900] },
 		{ type:'thornWolf', x:3000, y:3000, patrol:[2700,3300] },
 		{ type:'willowWisp', x:3400, y:3000, patrol:[3100,3700] },
-		{ type:'sporeFungus', x:3800, y:3000, patrol:[3500,4100] },
 		// Between Scout Fern and Grothar (x:4800-7700)
-		{ type:'willowWisp', x:4900, y:3000, patrol:[4600,5200] },
 		{ type:'mossWraith', x:5300, y:3000, patrol:[5000,5600] },
 		{ type:'thornWolf', x:5700, y:3000, patrol:[5400,6000] },
 		{ type:'vineCrawler', x:6000, y:3000, patrol:[5700,6300] },
@@ -2917,15 +2924,13 @@ const SYLVARIS_CONFIG = {
 		{ type:'stalactiteBat', x:7600, y:3520, patrol:[7300,7900], underground:true },
 		{ type:'caveSpider', x:8100, y:3520, patrol:[7800,8400], underground:true },
 		{ type:'glowBeetle', x:8600, y:3520, patrol:[8300,8900], underground:true },
-		{ type:'stalactiteBat', x:9100, y:3520, patrol:[8800,9400], underground:true },
 		// Corridor 3 (floor ~y:3840)
 		{ type:'caveSpider', x:7800, y:3840, patrol:[7500,8200], underground:true },
 		{ type:'glowBeetle', x:8400, y:3840, patrol:[8100,8700], underground:true },
 		{ type:'stalactiteBat', x:9000, y:3840, patrol:[8700,9300], underground:true },
-		{ type:'caveSpider', x:9600, y:3840, patrol:[9300,9900], underground:true },
 		{ type:'glowBeetle', x:10100, y:3840, patrol:[9800,10400], underground:true },
-		// Underground mini-boss (boss chamber x:10400-11200)
-		{ type:'elderTreant', x:10700, y:4100, patrol:[10500,11100], underground:true, miniBoss:true },
+		// Underground mini-boss (boss chamber x:10200-11400)
+		{ type:'elderTreant', x:10700, y:3900, patrol:[10300,11300], underground:true, miniBoss:true },
 		// === GIANT TREE SECTION: Briar(12200) to Aelara(16500) ===
 		// Between Briar and treetop (x:12500-16200)
 		{ type:'skyVine', x:12600, y:2600, patrol:[12300,12900] },
@@ -2935,7 +2940,6 @@ const SYLVARIS_CONFIG = {
 		{ type:'skyVine', x:14200, y:1200, patrol:[13900,14500] },
 		{ type:'mossWraith', x:14600, y:1000, patrol:[14300,14900] },
 		{ type:'windSylph', x:15000, y:800, patrol:[14700,15300] },
-		{ type:'skyVine', x:15400, y:600, patrol:[15100,15700] },
 		{ type:'windSylph', x:15800, y:500, patrol:[15500,16100] },
 		{ type:'mossWraith', x:16200, y:400, patrol:[15900,16500] },
 		// Treetop mini-boss
@@ -4120,8 +4124,9 @@ addEventListener('keydown', e => {
 	
 	// F key — class ability
 	if(e.key.toLowerCase() === 'f'){
-		// Ranger teleport
-		if(hasClass('ranger') && rangerTP.cooldown <= 0){
+		// Ranger teleport (also enabled by transformation TP buff)
+		const _hasTP = hasClass('ranger') || (player.transformActive && player.transformBuffsActive?.tp);
+		if(_hasTP && rangerTP.cooldown <= 0){
 			const worldMX = mouseScreenX + camera.x;
 			const worldMY = mouseScreenY + camera.y;
 			// Save old position for ghost afterimage
@@ -4266,7 +4271,7 @@ function releaseHeldProjectiles(){
 			p.vx = Math.cos(p._nunchuckAngle)*spd;
 			p.vy = Math.sin(p._nunchuckAngle)*spd;
 		} else {
-			const ang = Math.atan2(worldMY - p.y, worldMX - p.x);
+			const ang = p._barrageAngle !== undefined ? p._barrageAngle : Math.atan2(worldMY - p.y, worldMX - p.x);
 			p.vx = Math.cos(ang)*spd;
 			p.vy = Math.sin(ang)*spd;
 		}
@@ -4312,6 +4317,18 @@ const player = {
 	ultChargeTimer: 0,
 	ultChargeDuration: 180, // 3 seconds at 60fps
 	ultChargeColor: '#ffaa00',
+	// Transformation state
+	transformActive: false,
+	transformTimer: 0,
+	transformSavedSpells: null, // saved STATE.spells before transformation
+	transformBuffsActive: null, // {speed, elemDmg, ...} from phase buff points
+	transformAuraStyle: 'pulse',
+	transformAuraColor: '#ff8800',
+	transformAuraColor2: '#ffffff',
+	transformAuraStrength: 1,
+	// Ultimate speed bonus (from any ult cast)
+	_ultSpeedBonus: 0,
+	_ultSpeedBonusTimer: 0,
 	// Tutorial tracking flags
 	hasMoved: false,
 	hasJumped: false,
@@ -4423,8 +4440,10 @@ function selectNecroSummon(index){
 	// Magic control discount for summon costs
 	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
 	// Cost: scales with enemy HP — boss summons cost significantly more
+	const ph = ns.ph || {};
+	const spellCostBonus = ns.spell ? Math.round(calcSpellCost(ns.spell) * 0.5) : 0;
 	const bossMult = entry.isBoss ? 5.5 : 1;
-	const manaCost = Math.round((200 + entry.hp * 0.15) * bossMult * controlDiscount);
+	const manaCost = Math.round((200 + entry.hp * 0.15) * bossMult * controlDiscount) + spellCostBonus;
 	const regularManaCost = Math.round(Math.min(maxMana * 0.5, 60 + entry.hp * 0.03) * controlDiscount);
 	if(totalMana < manaCost){
 		dmgNumbers.push({x:player.x+player.w/2,y:player.y-30,text:`Need ${manaCost} Total Mana!`,age:0,color:'#ff4444'});
@@ -4442,8 +4461,12 @@ function selectNecroSummon(index){
 	mana -= regularManaCost;
 	updateTotalManaHUD();
 
-	// Necro-summon inherits enemy stats scaled to spell power
-	const scaledHp = Math.round(entry.hp * 1.2 + ns.power * 40);
+	// Summon upgrades from spell phase
+	const _nHealthBonus = (ph.summonHealth||0) * 10; // +10 HP per health point
+	const _nSpeedMult = 1 + (ph.summonSpeed||0) * 0.08; // +8% speed per speed point
+	const _nRangeBonus = (ph.summonRange||0) * 60; // +60 detect range per range point
+	// Necro-summon inherits enemy stats scaled to spell power, with nerf and upgrades applied
+	const scaledHp = Math.round(entry.hp * 0.55 + ns.power * 25 + _nHealthBonus);
 	const necroMinion = {
 		x:ns.x, y:ns.y, w:entry.w, h:entry.h,
 		vx:0, vy:0,
@@ -4453,20 +4476,20 @@ function selectNecroSummon(index){
 		castId:ns.castId,
 		facing:ns.facing,
 		isUltimate:ns.isUltimate,
-		power:ns.power * 2.5,
+		power:ns.power * 1.5, // nerfed from 2.5
 		hp:scaledHp, maxHp:scaledHp,
 		age:0, maxAge:Infinity, // permanent summon
-		fireTimer:0, fireCooldown:Math.round(FPS*2),
+		fireTimer:0, fireCooldown:Math.round(FPS*2.5),
 		target:null, animTimer:0,
 		attackAnimTimer:0,
-		detectRange:700,
-		moveSpeed:entry.moveSpeed,
+		detectRange:500 + _nRangeBonus,
+		moveSpeed:Math.min((entry.moveSpeed||1.5) * _nSpeedMult, 5),
 		summonClose:true,
 		isNecroSummon:true,
 		necroType:entry.id,
 		necroName:entry.name,
 		necroFlies:entry.flies,
-		spellCooldowns: (ENEMY_TYPES[entry.id] && ENEMY_TYPES[entry.id].spells) ? ENEMY_TYPES[entry.id].spells.map(() => Math.round(FPS*1.5)) : [],
+		spellCooldowns: (ENEMY_TYPES[entry.id] && ENEMY_TYPES[entry.id].spells) ? ENEMY_TYPES[entry.id].spells.map(() => Math.round(FPS*2)) : [],
 		onGround:false,
 		// Archmage dual-class: player-selected necro summons inherit elemental behaviors from the original spell
 		archmageElement: hasClass('archmage') ? (ns.effects && ns.effects[0] ? ns.effects[0] : null) : null,
@@ -6646,8 +6669,8 @@ const caveBossState = {
 	triggered: false,
 };
 
-// The trigger zone: player enters the boss chamber (x > 10400, inside cave)
-const CAVE_BOSS_TRIGGER_X = 10400;
+// The trigger zone: player enters the boss chamber (x > 10200, inside cave)
+const CAVE_BOSS_TRIGGER_X = 10200;
 
 function checkCaveBossTrigger(){
 	if(!IS_SYLVARIS) return;
@@ -8597,7 +8620,11 @@ function updateManaHUD(){
 let totalMana = 0;
 function updateTotalManaHUD(){
 	const ultSpell = playerData.spells[9];
-	const ultCost = ultSpell ? calcSpellCost(ultSpell) * 10 : 999999;
+	let ultCost = ultSpell ? calcSpellCost(ultSpell) * 10 : 999999;
+	// Domain/Transformation always flat 25k; necromancer domain 50k
+	if(ultSpell && ultSpell.phases.some(p=>p.behavior==='domain'||p.behavior==='transformation')){
+		ultCost = (activeMageClass==='necromancer' && ultSpell.phases.some(p=>p.behavior==='domain')) ? 50000 : 25000;
+	}
 	const pct = ultCost > 0 ? Math.max(0, Math.min(100, (totalMana / ultCost) * 100)) : 0;
 	document.getElementById('totalManaBarFill').style.width = pct + '%';
 	document.getElementById('totalManaText').textContent = `⚡ Total Mana: ${Math.floor(totalMana)}` + (ultSpell ? ` / ${ultCost}` : '');
@@ -8646,9 +8673,17 @@ function renderHotbar(){
 				const pct = (spellCooldowns[i] / spellMaxCooldowns[i]) * 100;
 				cdHtml = `<div class="hb-cd-overlay" style="height:${pct}%"></div>`;
 			}
-			let ultCostMult = 10;
-			if(isUlt && activeMageClass === 'necromancer' && sp.phases.some(p => p.behavior === 'domain')) ultCostMult = 20;
-			const costLabel = isUlt ? `${displayCost*ultCostMult}⚡` : `${displayCost}💧`;
+			let ultDisplayCost;
+			if(isUlt){
+				// Transformation and domain are always flat cost — show the real number, not discounted × 10
+				if(sp.phases.some(p => p.behavior === 'domain' || p.behavior === 'transformation')){
+					ultDisplayCost = (activeMageClass === 'necromancer' && sp.phases.some(p => p.behavior === 'domain')) ? 50000 : 25000;
+				} else {
+					const _ucMult = (activeMageClass === 'necromancer' && sp.phases.some(p => p.behavior === 'domain')) ? 20 : 10;
+					ultDisplayCost = displayCost * _ucMult;
+				}
+			}
+			const costLabel = isUlt ? `${ultDisplayCost}⚡` : `${displayCost}💧`;
 			el.innerHTML = `<span class="hb-key">${keyLabel}</span>
 				<div class="hb-dot" style="background:${usable?color:'#555'}"></div>
 				<div class="hb-name" style="${usable?'':'color:#666;text-decoration:line-through'}">${sp.name}</div>
@@ -8671,7 +8706,7 @@ const dmgNumbers = [];
 const frozenWaterPlatforms = []; // Storm Islands: ice-created temporary platforms on water
 const MAX_PARTICLES = 400;
 const MAX_TRAIL = 8;
-const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','solidify','spike','summon','vortex']);
+const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','spike','summon','vortex']);
 const warriorSlashes = []; // Warrior class melee slash effects
 
 /* --- visual hitbox: use sprite bounds for spell-enemy hit detection --- */
@@ -8699,6 +8734,7 @@ const playerMinions = [];
 /* --- Gravity wells (from gravityWell effect) --- */
 const gravityWells = [];
 const groundFlames = []; // Archmage burn-summon death flames
+const activeExplosions = []; // Explosion shape: active AoE blast visuals
 
 /* =============================================================
    ENEMY TYPE DEFINITIONS
@@ -8903,7 +8939,7 @@ rockGolem: {
 	],
 },
 vineCrawler: {
-	name: 'Vine Crawler', w: 52, h: 20, hp: 250, color: '#448822', color2: '#66aa44',
+	name: 'Vine Crawler', w: 52, h: 20, hp: 200, color: '#448822', color2: '#66aa44',
 	flies: false, moveSpeed: 2.2, detectRange: 380, aiBehavior: 'melee_lunge',
 	drawFn: 'drawVineCrawler',
 	spells: [
@@ -8913,7 +8949,7 @@ vineCrawler: {
 	],
 },
 caveSpider: {
-	name: 'Cave Spider', w: 44, h: 22, hp: 100, color: '#554433', color2: '#776655',
+	name: 'Cave Spider', w: 44, h: 22, hp: 80, color: '#554433', color2: '#776655',
 	flies: false, moveSpeed: 2.6, detectRange: 340, aiBehavior: 'melee_lunge',
 	drawFn: 'drawCaveSpider',
 	spells: [
@@ -9001,7 +9037,7 @@ ironColossus: {
 
 /* ---------- SYLVARIS WILDES ENEMIES ---------- */
 thornWolf: {
-	name: 'Thorn Wolf', w: 48, h: 32, hp: 280, color: '#5a7a3a', color2: '#7a9a5a',
+	name: 'Thorn Wolf', w: 48, h: 32, hp: 224, color: '#5a7a3a', color2: '#7a9a5a',
 	flies: false, moveSpeed: 3.0, detectRange: 400, xp: 12, aiBehavior: 'melee_lunge',
 	drawFn: 'drawThornWolf',
 	spells: [
@@ -9011,7 +9047,7 @@ thornWolf: {
 	],
 },
 sporeFungus: {
-	name: 'Spore Fungus', w: 36, h: 40, hp: 350, color: '#8a6a4a', color2: '#aa8866',
+	name: 'Spore Fungus', w: 36, h: 40, hp: 280, color: '#8a6a4a', color2: '#aa8866',
 	flies: false, moveSpeed: 0.6, detectRange: 300, xp: 14, aiBehavior: 'stationary',
 	drawFn: 'drawSporeFungus',
 	spells: [
@@ -9021,7 +9057,7 @@ sporeFungus: {
 	],
 },
 mossWraith: {
-	name: 'Moss Wraith', w: 32, h: 46, hp: 220, color: '#3a6a4a', color2: '#5a8a6a',
+	name: 'Moss Wraith', w: 32, h: 46, hp: 176, color: '#3a6a4a', color2: '#5a8a6a',
 	flies: true, moveSpeed: 1.6, detectRange: 420, xp: 13, aiBehavior: 'ambush',
 	drawFn: 'drawMossWraith',
 	spells: [
@@ -9031,7 +9067,7 @@ mossWraith: {
 	],
 },
 willowWisp: {
-	name: 'Willow Wisp', w: 20, h: 20, hp: 140, color: '#aaffaa', color2: '#ccffcc',
+	name: 'Willow Wisp', w: 20, h: 20, hp: 112, color: '#aaffaa', color2: '#ccffcc',
 	flies: true, moveSpeed: 2.4, detectRange: 440, xp: 10, aiBehavior: 'harasser',
 	drawFn: 'drawWillowWisp',
 	spells: [
@@ -9041,7 +9077,7 @@ willowWisp: {
 	],
 },
 glowBeetle: {
-	name: 'Glow Beetle', w: 38, h: 24, hp: 180, color: '#4488aa', color2: '#66aacc',
+	name: 'Glow Beetle', w: 38, h: 24, hp: 144, color: '#4488aa', color2: '#66aacc',
 	flies: false, moveSpeed: 1.6, detectRange: 340, xp: 14, aiBehavior: 'balanced',
 	drawFn: 'drawGlowBeetle',
 	spells: [
@@ -9051,7 +9087,7 @@ glowBeetle: {
 	],
 },
 stalactiteBat: {
-	name: 'Stalactite Bat', w: 34, h: 28, hp: 120, color: '#5a5a6a', color2: '#7a7a8a',
+	name: 'Stalactite Bat', w: 34, h: 28, hp: 96, color: '#5a5a6a', color2: '#7a7a8a',
 	flies: true, moveSpeed: 2.2, detectRange: 400, xp: 11, aiBehavior: 'ambush',
 	drawFn: 'drawStalactiteBat',
 	spells: [
@@ -9078,7 +9114,7 @@ deepRootHorror: {
 	],
 },
 skyVine: {
-	name: 'Sky Vine', w: 30, h: 54, hp: 260, color: '#44aa44', color2: '#66cc66',
+	name: 'Sky Vine', w: 30, h: 54, hp: 208, color: '#44aa44', color2: '#66cc66',
 	flies: false, moveSpeed: 0.4, detectRange: 320, xp: 12, aiBehavior: 'stationary',
 	drawFn: 'drawSkyVine',
 	spells: [
@@ -9088,7 +9124,7 @@ skyVine: {
 	],
 },
 windSylph: {
-	name: 'Wind Sylph', w: 28, h: 38, hp: 180, color: '#88bbdd', color2: '#aaddee',
+	name: 'Wind Sylph', w: 28, h: 38, hp: 144, color: '#88bbdd', color2: '#aaddee',
 	flies: true, moveSpeed: 3.0, detectRange: 460, xp: 13, aiBehavior: 'harasser',
 	drawFn: 'drawWindSylph',
 	spells: [
@@ -9098,15 +9134,15 @@ windSylph: {
 	],
 },
 elderTreant: {
-	name: 'Elder Treant', w: 100, h: 120, hp: 5000, color: '#3a2a1a', color2: '#5a4a2a',
+	name: 'Elder Treant', w: 100, h: 120, hp: 4000, color: '#3a2a1a', color2: '#5a4a2a',
 	flies: false, moveSpeed: 1.2, detectRange: 500, xp: 80,
 	drawFn: 'drawElderTreant',
 	spells: [
-		{ name:'ancientSmash', cooldown:90, range:200, castFn:'castAncientSmash' },
-		{ name:'rootUpheaval', cooldown:120, range:400, castFn:'castRootUpheaval' },
-		{ name:'barkBarrage', cooldown:100, range:350, castFn:'castBarkBarrage' },
-		{ name:'treantCharge', cooldown:140, range:300, castFn:'castTreantCharge' },
-		{ name:'entombingRoots', cooldown:180, range:350, castFn:'castEntombingRoots' },
+		{ name:'ancientSmash', cooldown:144, range:200, castFn:'castAncientSmash' },
+		{ name:'rootUpheaval', cooldown:192, range:400, castFn:'castRootUpheaval' },
+		{ name:'barkBarrage', cooldown:160, range:350, castFn:'castBarkBarrage' },
+		{ name:'treantCharge', cooldown:224, range:300, castFn:'castTreantCharge' },
+		{ name:'entombingRoots', cooldown:288, range:350, castFn:'castEntombingRoots' },
 	],
 },
 stormRaptor: {
@@ -9351,6 +9387,40 @@ voidArbiter: {
 	],
 },
 };
+/* Auto-compute weight for each enemy type if not explicitly set
+   weight: how much the enemy resists solidify momentum.
+   Computed from size/hp. Bosses get very high weight (they already bypass solidify). */
+for(const k in ENEMY_TYPES){
+	const t=ENEMY_TYPES[k];
+	if(t.weight==null){
+		if(t.isBoss) t.weight=20;
+		else{
+			const sizeFactor=(t.w*t.h)/800;
+			const hpFactor=t.hp/400;
+			t.weight=Math.round((sizeFactor*0.5+hpFactor*0.5)*10)/10;
+		}
+	}
+}
+/* Manual weight overrides for specific feel */
+ENEMY_TYPES.fireSprite.weight=0.3;
+ENEMY_TYPES.willowWisp.weight=0.3;
+ENEMY_TYPES.caveSpider.weight=0.2;
+ENEMY_TYPES.forgeDrone.weight=0.4;
+ENEMY_TYPES.stalactiteBat.weight=0.4;
+ENEMY_TYPES.glowBeetle.weight=0.3;
+ENEMY_TYPES.imp.weight=0.6;
+ENEMY_TYPES.flameSerpent.weight=0.8;
+ENEMY_TYPES.vineCrawler.weight=0.5;
+ENEMY_TYPES.magmaGolem.weight=2.5;
+ENEMY_TYPES.glacierSentinel.weight=2.2;
+ENEMY_TYPES.slagBrute.weight=2.8;
+ENEMY_TYPES.rockGolem.weight=2.3;
+ENEMY_TYPES.ironSentinel.weight=2.0;
+ENEMY_TYPES.snowBeast.weight=1.8;
+ENEMY_TYPES.elderTreant.weight=4.0;
+ENEMY_TYPES.stormRaptor.weight=3.0;
+ENEMY_TYPES.tombGuardian.weight=2.5;
+ENEMY_TYPES.sandstormDjinn.weight=2.2;
 const enemies = [];
 
 // Training dummies for sandbox mode
@@ -10537,6 +10607,41 @@ function circRect(cx,cy,cr,rx,ry,rw,rh){
 }
 function dist(x1,y1,x2,y2){return Math.sqrt((x2-x1)**2+(y2-y1)**2);}
 
+/* Solidify shape helpers — returns {type:'circle',r} or {type:'rect',hw,hh} for actual projectile shape */
+function getSolidBounds(p){
+	switch(p.shape){
+		case'orb':case'allyOrb': return {type:'circle',r:p.width*1.3};
+		case'missile': return {type:'circle',r:p.width*0.7};
+		case'spike': return {type:'circle',r:Math.max(p.width,p.height)*0.9};
+		case'polygon': return {type:'circle',r:Math.max(p.width,p.height)*1.0};
+		case'meteor': return {type:'circle',r:Math.max(p.width,p.height)*1.5};
+		case'vortex': return {type:'circle',r:p.width*3+p.width*2*(p.age/p.maxAge)};
+		case'slash': return {type:'circle',r:Math.max(p.width,p.height)*1.2};
+		case'explosion': return {type:'circle',r:10};
+		case'wall': return {type:'rect',hw:p.width,hh:p.height*3};
+		case'blade': return {type:'rect',hw:p.width*1.6,hh:Math.max(p.height,p.width)*0.5};
+		default: return {type:'circle',r:Math.max(p.width,p.height)};
+	}
+}
+/* Point inside solidify shape */
+function pointInSolid(px,py,sp){
+	const b=getSolidBounds(sp);
+	if(b.type==='circle') return (px-sp.x)**2+(py-sp.y)**2<=b.r*b.r;
+	return px>=sp.x-b.hw&&px<=sp.x+b.hw&&py>=sp.y-b.hh&&py<=sp.y+b.hh;
+}
+/* Rectangle overlaps solidify shape */
+function rectOverlapSolid(rx,ry,rw,rh,sp){
+	const b=getSolidBounds(sp);
+	if(b.type==='circle') return circRect(sp.x,sp.y,b.r,rx,ry,rw,rh);
+	return rx<sp.x+b.hw&&rx+rw>sp.x-b.hw&&ry<sp.y+b.hh&&ry+rh>sp.y-b.hh;
+}
+/* Get solidify AABB for resolution (push/carry) — returns {x,y,w,h} */
+function getSolidBox(sp){
+	const b=getSolidBounds(sp);
+	if(b.type==='circle') return {x:sp.x-b.r,y:sp.y-b.r,w:b.r*2,h:b.r*2};
+	return {x:sp.x-b.hw,y:sp.y-b.hh,w:b.hw*2,h:b.hh*2};
+}
+
 /* Get all hittable targets — enemies for dungeon, dummies for sandbox, raidBoss for raid, slimes+dummies for openworld */
 function getAllTargets(){
 	if(IS_SANDBOX) return dummies;
@@ -11231,8 +11336,10 @@ function castSpell(){
 	if(isUlt){
 		// Ultimate: costs totalMana instead of regular mana — starts charge-up
 		let ultCost=cost*10;
-		// Necromancer domain expansion costs 20k instead of 10k
-		if(activeMageClass === 'necromancer' && spell.phases.some(p => p.behavior === 'domain')) ultCost *= 2;
+		// Domain Expansion and Transformation always cost exactly 25k — no discounts, no phase scaling
+		if(spell.phases.some(p=>p.behavior==='domain'||p.behavior==='transformation')) ultCost=25000;
+		// Necromancer domain expansion always costs exactly 50k
+		if(activeMageClass === 'necromancer' && spell.phases.some(p => p.behavior === 'domain')) ultCost=50000;
 		// Provide feedback for failed ultimate casts
 		if(spellCooldowns[activeSlot]>0) return; // silently fail - on cooldown is obvious
 		if(stats.magicControl<req){
@@ -11277,7 +11384,7 @@ function castSpell(){
 	}
 }
 
-function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,castId,sourceSlot,targetOriginX,targetOriginY){
+function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,castId,sourceSlot,targetOriginX,targetOriginY,_overrideAngle){
 	if(phaseIdx>=spell.phases.length)return;
 	let totalProj=1;
 	for(const p of spell.phases)totalProj*=(p.behavior==='aroundSelf'?(p.aroundSelfCount||4):(p.count||1));
@@ -11406,6 +11513,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 				activeDomain.necroSummonCount = 0;
 				activeDomain.necroSummonMax = 3;
 				activeDomain.necroSummonPower = (ph.power||1) * 2.5;
+				activeDomain.necroSpellPh = ph; // for summon upgrade scaling
 				// First summon at 2 seconds, then every ~18 seconds
 				activeDomain.necroNextSummonAge = Math.round(2 * FPS);
 				dmgNumbers.push({x:originX,y:originY-80,text:'💀 Undead Champions Rising...',age:0,color:'#8e44ad'});
@@ -11429,7 +11537,12 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	// Cursor-aimed behaviors: compute angle from player to mouse cursor
 	const cursorAimBehaviors = new Set(['straight','boomerang','lob','zigzag','teleport']);
 	let baseAngle;
-	if(cursorAimBehaviors.has(effectiveBehavior)){
+	if(_overrideAngle!=null){
+		baseAngle=_overrideAngle;
+	} else if(ph.effects&&ph.effects.includes('awayFromPlayer')){
+		const pcx2=player.x+player.w/2, pcy2=player.y+player.h/2;
+		baseAngle=Math.atan2(originY-pcy2,originX-pcx2);
+	} else if(cursorAimBehaviors.has(effectiveBehavior)){
 		const worldMX = mouseScreenX + camera.x;
 		const worldMY = mouseScreenY + camera.y;
 		const pcx = originX, pcy = originY;
@@ -11486,10 +11599,15 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 			isUltimate:ultFlag,
 			castId:castId!=null?castId:-1,
 			sourceSlot:sourceSlot!=null?sourceSlot:-1,
-			randomDelay:(ph.effects&&ph.effects.includes('randomDelay'))?Math.round(Math.random()*(ph.randomDelayMax||0.5)*FPS):0,
+			randomDelay:(()=>{
+				let _d=0;
+				if(ph.effects&&ph.effects.includes('randomDelay')) _d=Math.max(_d,Math.round(Math.random()*(ph.randomDelayMax||0.5)*FPS));
+				if(ph.effects&&ph.effects.includes('evenDelay')) _d=Math.max(_d,Math.round(i*(ph.evenDelayDuration||0.5)*FPS/Math.max(1,effectiveCount-1)));
+				return _d;
+			})(),
 			afterHitEffect:ph.afterHitEffect||'none',
 			polygonSides:ph.polygonSides||6,
-			_held:!!ph.holdDown,
+			_held:!!ph.holdDown && phaseIdx===0,
 			_holdSavedVx:0, _holdSavedVy:0,
 			_fromDomain:isDomainSubPhase,
 		};
@@ -11537,9 +11655,12 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 			proj.startX = proj.x; proj.startY = proj.y;
 		}
 		if(resolvedShape==='solidify'){proj.isSolidPlatform=true;proj.vx=0;proj.vy=0;}
+		const _solidifyBlockedShapes=new Set(['explosion','vortex','summon','allyOrb']);
+		if(proj.effects.includes('solidify')&&!_solidifyBlockedShapes.has(proj.shape)){proj.isSolidPlatform=true;proj.momentum=Math.sqrt(proj.vx*proj.vx+proj.vy*proj.vy);proj.initialMomentum=proj.momentum;}
 		if(effectiveBehavior==='rain'){const s2=200*(ph.width||1);proj.x=originX+(i-(count-1)/2)*(s2/Math.max(count-1,1));proj.y=originY-(ph.rainHeight||150);const rainAngle=Math.PI/2+spreadAngle;proj.vx=Math.cos(rainAngle)*spd*0.8;proj.vy=Math.sin(rainAngle)*spd*0.8;proj.startX=proj.x;proj.startY=proj.y;proj.facing=1;proj.beamAngle=rainAngle;}
-		if(effectiveBehavior==='barrage'){const s2=200*(ph.height||1);proj.x=originX+facing*120;proj.y=originY+(i-(count-1)/2)*(s2/Math.max(count-1,1));const barrageAngle=(facing===1?0:Math.PI)+spreadAngle;proj.vx=Math.cos(barrageAngle)*spd*0.8;proj.vy=Math.sin(barrageAngle)*spd*0.8;proj.startX=proj.x;proj.startY=proj.y;proj.beamAngle=barrageAngle;}
+		if(effectiveBehavior==='barrage'){const _bSpread=ph.barrageHeight||200;const _bmwx=mouseScreenX+camera.x,_bmwy=mouseScreenY+camera.y;const barrageAngle=Math.atan2(_bmwy-originY,_bmwx-originX)+spreadAngle;const _bPerp=barrageAngle+Math.PI/2;const _bOff=(i-(count-1)/2)*(_bSpread/Math.max(count-1,1));proj.x=originX+Math.cos(barrageAngle)*60+Math.cos(_bPerp)*_bOff;proj.y=originY+Math.sin(barrageAngle)*60+Math.sin(_bPerp)*_bOff;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS=0;while(isSolid(Math.floor(proj.x/TILE),Math.floor(proj.y/TILE))&&_bnS<8){proj.x=originX+(proj.x-originX)*0.7;proj.y=originY+(proj.y-originY)*0.7;_bnS++;}}if(proj.y>GROUND_Y-10)proj.y=GROUND_Y-20;proj.vx=Math.cos(barrageAngle)*spd*0.8;proj.vy=Math.sin(barrageAngle)*spd*0.8;proj._barrageAngle=barrageAngle;proj._barrageYOffset=_bOff;proj.startX=proj.x;proj.startY=proj.y;proj.beamAngle=barrageAngle;}
 		if(effectiveBehavior==='stationary'){proj.vx=0;proj.vy=0;}
+		if(effectiveBehavior==='control'){proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='groundSurge'){proj.vy=0;const mWorldX=mouseScreenX+camera.x;const gsDir=mWorldX>(player.x+player.w/2)?1:-1;proj.vx=gsDir*spd;proj._gsTrack=true;}
 		if(effectiveBehavior==='underfoot'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;proj.x=toX;proj.y=toY+20;proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='selfCast'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;proj.x=toX;proj.y=toY;proj.vx=0;proj.vy=0;}
@@ -11570,7 +11691,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		// Summon shape: spawn a minion instead of a projectile
 		if(proj.shape==='summon'){
 			// Necromancer class: summon defeated enemies from bestiary
-			if(activeMageClass === 'necromancer'){
+			if(hasClass('necromancer')){
 				// Count existing necro-summons
 				const necroCount = playerMinions.filter(m => m.isNecroSummon).length;
 				if(necroCount >= 20){
@@ -11590,7 +11711,10 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 					if(autoIds.length > 0){
 						const typeId = autoIds[Math.floor(Math.random() * autoIds.length)];
 						const et = ENEMY_TYPES[typeId];
-						const scaledHp = Math.round(et.hp * 0.8 + proj.power * 20);
+						const _dHealthBonus = (ph.summonHealth||0) * 10;
+						const _dSpeedMult = 1 + (ph.summonSpeed||0) * 0.08;
+						const _dRangeBonus = (ph.summonRange||0) * 60;
+						const scaledHp = Math.round(et.hp * 0.55 + proj.power * 25 + _dHealthBonus);
 						playerMinions.push({
 							x:proj.x, y:proj.y, w:et.w, h:et.h,
 							vx:0, vy:0,
@@ -11603,10 +11727,10 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 							onGround:false, target:null, summonClose:true,
 							isNecroSummon:true, necroType:typeId,
 							necroName:et.name, necroFlies:!!et.flies,
-							fireTimer:0, fireCooldown:Math.round(FPS*2),
-							detectRange: et.detectRange||400,
-							moveSpeed: et.moveSpeed||1.5,
-							spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*1.5)) : [],
+							fireTimer:0, fireCooldown:Math.round(FPS*2.5),
+							detectRange: (et.detectRange||400) + _dRangeBonus,
+							moveSpeed: Math.min((et.moveSpeed||1.5) * _dSpeedMult, 5),
+							spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*2)) : [],
 							// Archmage dual-class: necro summons inherit elemental behaviors
 							archmageElement: hasClass('archmage') ? (proj.effects && proj.effects[0] ? proj.effects[0] : null) : null,
 						});
@@ -11626,6 +11750,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 					maxAge:proj.maxAge,
 					color:proj.color,
 					ph:ph,
+					effects:proj.effects||[],
 				};
 				continue;
 			}
@@ -11646,7 +11771,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 				fireTimer:0, fireCooldown:Math.round(FPS*2.5),
 				target:null, animTimer:0,
 				detectRange:600+(ph.summonRange||0)*100,
-				moveSpeed:1.0+(ph.summonSpeed||0)*0.5,
+				moveSpeed:Math.min(1.0+(ph.summonSpeed||0)*0.5, 5),
 				summonClose:!!ph.summonClose,
 				selfReliance:!!ph.summonSelfReliance,
 				// Archmage: tag summon with elemental variant based on first effect
@@ -11658,6 +11783,15 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		if(hasClass('archmage') && proj.effects && proj.effects.includes('stun') && (proj.shape==='missile'||proj.shape==='orb'||proj.shape==='spike')){
 			proj.vx *= 3;
 			proj.vy *= 3;
+		}
+		// Solidify spawn offset: push projectile away from player based on its solidify radius
+		if(proj.isSolidPlatform && (proj.vx!==0||proj.vy!==0)){
+			const _sb=getSolidBounds(proj);
+			const _sr=_sb.type==='circle'?_sb.r:Math.max(_sb.hw,_sb.hh);
+			const _sAng=Math.atan2(proj.vy,proj.vx);
+			proj.x+=Math.cos(_sAng)*(_sr+10);
+			proj.y+=Math.sin(_sAng)*(_sr+10);
+			proj.startX=proj.x;proj.startY=proj.y;
 		}
 		projectiles.push(proj);
 	}
@@ -11699,9 +11833,12 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 		p.afterHitEffect=ph.afterHitEffect||'none';p.polygonSides=ph.polygonSides||6;
 		p.vx=Math.cos(angle)*spd;p.vy=Math.sin(angle)*spd;
 		if(resolvedShape==='solidify'){p.isSolidPlatform=true;p.vx=0;p.vy=0;}
+		const _solidifyBlockedShapes2=new Set(['explosion','vortex','summon','allyOrb']);
+		if(p.effects.includes('solidify')&&!_solidifyBlockedShapes2.has(p.shape)){p.isSolidPlatform=true;p.momentum=Math.sqrt(p.vx*p.vx+p.vy*p.vy);p.initialMomentum=p.momentum;}
 		if(ph.behavior==='rain'){p.vx=0;p.vy=spd*0.8;p.startX=ox;p.startY=oy;p.beamAngle=Math.PI/2;}
-		if(ph.behavior==='barrage'){const s2=200*(ph.height||1);p.x=ox+of*120;p.y=oy+(si-(count-1)/2)*(s2/Math.max(count-1,1));p.vx=of*spd*0.8;p.vy=0;p.startX=p.x;p.startY=p.y;p.beamAngle=of===1?0:Math.PI;}
+		if(ph.behavior==='barrage'){const _bSpread2=ph.barrageHeight||200;const _bmwx2=mouseScreenX+camera.x,_bmwy2=mouseScreenY+camera.y;const _bAng2=Math.atan2(_bmwy2-oy,_bmwx2-ox);const _bPerp2=_bAng2+Math.PI/2;const _bOff2=(si-(count-1)/2)*(_bSpread2/Math.max(count-1,1));p.x=ox+Math.cos(_bAng2)*60+Math.cos(_bPerp2)*_bOff2;p.y=oy+Math.sin(_bAng2)*60+Math.sin(_bPerp2)*_bOff2;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS2=0;while(isSolid(Math.floor(p.x/TILE),Math.floor(p.y/TILE))&&_bnS2<8){p.x=ox+(p.x-ox)*0.7;p.y=oy+(p.y-oy)*0.7;_bnS2++;}}if(p.y>GROUND_Y-10)p.y=GROUND_Y-20;p.vx=Math.cos(_bAng2)*spd*0.8;p.vy=Math.sin(_bAng2)*spd*0.8;p._barrageAngle=_bAng2;p._barrageYOffset=_bOff2;p.startX=p.x;p.startY=p.y;p.beamAngle=_bAng2;}
 		if(ph.behavior==='stationary'){p.vx=0;p.vy=0;}
+		if(ph.behavior==='control'){p.vx=0;p.vy=0;}
 		if(ph.behavior==='groundSurge'){p.vy=0;p.vx=of*spd;}
 		if(ph.behavior==='underfoot'){p.x=ox;p.y=oy+4;p.vx=0;p.vy=0;}
 		if(ph.behavior==='selfCast'){p.x=ox;p.y=oy;p.vx=0;p.vy=0;}
@@ -11716,6 +11853,15 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 			}
 			if(tgt){p.x=tgt.x+tgt.w/2;p.y=tgt.y+tgt.h+4;}else{p.x=ox;p.y=oy+4;}
 			p.vx=0;p.vy=-((ph.speed||1)*2);p.maxAge*=3;p.power*=1.4;p._groundTarget=tgt;
+		}
+		// Solidify spawn offset for morphed projectiles
+		if(p.isSolidPlatform && (p.vx!==0||p.vy!==0)){
+			const _sb=getSolidBounds(p);
+			const _sr=_sb.type==='circle'?_sb.r:Math.max(_sb.hw,_sb.hh);
+			const _sAng=Math.atan2(p.vy,p.vx);
+			p.x+=Math.cos(_sAng)*(_sr+10);
+			p.y+=Math.sin(_sAng)*(_sr+10);
+			p.startX=p.x;p.startY=p.y;
 		}
 	}
 	applyPh(proj,0);
@@ -11753,6 +11899,7 @@ function spawnEnemyProj(x,y,vx,vy,opts){
 		lingerLastDmg:0,
 		noWallCollide:nwc,
 		dispelImmune:opts.dispelImmune||(seraphelFight.phase==='active'),
+		_destroysSolid:opts._destroysSolid||false,
 	});
 }
 function castImpRedSword(en){
@@ -11888,7 +12035,7 @@ function castGolemPound(en){
 		if(en.dead)return;
 		spawnEnemyProj(en.x+en.w/2,en.y+en.h,0,0,{
 			color:'#884400',color2:'#cc6600',power:32,width:14,height:14,
-			shape:'ring',maxAge:45,aoe:true,aoeRadius:190,aoeMax:45,
+			shape:'ring',maxAge:45,aoe:true,aoeRadius:190,aoeMax:45,_destroysSolid:true,
 		});
 		// Magma spikes erupt from ground in a line
 		const dir=en.facing;
@@ -12007,7 +12154,7 @@ function castDragonBreath(en){
 				const spd = 5 + wave * 2;
 				spawnEnemyProj(cx, cy + (Math.random()-0.5)*20, Math.cos(baseAngle + spread) * spd, Math.sin(baseAngle + spread) * spd, {
 					color:'#ff4400', color2:'#ffaa00', power: 18 + wave * 5, width: 18, height: 18,
-					shape:'circle', effects:['burn'], trail:'flame', maxAge: 90 + wave * 20,
+					shape:'circle', effects:['burn'], trail:'flame', maxAge: 90 + wave * 20, _destroysSolid:true,
 				});
 			}
 		}, 700 + wave * 200);
@@ -12277,7 +12424,7 @@ function castGlacialSlam(en){
 		spawnEnemyProj(cx, groundY, 0, 0, {
 			color:'#1144cc', color2:'#4488ff', power: 60, width: 14, height: 14,
 			shape:'ring', maxAge: 60, aoe: true, aoeRadius: 450, aoeMax: 60,
-			effects:['freeze'],
+			effects:['freeze'], _destroysSolid:true,
 		});
 		// Ground shockwaves traveling left and right along the floor
 		for(let dir = -1; dir <= 1; dir += 2){
@@ -12666,7 +12813,7 @@ function castSentinelFrostStomp(en){
 	spawnEnemyProj(en.x+en.w/2,en.y+en.h,0,0,{
 		color:'#5577aa',color2:'#88aacc',power:28,width:14,height:14,
 		shape:'ring',maxAge:40,aoe:true,aoeRadius:200,aoeMax:40,
-		effects:['stun'],
+		effects:['stun'],_destroysSolid:true,
 	});
 	// Ice chunk spray upward
 	for(let i=0;i<6;i++){
@@ -12712,7 +12859,7 @@ function castGolemBoulderThrow(en){
 	spawnEnemyProj(en.x+en.w/2+dir*15,en.y+en.h*0.2,dir*5.5,-5,{
 		color:'#887744',color2:'#aa9955',power:30,width:24,height:24,
 		shape:'circle',maxAge:200,gravity:0.12,trail:'fire',
-		effects:['stun'],
+		effects:['stun'],_destroysSolid:true,
 	});
 }
 // Ground slam — AoE shockwave + stun
@@ -12946,7 +13093,7 @@ function castBoulderBarrage(en){
 				const spd=5+wave*1.5;
 				spawnEnemyProj(cx,cy+(Math.random()-0.5)*40,Math.cos(baseAngle+spread)*spd,Math.sin(baseAngle+spread)*spd-1,{
 					color:'#8b7340',color2:'#5a4a28',power:28+wave*8,width:22,height:22,
-					shape:'circle',maxAge:120+wave*15,gravity:0.08,
+					shape:'circle',maxAge:120+wave*15,gravity:0.08,_destroysSolid:true,
 				});
 			}
 		},650+wave*200);
@@ -13177,7 +13324,7 @@ function castIronSlash(en){
 	const dir=en.facing;
 	spawnEnemyProj(en.x+en.w/2+dir*20,en.y+en.h/2,dir*7,0,{
 		color:'#6a6a7a',color2:'#8a8a9a',power:22,width:32,height:18,
-		shape:'slash',maxAge:18,rotSpeed:0.5,
+		shape:'slash',maxAge:18,rotSpeed:0.5,_destroysSolid:true,
 	});
 	spawnEnemyProj(en.x+en.w/2+dir*30,en.y+en.h,dir*5,0,{
 		color:'#5a5a6a',color2:'#7a7a8a',power:8,width:14,height:6,
@@ -13265,7 +13412,7 @@ function castSlagSmash(en){
 		spawnEnemyProj(en.x+en.w/2,en.y+en.h,0,0,{
 			color:'#553322',color2:'#774433',power:30,width:20,height:20,
 			shape:'ring',maxAge:35,aoe:true,aoeRadius:140,aoeMax:35,
-			effects:['horizontalLaunch','stun'],
+			effects:['horizontalLaunch','stun'],_destroysSolid:true,
 		});
 		// Molten debris scatter
 		for(let i=0;i<4;i++){
@@ -13350,7 +13497,7 @@ function castForgeSlam(en){
 		spawnEnemyProj(cx,cy-20,0,0,{
 			color:'#cc6633',color2:'#ff8844',power:55,width:20,height:20,
 			shape:'ring',maxAge:60,aoe:true,aoeRadius:250,aoeMax:60,
-			effects:['horizontalLaunch'],
+			effects:['horizontalLaunch'],_destroysSolid:true,
 		});
 		spawnEnemyProj(cx-125,cy-40,0,-2,{
 			color:'#aa5533',color2:'#cc7744',power:45,width:250,height:30,
@@ -13739,7 +13886,7 @@ function castRootSurge(en){
 				spawnEnemyProj(rx,en.y+en.h-10,0,-7,{
 					color:'#5a1a5a',color2:'#8a3a8a',power:75,width:55,height:55,
 					shape:'spike',gravity:-0.05,maxAge:70,aoe:true,aoeRadius:80,aoeMax:50,
-					effects:['stun'],trail:'smoke',
+					effects:['stun'],trail:'smoke',_destroysSolid:true,
 				});
 			},400);
 		},i*160);
@@ -14132,7 +14279,7 @@ function castAncientSmash(en){
 		if(en.dead)return;
 		spawnEnemyProj(cx,cy,0,0,{
 			color:'#3a2a1a',color2:'#5a4a2a',power:50,width:20,height:20,
-			shape:'ring',maxAge:55,aoe:true,aoeRadius:200,aoeMax:55,
+			shape:'ring',maxAge:55,aoe:true,aoeRadius:200,aoeMax:55,_destroysSolid:true,
 		});
 		for(let i=0;i<3;i++){
 			const a=-Math.PI/2+(i-1)*0.5;
@@ -14222,7 +14369,7 @@ function castLightningStrike(en){
 			if(en.dead)return;
 			spawnEnemyProj(rx,en.y-200,0,12,{
 				color:'#ffee44',color2:'#ffff88',power:30,width:8,height:40,
-				shape:'missile',maxAge:80,
+				shape:'missile',maxAge:80,_destroysSolid:true,
 			});
 		},500+i*200);
 	}
@@ -14341,7 +14488,7 @@ function castDarkVineWhip(en){
 	const dir=en.facing;
 	spawnEnemyProj(en.x+en.w/2+dir*20,en.y+en.h/2,dir*8,0,{
 		color:'#4a2a4a',color2:'#6a3a6a',power:25,width:20,height:8,
-		shape:'sword',maxAge:22,effects:['poison'],
+		shape:'sword',maxAge:22,effects:['poison'],_destroysSolid:true,
 	});
 	// Corruption patch at impact zone
 	spawnEnemyProj(en.x+en.w/2+dir*80,en.y+en.h,0,0,{
@@ -15330,7 +15477,7 @@ function castSkyfallSpears(en){
 				spawnEnemyProj(sx, sy, 0, 24, {
 					color:'#ffd666', color2:'#ffffff', power:65, width:16, height:50,
 					shape:'spike', maxAge:80, trail:'light', gravity:0.15,
-					aoe:true, aoeRadius:75, aoeMax:40,
+					aoe:true, aoeRadius:75, aoeMax:40, _destroysSolid:true,
 				});
 				// Re-fire from landing position after first spear expires
 				setTimeout(()=>{
@@ -16162,7 +16309,28 @@ const CAST_FNS = {
 function updateProjectiles(){
 	for(let i=projectiles.length-1;i>=0;i--){
 		const p=projectiles[i];
-		if(p.randomDelay>0){p.randomDelay--;continue;}
+		if(p.randomDelay>0){
+			p.randomDelay--;
+			// selfCast + randomDelay: track player's live position so it spawns at where the player IS
+			if(p.behavior==='selfCast'||p.behavior==='aroundSelf'){
+				p.x=player.x+player.w/2;
+				p.y=player.y+player.h/2;
+				p.startX=p.x; p.startY=p.y;
+			}
+			continue;
+		}
+		/* Solid Object Break: destroy all solidify projectiles on first active frame */
+		if(p.effects.includes('solidObjectBreak')&&!p._solidBreakDone){
+			p._solidBreakDone=true;
+			for(let _sbi=projectiles.length-1;_sbi>=0;_sbi--){
+				const _sbp=projectiles[_sbi];
+				if(_sbp===p)continue;
+				if(_sbp.isSolidPlatform){
+					spawnImpact(_sbp.x,_sbp.y,_sbp.color);
+					_sbp.hasHit=true;
+				}
+			}
+		}
 		// Hold Down: keep at player, freeze age, but still check hits
 		if(p._held){
 			const _hb = p.behavior;
@@ -16197,8 +16365,34 @@ function updateProjectiles(){
 				p.x = player.x+player.w/2 + (Math.random()-0.5)*80;
 				p.y = player.y - 150;
 			} else if(_hb==='barrage'){
-				p.x = player.x+player.w/2 + player.facing*120;
-				p.y = player.y+player.h/2;
+				// Maintain spread formation in front of player, tracking current mouse aim direction
+				const _bhMwx=mouseScreenX+camera.x,_bhMwy=mouseScreenY+camera.y;
+				const _bhAng=Math.atan2(_bhMwy-(player.y+player.h/2),_bhMwx-(player.x+player.w/2));
+				const _bhPerp=_bhAng+Math.PI/2;
+				const _bhOff=p._barrageYOffset||0;
+				p.x=player.x+player.w/2+Math.cos(_bhAng)*60+Math.cos(_bhPerp)*_bhOff;
+				p.y=player.y+player.h/2+Math.sin(_bhAng)*60+Math.sin(_bhPerp)*_bhOff;
+				p._barrageAngle=_bhAng;
+			} else if(_hb==='boomerang'){
+				// Orbit slowly around player while held
+				if(p._holdOrbitAngle===undefined) p._holdOrbitAngle=Math.atan2(p.y-(player.y+player.h/2),p.x-(player.x+player.w/2));
+				p._holdOrbitAngle+=0.045;
+				p.x=player.x+player.w/2+Math.cos(p._holdOrbitAngle)*52;
+				p.y=player.y+player.h/2+Math.sin(p._holdOrbitAngle)*38;
+			} else if(_hb==='homing'){
+				// Drift in slow figure-8 near player hand
+				const _htNow=Date.now()/850;
+				p.x=player.x+player.w/2+player.facing*(18+Math.sin(_htNow*2)*14);
+				p.y=player.y+player.h/2-6+Math.sin(_htNow)*18;
+			} else if(_hb==='lob'){
+				// Bob up and down in front
+				p.x=player.x+player.w/2+player.facing*22;
+				p.y=player.y+player.h/2-4+Math.sin(Date.now()/360)*11;
+			} else if(_hb==='zigzag'){
+				// Rapid oscillation in front
+				const _ztNow=Date.now()/160;
+				p.x=player.x+player.w/2+player.facing*(16+Math.sin(_ztNow)*9);
+				p.y=player.y+player.h/2-6+Math.cos(_ztNow*1.4)*13;
 			} else {
 				p.x=player.x+player.w/2+player.facing*20;
 				p.y=player.y+player.h/2-6;
@@ -16326,7 +16520,45 @@ function updateProjectiles(){
 				}
 				break;
 			}
+			case'control':{
+				const mwx=mouseScreenX+camera.x, mwy=mouseScreenY+camera.y;
+				const dx=mwx-p.x, dy=mwy-p.y;
+				const d=Math.sqrt(dx*dx+dy*dy)||1;
+				const spd=(p.phase.speed||1)*5;
+				if(d>spd){p.vx=(dx/d)*spd;p.vy=(dy/d)*spd;}
+				else{p.vx=dx*0.3;p.vy=dy*0.3;}
+				/* Anti-tunneling: step along path so control can't phase through walls */
+				if(!p.effects.includes('phaseThrough')){
+					const _cMvD=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+					if(_cMvD>4){
+						const _cSt=Math.ceil(_cMvD/8);
+						for(let _cs=1;_cs<=_cSt;_cs++){
+							const _ct=_cs/_cSt;
+							const _cnx=p.x+p.vx*_ct, _cny=p.y+p.vy*_ct;
+							let _cBlk=false;
+							/* Dungeon tiles */
+							if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){
+								if(isSolid(Math.floor(_cnx/TILE),Math.floor(_cny/TILE))) _cBlk=true;
+							}
+							/* Ground */
+							if(_cny>=GROUND_Y) _cBlk=true;
+							/* Sandbox platforms */
+							if(!_cBlk){for(const _cpl of sandboxPlatforms){if(_cnx>=_cpl.x&&_cnx<=_cpl.x+_cpl.w&&_cny>=_cpl.y&&_cny<=_cpl.y+_cpl.h){_cBlk=true;break;}}}
+							/* Solidify platforms */
+							if(!_cBlk){for(const _csp of projectiles){if(!_csp.isSolidPlatform||_csp===p)continue;if(pointInSolid(_cnx,_cny,_csp)){_cBlk=true;break;}}}
+							if(_cBlk){
+								const _cPrv=Math.max(0,(_cs-1)/_cSt);
+								p.vx*=_cPrv;p.vy*=_cPrv;
+								break;
+							}
+						}
+					}
+				}
+				break;
+			}
 		}
+		/* Cone: always pin to start position — cone expands from origin, no movement */
+		if(p.shape==='cone'){p.vx=0;p.vy=0;p.x=p.startX;p.y=p.startY;}
 		if(!(p.behavior==='orbit'&&p.age<p.orbitDur)){p.x+=p.vx;p.y+=p.vy;}
 		/* Vortex: slow down gradually (slow-moving projectile) */
 		if(p.shape==='vortex'){const slowFactor=0.985;p.vx*=slowFactor;p.vy*=slowFactor;}
@@ -16386,7 +16618,16 @@ function updateProjectiles(){
 		for(const en of getAllTargets()){
 			if(en.dead)continue;
 			if(en.isDormant)continue;
-			if(p.hitTargets.has(en))continue;
+			/* phaseThrough re-hit: allow hitting again on cooldown (max 3 per target) */
+			if(p.hitTargets.has(en)){
+				if(p.effects.includes('phaseThrough')&&!PIERCE_SET.has(p.shape)&&p._phaseHitMap){
+					const _ph=p._phaseHitMap.get(en);
+					if(_ph&&_ph.count>=3)continue;
+					const _phCD=30+Math.floor((p.maxAge/60)*20);
+					if(_ph&&(p.age-_ph.lastAge)<_phCD)continue;
+					// allow re-hit — fall through
+				} else continue;
+			}
 			const hr=getTargetHitRect(en); // use visual sprite bounds for hit detection
 			let hit=false;
 			if(p.shape==='beam'){
@@ -16399,7 +16640,6 @@ function updateProjectiles(){
 				else{const dx3=hr.x+hr.w/2-p.startX,dy3=hr.y+hr.h/2-p.startY;const along=p.facing===1?dx3:-dx3;hit=along>0&&along<cL&&Math.abs(dy3)<cH*(along/cL);}
 			}
 			else if(p.shape==='wall'){hit=rectRect({x:p.x-p.width,y:p.y-p.height*3,w:p.width*2,h:p.height*6},hr);}
-			else if(p.shape==='solidify'){const sw=p.width*3,sh=p.height*1.5;hit=rectRect({x:p.x-sw/2,y:p.y-sh/2,w:sw,h:sh},hr);}
 			else if(p.shape==='spike'){hit=circRect(p.x,p.y,hitR*0.9,hr.x,hr.y,hr.w,hr.h);}
 			else if(p.shape==='polygon'){hit=circRect(p.x,p.y,hitR,hr.x,hr.y,hr.w,hr.h);}
 			else if(p.shape==='summon'){hit=false;} // summon projectiles spawn minions, don't hit
@@ -16408,7 +16648,17 @@ function updateProjectiles(){
 			else{hit=circRect(p.x,p.y,hitR,hr.x,hr.y,hr.w,hr.h);}
 
 			if(hit){
+				/* Solidify effect: momentum-based damage instead of normal */
+				if(p.isSolidPlatform && p.momentum!=null){
+					const momRatio=Math.max(0,p.momentum/(p.initialMomentum||1));
+					const solidifyDmg=p.power*8*momRatio*0.3;
+					if(solidifyDmg>0){en.hp-=solidifyDmg;en.flash=8;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:Math.round(solidifyDmg)+'',age:0,color:p.color});}
+					p.hitTargets.add(en);
+					spawnImpact(p.x,p.y,p.color);
+					continue;
+				}
 				const homingMult=p.behavior==='homing'?0.5:1;
+				const controlMult=p.behavior==='control'?0.15:1;
 				const lobMult=p.behavior==='lob'?1.25:1; // lob: 25% damage bonus
 				const orbitMult=p.behavior==='orbit'?0.7:1; // orbit: 30% damage reduction
 				// rain/barrage bonus only on first phase — prevents multi-phase/phaseFork exploit
@@ -16417,6 +16667,7 @@ function updateProjectiles(){
 				const hitNum=(p.castId>=0&&spellHitCounts[p.castId]!=null)?spellHitCounts[p.castId]++:0;
 				const dimMult=p._fromDomain?1:1/(1+hitNum*0.04); // no diminishing for domain; halved for others (was 0.08)
 				const beamMult=p.shape==='beam'?0.65:1; // beam: less harsh penalty (was 0.5)
+				const coneMult=p.shape==='cone'?0.35:1; // cone: significant nerf
 				// Damage release bonus
 				const releaseMult=p.effects.includes('damageRelease')?(1+damageStored/500):1;
 				// Elemental vow damage bonus (burn/freeze/poison)
@@ -16465,7 +16716,7 @@ function updateProjectiles(){
 				// Summon projectiles: flat scaling only (no class/domain/item stacking)
 				const rawDmg = p.isSummonProj
 					? p.power * 4.375 * elemMult * phaseMult * meteorNerf * spreadMult
-					: p.power*8*homingMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*archmageElemMult*domSameDmgMult*domVowPlayerPow;
+					: p.power*8*homingMult*controlMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*coneMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*archmageElemMult*domSameDmgMult*domVowPlayerPow;
 				let dotSteal=0;
 				if(p.effects.includes('burn'))dotSteal=0.15;
 				if(p.effects.includes('poison'))dotSteal=0.1;
@@ -16578,6 +16829,15 @@ function updateProjectiles(){
 							dmgNumbers.push({x:e2.x+e2.w/2,y:e2.y-10,text:Math.round(splashDmg)+'💥',age:0,color:'#ff6600'});
 						}
 					}
+				}
+				/* EXPLOSION shape: full AoE blast on first enemy contact */
+				if(p.shape==='explosion'&&!p._exploded){triggerExplosion(p,en);}
+				if(p.effects.includes('phaseThrough')&&!PIERCE_SET.has(p.shape)){
+					p.hitTargets.add(en);
+					if(!p._phaseHitMap)p._phaseHitMap=new Map();
+					const _prev=p._phaseHitMap.get(en);
+					p._phaseHitMap.set(en,{count:(_prev?_prev.count:0)+1,lastAge:p.age});
+					spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));continue;
 				}
 				p.hasHit=true;spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));
 				if(!p.phaseTriggered&&p.phase.nextTrigger==='afterHitDelay'&&p.phaseIdx+1<p.spell.phases.length){
@@ -16726,11 +16986,22 @@ function updateProjectiles(){
 			// Ceiling collision
 			const ceilY=IS_RAID?RAID_CONFIG.ceilY:0;
 			if(p.y<=ceilY){ groundHit=true; p.y=ceilY+1; groundHitNormalY=1; }
-			// Platform collision
+			// Platform collision (sandboxPlatforms and solidify player platforms)
 			if(!groundHit){
 				for(const plat of sandboxPlatforms){
 					if(p.x>=plat.x&&p.x<=plat.x+plat.w&&p.y>=plat.y&&p.y<=plat.y+plat.h){
 						groundHit=true;groundHitNormalY=-1;break;
+					}
+				}
+			}
+			// Solidify (player-made) platform ricochet in all modes
+			if(!groundHit&&!p.effects.includes('phaseThrough')){
+				for(const sp of projectiles){
+					if(!sp.isSolidPlatform||sp===p)continue;
+					if(pointInSolid(p.x,p.y,sp)){
+						groundHit=true;
+						groundHitNormalY = p.y < sp.y ? -1 : 1;
+						break;
 					}
 				}
 			}
@@ -16745,11 +17016,34 @@ function updateProjectiles(){
 					spawnImpact(p.x,p.y,p.color);
 					p.hitTargets.clear(); // can re-hit after bounce
 				} else {
+					if(p.shape==='explosion'&&!p._exploded){triggerExplosion(p);}
 					spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));p.hasHit=true;
 					if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
 				}
 			}
 		}
+
+		/* EXPLOSION SHAPE: detonate on contact with enemy projectiles or player dispel */
+		if(p.shape==='explosion'&&!p.hasHit&&!p._exploded){
+			const _expHitR=Math.max(p.width,p.height)*0.85;
+			let _expDet=false;
+			// Contact with enemy projectiles
+			for(const ep of enemyProjectiles){
+				if(Math.hypot(p.x-ep.x,p.y-ep.y)<_expHitR+Math.max(ep.width,ep.height)*0.5){
+					triggerExplosion(p);p.hasHit=true;_expDet=true;break;
+				}
+			}
+			// Contact with player dispel spell — remote detonation mechanic
+			if(!_expDet){
+				for(const dp of projectiles){
+					if(dp===p||!dp.effects.includes('dispel'))continue;
+					if(Math.hypot(p.x-dp.x,p.y-dp.y)<_expHitR+Math.max(dp.width,dp.height)*0.85){
+						triggerExplosion(p);p.hasHit=true;break;
+					}
+				}
+			}
+		}
+
 		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD&&(!IS_BLACKSANDS||p.y>BLACKSANDS_CONFIG.groundY)&&(!IS_SYLVARIS||p.y>SYLVARIS_CONFIG.groundY)&&(!IS_STORMISLANDS||p.y>STORMISLANDS_CONFIG.groundY)){
 			let wallHit=false;
 			let wallNormalX=0, wallNormalY=0; // for ricochet bounce direction
@@ -16769,8 +17063,8 @@ function updateProjectiles(){
 			}
 			if(!wallHit){for(const sw of spellWalls){if(p.x>=sw.x&&p.x<=sw.x+sw.w&&p.y>=sw.y&&p.y<=sw.y+sw.h){wallHit=true;
 				const cx=sw.x+sw.w/2,cy=sw.y+sw.h/2;wallNormalX=p.x<cx?-1:1;wallNormalY=p.y<cy?-1:1;break;}}}
-			/* solidify platforms block all non-platform projectiles */
-			if(!wallHit){for(const sp of projectiles){if(!sp.isSolidPlatform||sp===p)continue;const sw2=sp.width*3,sh2=sp.height*1.5;if(p.x>=sp.x-sw2/2&&p.x<=sp.x+sw2/2&&p.y>=sp.y-sh2/2&&p.y<=sp.y+sh2/2){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}}
+			/* solidify platforms block all non-platform projectiles (phase bypasses) */
+			if(!wallHit&&!p.effects.includes('phaseThrough')){for(const sp of projectiles){if(!sp.isSolidPlatform||sp===p)continue;if(pointInSolid(p.x,p.y,sp)){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}}
 			if(wallHit){
 				/* RICOCHET: bounce off walls instead of being destroyed (max 5 bounces) */
 				if(p.effects.includes('ricochet')&&(p._bounces||0)<5){
@@ -16791,9 +17085,81 @@ function updateProjectiles(){
 					spawnImpact(p.x,p.y,p.color);
 					p.hitTargets.clear(); // can re-hit after bounce
 				} else {
+					if(p.shape==='explosion'&&!p._exploded){triggerExplosion(p);}
 					spawnImpact(p.x,p.y,p.color);if(p.afterHitEffect&&p.afterHitEffect!=='none')spawnAfterHitEffect(p.x,p.y,p.afterHitEffect,p.color,Math.max(p.width,p.height));p.hasHit=true;
 					if(!p.phaseTriggered&&p.phase.nextTrigger==='onHit'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles'))spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);else morphProjectile(p,p.phaseIdx+1);}
 				}
+			}
+		}
+
+		/* Solidify: wall/ground collision stops moving solid projectiles */
+		if(p.isSolidPlatform && (p.momentum||0)>0 && !skipWall){
+			let solidStopped=false;
+			// Dungeon tile collision
+			if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD&&(!IS_BLACKSANDS||p.y>BLACKSANDS_CONFIG.groundY)&&(!IS_SYLVARIS||p.y>SYLVARIS_CONFIG.groundY)&&(!IS_STORMISLANDS||p.y>STORMISLANDS_CONFIG.groundY)){
+				const tc=Math.floor(p.x/TILE),tr2=Math.floor(p.y/TILE);
+				if(isSolid(tc,tr2)){p.x-=p.vx;p.y-=p.vy;solidStopped=true;}
+			}
+			// Open-sky ground/ceiling/platform collision
+			if(!solidStopped){
+				if(p.y+p.height>=GROUND_Y){p.y=GROUND_Y-p.height;solidStopped=true;}
+				const ceilY=IS_RAID?RAID_CONFIG.ceilY:0;
+				if(p.y-p.height<=ceilY){p.y=ceilY+p.height;solidStopped=true;}
+				if(!solidStopped){for(const plat of sandboxPlatforms){
+					if(p.x+p.width>plat.x&&p.x-p.width<plat.x+plat.w&&p.y+p.height>plat.y&&p.y-p.height<plat.y+plat.h){p.x-=p.vx;p.y-=p.vy;solidStopped=true;break;}
+				}}
+			}
+			if(solidStopped){p.momentum=0;p.vx=0;p.vy=0;}
+		}
+
+		/* Solidify-to-solidify momentum transfer */
+		if(p.isSolidPlatform){
+			const aBox=getSolidBox(p);
+			for(let si=0;si<projectiles.length;si++){
+				const sp=projectiles[si];
+				if(sp===p||!sp.isSolidPlatform) continue;
+				const bBox=getSolidBox(sp);
+				if(!rectRect(aBox,bBox)) continue;
+				const mA=p.momentum||0,mB=sp.momentum||0;
+				if(mA===0&&mB===0) continue;
+				if(mA===0) continue; // only the moving one initiates transfer
+				const aSpd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||1;
+				const aDx=p.vx/aSpd,aDy=p.vy/aSpd;
+				if(mB===0){
+					// Push stationary: full transfer
+					sp.momentum=mA;sp.initialMomentum=mA;
+					sp.vx=aDx*aSpd;sp.vy=aDy*aSpd;
+					p.momentum=0;p.vx=0;p.vy=0;
+				} else {
+					const bSpd=Math.sqrt(sp.vx*sp.vx+sp.vy*sp.vy)||1;
+					const bDx=sp.vx/bSpd,bDy=sp.vy/bSpd;
+					const dirDot=aDx*bDx+aDy*bDy;
+					if(dirDot<-0.3){
+						// Head-on: winner continues, loser reverses with difference
+						const diff=Math.abs(mA-mB);
+						if(mA>=mB){
+							p.momentum=diff;
+							if(diff>0){const r=diff/mA;p.vx*=r;p.vy*=r;}else{p.vx=0;p.vy=0;}
+							sp.momentum=diff;sp.initialMomentum=Math.max(sp.initialMomentum||1,diff);
+							if(diff>0){sp.vx=aDx*aSpd*(diff/mA);sp.vy=aDy*aSpd*(diff/mA);}else{sp.vx=0;sp.vy=0;}
+						} else {
+							sp.momentum=diff;
+							if(diff>0){const r=diff/mB;sp.vx*=r;sp.vy*=r;}else{sp.vx=0;sp.vy=0;}
+							p.momentum=diff;p.initialMomentum=Math.max(p.initialMomentum||1,diff);
+							if(diff>0){p.vx=bDx*bSpd*(diff/mB);p.vy=bDy*bSpd*(diff/mB);}else{p.vx=0;p.vy=0;}
+						}
+					} else {
+						// Same direction: transfer from behind to ahead
+						sp.momentum+=mA;sp.initialMomentum=Math.max(sp.initialMomentum||1,sp.momentum);
+						const newR=Math.min(sp.momentum/(sp.initialMomentum||1),2);
+						sp.vx=bDx*bSpd*newR;sp.vy=bDy*bSpd*newR;
+						p.momentum=0;p.vx=0;p.vy=0;
+					}
+				}
+				// Separate slightly
+				const sdx=sp.x-p.x,sdy=sp.y-p.y,sdist=Math.sqrt(sdx*sdx+sdy*sdy)||1;
+				sp.x+=(sdx/sdist)*2;sp.y+=(sdy/sdist)*2;
+				break;
 			}
 		}
 
@@ -16818,10 +17184,15 @@ function updateProjectiles(){
 		if(!p.timedReleaseTriggered&&p.effects.includes('timedRelease')&&p.age>=p.timedReleaseDelay){p.timedReleaseTriggered=true;applyPlayerEffects(p);spawnImpact(p.x,p.y,p.color);}
 		/* phase fork */
 		if(p.effects.includes('phaseFork')&&p.phaseIdx+1<p.spell.phases.length){
-			if(p.phaseForkCount<p.phaseForkRepeats&&p.age>=p.phaseForkNextAge){p.phaseForkCount++;p.phaseForkNextAge=p.age+p.phaseForkDelay;const dm=1/(1+p.phaseForkCount*0.3);spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,dm,p.isUltimate,p.castId,p.sourceSlot);spawnImpact(p.x,p.y,p.color);}}
+			if(p.phaseForkCount<p.phaseForkRepeats&&p.age>=p.phaseForkNextAge){p.phaseForkCount++;p.phaseForkNextAge=p.age+p.phaseForkDelay;let dm=1/(1+p.phaseForkCount*0.3);let _fkx=p.x,_fky=p.y;if(p.shape==='beam'&&p.beamLen>0){const _fkf=(p.phaseForkCount-1)/Math.max(1,p.phaseForkRepeats-1);_fkx=p.startX+Math.cos(p.beamAngle)*(_fkf*p.beamLen);_fky=p.startY+Math.sin(p.beamAngle)*(_fkf*p.beamLen);}
+			const _pfCursor=!!p.phase.phaseForkCursorTrack;
+			let _pfAngle=undefined;
+			if(_pfCursor){dm*=0.85;}else{const _pvs=Math.sqrt(p.vx*p.vx+p.vy*p.vy);_pfAngle=_pvs>0.1?Math.atan2(p.vy,p.vx):(p.facing===1?0:Math.PI);}
+			spawnPhase(p.spell,p.phaseIdx+1,_fkx,_fky,p.facing,dm,p.isUltimate,p.castId,p.sourceSlot,undefined,undefined,_pfAngle);spawnImpact(_fkx,_fky,p.color);}}
 
 		/* expire */
-		const shouldRemove=!p._held&&(p.age>=p.maxAge||(p.hasHit&&!PIERCE_SET.has(p.shape)&&!p._afterHitDelayActive));
+		const _persistHeld=p._held&&(p._warriorNunchuck||p.behavior==='aroundSelf'||p.behavior==='boomerang'||p.behavior==='underfoot'||p.behavior==='ground');
+		const shouldRemove=!_persistHeld&&(p.age>=p.maxAge||(p.hasHit&&!PIERCE_SET.has(p.shape)&&!p._afterHitDelayActive&&!p.isSolidPlatform));
 		if(shouldRemove){
 			/* Meteor: explode on expire/ground contact too */
 			if(p.shape==='meteor'&&!p._meteorExploded){
@@ -16840,6 +17211,8 @@ function updateProjectiles(){
 					}
 				}
 			}
+			/* EXPLOSION: detonate on expire — full AoE */
+			if(p.shape==='explosion'&&!p._exploded){triggerExplosion(p);}
 			if(!p.phaseTriggered&&p.phase.nextTrigger==='onExpire'&&p.phaseIdx+1<p.spell.phases.length){p.phaseTriggered=true;if(p.effects.includes('resetProjectiles')){spawnPhase(p.spell,p.phaseIdx+1,p.x,p.y,p.facing,undefined,p.isUltimate,p.castId,p.sourceSlot);projectiles.splice(i,1);}else{morphProjectile(p,p.phaseIdx+1);}continue;}
 			// Archmage shatter shard expiry cascade: when a shard times out, split into 2 new shards
 			if(p.archmageShatter && !p._cascaded && p.age>=p.maxAge){
@@ -17189,16 +17562,37 @@ function updateEnemyProjectiles(){
 		if(!p.hasHit&&!p.aoe&&!p.noWallCollide){
 			const tc=Math.floor(p.x/TILE),tr3=Math.floor(p.y/TILE);
 			let epWall=false;
+			let _hitSolid=null;
 			if(isSolid(tc,tr3)) epWall=true;
 			/* solidify platforms block enemy projectiles too */
-			if(!epWall){for(const sp of projectiles){if(!sp.isSolidPlatform)continue;const sw2=sp.width*3,sh2=sp.height*1.5;if(p.x>=sp.x-sw2/2&&p.x<=sp.x+sw2/2&&p.y>=sp.y-sh2/2&&p.y<=sp.y+sh2/2){epWall=true;break;}}}
+			if(!epWall){for(const sp of projectiles){if(!sp.isSolidPlatform)continue;if(pointInSolid(p.x,p.y,sp)){epWall=true;_hitSolid=sp;break;}}}
 			if(epWall){
+				/* _destroysSolid: enemy projectile shatters solidify on contact */
+				if(_hitSolid&&p._destroysSolid){
+					spawnImpact(_hitSolid.x,_hitSolid.y,_hitSolid.color);
+					_hitSolid.hasHit=true;
+					spawnImpact(p.x,p.y,p.color);
+					enemyProjectiles.splice(i,1);continue;
+				}
 				if(p.linger){
 					p.hasHit=true;p.vx=0;p.vy=0;
 					p.y=tr3*TILE;
 				} else {
 					spawnImpact(p.x,p.y,p.color);
 					enemyProjectiles.splice(i,1);continue;
+				}
+			}
+		}
+
+		/* AoE _destroysSolid: ring/aoe attacks shatter solidify within range */
+		if(p._destroysSolid&&p.aoe){
+			const aR=p.aoeRadius*(p.aoeTimer/Math.max(1,p.aoeMax));
+			for(let _si3=projectiles.length-1;_si3>=0;_si3--){
+				const sp=projectiles[_si3];
+				if(!sp.isSolidPlatform)continue;
+				const dd=Math.hypot(sp.x-p.x,sp.y-p.y);
+				if(dd<aR+Math.max(sp.width,sp.height)*2){
+					spawnImpact(sp.x,sp.y,sp.color);sp.hasHit=true;
 				}
 			}
 		}
@@ -17231,16 +17625,17 @@ function damagePlayer(amount,effects){
 	dmgNumbers.push({x:player.x+player.w/2,y:player.y-20,text:'-'+Math.round(dmg),age:0,color:'#ff4444'});
 
 	if(effects){
+		const _elemImmune = player.transformActive && player.transformBuffsActive?.elemImmunity;
 		for(const fx of effects){
 			switch(fx){
 				case 'burn':
-					player.dots.push({type:'burn',dmg:amount*0.2,ticks:4,interval:60,timer:0,color:'#ff6a00'});
+					if(!_elemImmune) player.dots.push({type:'burn',dmg:amount*0.2,ticks:4,interval:60,timer:0,color:'#ff6a00'});
 					break;
 				case 'freeze':
-					player.slowTimer=Math.max(player.slowTimer,90);
+					if(!_elemImmune) player.slowTimer=Math.max(player.slowTimer,90);
 					break;
 				case 'poison':
-					player.dots.push({type:'poison',dmg:amount*0.15,ticks:5,interval:75,timer:0,color:'#44dd44'});
+					if(!_elemImmune) player.dots.push({type:'poison',dmg:amount*0.15,ticks:5,interval:75,timer:0,color:'#44dd44'});
 					break;
 				case 'horizontalLaunch':
 					// Launch player horizontally based on projectile direction
@@ -17248,7 +17643,7 @@ function damagePlayer(amount,effects){
 					dmgNumbers.push({x:player.x+player.w/2,y:player.y-30,text:'LAUNCHED!',age:0,color:'#ff8800'});
 					break;
 				case 'stun':
-					player.stunTimer=Math.max(player.stunTimer,45);
+					if(!_elemImmune) player.stunTimer=Math.max(player.stunTimer,45);
 					break;
 			}
 		}
@@ -17549,7 +17944,7 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 				}
 				break;
 			}
-			case'knockback':en.x+=proj.facing*40*ePow*ultMult;break;
+			case'knockback':if(!(en.knockbackCooldown>0)){en.x+=proj.facing*20*ePow*ultMult;en.knockbackCooldown=45;}break;
 			case'pull':{const dx2=player.x+player.w/2-(en.x+en.w/2);const dy2=player.y+player.h/2-(en.y+en.h/2);const d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;en.x+=dx2/d2*50*ePow*ultMult;en.y+=dy2/d2*30*ePow*ultMult;break;}
 			case'stun':{const sr=en._stunResist||0;const sd=Math.min(30,Math.round(18*eDur*ultMult*Math.max(0.1,1-sr*0.25)));en.stunTimer=Math.max(en.stunTimer,sd);en._stunResist=sr+1;break;}
 			case'horizontalLaunch':{const launchPow=proj.facing*(proj.power*0.75*ePow);player.vx=launchPow;dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:proj.isUltimate?'⚡ MEGA LAUNCH!':'LAUNCHED!',age:0,color:'#ff8800'});break;}
@@ -17635,6 +18030,59 @@ function spawnImpact(x,y,color){
 	for(let i=0;i<count;i++){
 		const ang=Math.random()*Math.PI*2;const spd=1.5+Math.random()*3.5;
 		particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:18+Math.random()*12|0,maxLife:30,r:2+Math.random()*2.5,color:rgb});
+	}
+}
+/* Trigger explosion detonation — AoE damage + visual blast */
+function triggerExplosion(proj, excludeTarget){
+	if(proj._exploded)return;
+	proj._exploded=true;
+	const expR=Math.max(80,40+(proj.width+proj.height)*2.5);
+	shakeScreen(10,14);
+	activeExplosions.push({x:proj.x,y:proj.y,maxR:expR,age:0,maxAge:36,color:proj.color});
+	// Burst particles — tinted toward spell color
+	const _eRgb=hexToRgb(proj.color)||{r:255,g:100,b:0};
+	for(let _pi=0;_pi<24;_pi++){
+		const _ang=Math.random()*Math.PI*2,_spd=(3+Math.random()*9)*(expR/80);
+		const _pcol=_pi%3===0?{r:255,g:255,b:220}:_pi%3===1?{r:Math.min(255,_eRgb.r+80),g:Math.min(255,_eRgb.g+80),b:Math.min(255,_eRgb.b+80)}:{r:_eRgb.r,g:_eRgb.g,b:_eRgb.b};
+		particles.push({x:proj.x,y:proj.y,vx:Math.cos(_ang)*_spd,vy:Math.sin(_ang)*_spd-2.5,life:Math.round(18+Math.random()*18),maxLife:36,r:(2.5+Math.random()*5)*(expR/80),color:_pcol});
+	}
+	// AoE damage — full falloff over explosion radius
+	for(const _en of getAllTargets()){
+		if(_en.dead||_en===excludeTarget)continue;
+		const _dd=Math.hypot(proj.x-(_en.x+_en.w/2),proj.y-(_en.y+_en.h/2));
+		if(_dd<expR+_en.w/2){
+			// sqrt falloff: gentler drop-off so far-edge enemies still take decent damage
+			const _falloff=Math.max(0,Math.sqrt(1-_dd/expR));
+			const _dmg=proj.power*14*_falloff;
+			if(_dmg>0.5){
+				_en.hp-=_dmg;_en.flash=8;
+				dmgNumbers.push({x:_en.x+_en.w/2+(Math.random()-0.5)*20,y:_en.y-10,text:Math.round(_dmg)+'💥',age:0,color:'#ff6600'});
+				if(_en.hp<=0){_en.hp=0;_en.dead=true;}
+				applyEnemyHitEffects(proj,_en,_dmg);
+			}
+		}
+	}
+	// Self-damage: 30% falloff damage if player is within blast zone (respects iFrames)
+	const _pdst=Math.hypot(proj.x-(player.x+player.w/2),proj.y-(player.y+player.h/2));
+	if(_pdst<expR+player.w/2){
+		const _pFalloff=Math.max(0,1-_pdst/expR);
+		const _pDmg=proj.power*14*_pFalloff*0.30;
+		if(_pDmg>0.5){
+			// Apply directional knockback away from explosion centre
+			const _pkbx=(player.x+player.w/2)-proj.x, _pkby=(player.y+player.h/2)-proj.y;
+			const _pkbd=Math.hypot(_pkbx,_pkby)||1;
+			const _kbS=_pFalloff*4.5;
+			player.vx+=(_pkbx/_pkbd)*_kbS;
+			player.vy+=(_pkby/_pkbd)*_kbS-2;
+			// Check explosion immunity from transformation buff
+			const _expImmune = player.transformActive && player.transformBuffsActive && player.transformBuffsActive.explosionImmunity;
+			if(!_expImmune){
+				damagePlayer(_pDmg, proj.effects);
+			} else {
+				// Explosion-immune: no damage but effects still apply
+				damagePlayer(0, proj.effects);
+			}
+		}
 	}
 }
 function spawnAfterHitEffect(x,y,type,baseColor,spellSize){
@@ -19002,11 +19450,39 @@ function closeInventory(){
 	if(saved){
 		try {
 			const data = JSON.parse(saved);
-			playerData.spells = data.spells;
 			playerData.equipment = data.equipment;
 			playerData.spellBoosts = data.spellBoosts || new Array(10).fill(1.0);
-			// Refresh equipped spells
+			playerData.loadouts = data.loadouts || [];
+			playerData.activeLoadoutIdx = data.activeLoadoutIdx != null ? data.activeLoadoutIdx : -1;
+			if(player.transformActive){
+				// Mid-transformation: do NOT replace the active transform spells in playerData.spells.
+				// Instead update the snapshot so that when transformation ends the player
+				// returns to whatever loadout they just switched to in inventory.
+				let _postTransSpells = data.spells;
+				// If they switched to a transformation loadout in inventory, revert to first standard
+				if(playerData.loadouts.length > 0 && playerData.activeLoadoutIdx >= 0){
+					const _al = playerData.loadouts[playerData.activeLoadoutIdx];
+					if(_al && _al.type === 'transformation'){
+						const _stdIdx = playerData.loadouts.findIndex(l => l.type !== 'transformation');
+						if(_stdIdx >= 0) _postTransSpells = JSON.parse(JSON.stringify(playerData.loadouts[_stdIdx].spells));
+					}
+				}
+				player.transformSavedSpells = _postTransSpells;
+			} else {
+				playerData.spells = data.spells;
+				// GUARD: if active loadout is transformation type and not transformed,
+				// restore the first standard loadout's spells.
+				if(playerData.loadouts.length > 0 && playerData.activeLoadoutIdx >= 0){
+					const _al = playerData.loadouts[playerData.activeLoadoutIdx];
+					if(_al && _al.type === 'transformation'){
+						const _stdIdx = playerData.loadouts.findIndex(l => l.type !== 'transformation');
+						if(_stdIdx >= 0) playerData.spells = JSON.parse(JSON.stringify(playerData.loadouts[_stdIdx].spells));
+					}
+				}
+			}
 			loadEquippedSpells();
+			renderHotbar();
+			updateTotalManaHUD();
 		} catch(e){}
 	}
 }
@@ -20484,6 +20960,7 @@ function updateEnemies(){
 		if(en.flash>0)en.flash--;
 		if(en.stunTimer>0)en.stunTimer--;
 		if(en.slowTimer>0)en.slowTimer--;
+		if(en.knockbackCooldown>0)en.knockbackCooldown--;
 		if(en._shatterCooldown>0)en._shatterCooldown--;
 		if(en._stunResist>0&&!(en.stunTimer>0)&&en.animTimer%120===0)en._stunResist=Math.max(0,en._stunResist-1);
 		if(en._amHealBlock>0)en._amHealBlock--;
@@ -20705,7 +21182,9 @@ function updateEnemies(){
 
 		// Bosses always see the player in their room (no LoS requirement)
 		const bossAlwaysSees = en.typeDef.isBoss && bossState.phase === 'active';
-		const canSee=bossAlwaysSees||(en.typeDef.isBoss?(playerDist<en.typeDef.detectRange):(playerDist<en.typeDef.detectRange&&hasLineOfSight(en.x+en.w/2,en.y+en.h/2,player.x+player.w/2,player.y+player.h/2)));
+		// Elder treant: only attacks after player enters boss chamber (cutscene triggers 'active')
+		const caveBossBlocked = en.type === 'elderTreant' && caveBossState.phase !== 'active';
+		const canSee=!caveBossBlocked&&(bossAlwaysSees||(en.typeDef.isBoss?(playerDist<en.typeDef.detectRange):(playerDist<en.typeDef.detectRange&&hasLineOfSight(en.x+en.w/2,en.y+en.h/2,player.x+player.w/2,player.y+player.h/2))));
 
 		// Face player
 		if(canSee) en.facing = dx > 0 ? 1 : -1;
@@ -21004,19 +21483,87 @@ function updateEnemies(){
 			if(en.typeDef.flies) en.baseY = en.y - en.flyOffset;
 		}
 
-		// Solidify platform collision for enemies (platforms block enemies — bosses pass through)
-		if(!en.typeDef.isBoss) for(const p of projectiles){
+		// Solidify platform collision for enemies
+		for(const p of projectiles){
 			if(!p.isSolidPlatform) continue;
-			const sw2=p.width*3, sh2=p.height*1.5;
-			const platBox={x:p.x-sw2/2, y:p.y-sh2/2, w:sw2, h:sh2};
-			if(rectRect(en, platBox)){
-				const oL=(en.x+en.w)-platBox.x, oR=(platBox.x+platBox.w)-en.x;
-				const oT=(en.y+en.h)-platBox.y, oB=(platBox.y+platBox.h)-en.y;
-				const m=Math.min(oL,oR,oT,oB);
-				if(m===oT){en.y=platBox.y-en.h;en.vy=0;if(!en.typeDef.flies)en.onGround=true;}
-				else if(m===oB){en.y=platBox.y+platBox.h;en.vy=0;}
-				else if(m===oL){en.x=platBox.x-en.w;en.vx=0;}
-				else{en.x=platBox.x+platBox.w;en.vx=0;}
+			const platBox=getSolidBox(p);
+			if(!rectRect(en, platBox)) continue;
+			// Boss: bypass solidify and stop the projectile
+			if(en.typeDef.isBoss){
+				if(p.momentum!=null && p.momentum>0){
+					const bDmg=p.power*8*(p.momentum/(p.initialMomentum||1))*0.3;
+					if(bDmg>0){en.hp-=bDmg;en.flash=8;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:Math.round(bDmg)+'',age:0,color:p.color});}
+					p.momentum=0;p.vx=0;p.vy=0;
+				}
+				continue;
+			}
+			const oL=(en.x+en.w)-platBox.x, oR=(platBox.x+platBox.w)-en.x;
+			const oT=(en.y+en.h)-platBox.y, oB=(platBox.y+platBox.h)-en.y;
+			const m=Math.min(oL,oR,oT,oB);
+			// Moving solidify: push enemies, deal impact damage, and lose momentum (carry if on top)
+			if(p.momentum!=null && p.momentum>0){
+				// Impact damage on contact (once per enemy per solidify)
+				if(!p._solidHitEnemies) p._solidHitEnemies=new Set();
+				if(!p._solidHitEnemies.has(en)){
+					p._solidHitEnemies.add(en);
+					const momRatio=Math.max(0,p.momentum/(p.initialMomentum||1));
+					const impactDmg=p.power*8*momRatio*0.4;
+					if(impactDmg>0){en.hp-=impactDmg;en.flash=8;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:Math.round(impactDmg)+'',age:0,color:p.color});}
+				}
+				if(m===oT){
+					// Enemy is on top of moving solidify: carry them
+					en.y=platBox.y-en.h;en.vy=0;if(!en.typeDef.flies)en.onGround=true;
+					const _ecPX=en.x, _ecPY=en.y;
+					en.x+=p.vx;en.y+=p.vy;
+					if(_solidPushBlocked(en)){en.x=_ecPX;en.y=_ecPY;p.momentum=0;p.vx=0;p.vy=0;}
+				} else {
+				const pushDir={x:0,y:0};
+				if(m===oB){pushDir.y=1;}else if(m===oL){pushDir.x=-1;}else{pushDir.x=1;}
+				const pushDist=m+2;
+				const prevX=en.x, prevY=en.y;
+				en.x+=pushDir.x*pushDist;en.y+=pushDir.y*pushDist;
+				// Crush check: is enemy now inside a wall?
+				const crushed=_solidPushBlocked(en);
+				if(crushed){en.x=prevX;en.y=prevY;}
+				// Crush damage: up to 50% of spell normal damage, based on momentum
+				if(crushed){
+					const momRatio=p.momentum/(p.initialMomentum||1);
+					const crushDmg=p.power*8*0.5*momRatio;
+					if(crushDmg>0){en.hp-=crushDmg;en.flash=12;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:'💥'+Math.round(crushDmg),age:0,color:'#ff4444'});}
+					p.momentum=0;p.vx=0;p.vy=0;
+				} else {
+					// Reduce momentum based on enemy weight
+					const enWeight=en.typeDef.weight||1;
+					p.momentum=Math.max(0,p.momentum-enWeight*0.35);
+					if(p.momentum<=0){p.momentum=0;p.vx=0;p.vy=0;}
+					else{const spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||1;const ratio=p.momentum/(p.initialMomentum||1);p.vx*=ratio;p.vy*=ratio;}
+				}
+				} // end else (not on top)
+			} else {
+				// Stationary solidify: standard platform collision
+				if(m===oT){en.y=platBox.y-en.h;en.vy=0;if(!en.typeDef.flies)en.onGround=true;
+					/* Carry: move enemy with the moving platform */
+					if(p.vx!==0||p.vy!==0){
+						const _scPX=en.x, _scPY=en.y;
+						en.x+=p.vx;en.y+=p.vy;
+						if(_solidPushBlocked(en)){en.x=_scPX;en.y=_scPY;p.momentum=0;p.vx=0;p.vy=0;}
+					}
+				}
+				else if(m===oB){
+					const _sbPY=en.y;
+					en.y=platBox.y+platBox.h;en.vy=0;
+					if(_solidPushBlocked(en)){en.y=_sbPY;}
+				}
+				else if(m===oL){
+					const _slPX=en.x;
+					en.x=platBox.x-en.w;en.vx=0;
+					if(_solidPushBlocked(en)){en.x=_slPX;}
+				}
+				else{
+					const _srPX=en.x;
+					en.x=platBox.x+platBox.w;en.vx=0;
+					if(_solidPushBlocked(en)){en.x=_srPX;}
+				}
 			}
 		}
 
@@ -21586,7 +22133,9 @@ function update(){
 		const vowMvPenalty=Math.max(0.5, 1 - vowMovementPenalty*0.01); // movement vow sacrifice
 		const domSameSpdMult=(activeDomain && activeDomain._sameBuff)?1.4:1;
 		const domVowSpdMult=getDomainPlayerSpeedMult();
-		const currentSpeed=player.speed*(playerBuffs.speedTimer>0?playerBuffs.speedMult:1)*spdM*vowSpdMult*vowMvPenalty*domSameSpdMult*domVowSpdMult;
+		const _ultSpeedMult = 1 + (player._ultSpeedBonus||0);
+		const _transformSpeedMult = player.transformActive ? (player.transformBuffsActive?.speedMult||1) : 1;
+		const currentSpeed=player.speed*(playerBuffs.speedTimer>0?playerBuffs.speedMult:1)*spdM*vowSpdMult*vowMvPenalty*domSameSpdMult*domVowSpdMult*_ultSpeedMult*_transformSpeedMult;
 		player.vx=mx*currentSpeed;
 		if(player.launchVx){player.vx+=player.launchVx;player.launchVx*=0.88;if(Math.abs(player.launchVx)<0.5)player.launchVx=0;}
 		if((keys['w']||keys['arrowup']||keys[' '])&&player.onGround){
@@ -21659,19 +22208,49 @@ function update(){
 		}
 	}
 
+	/* Helper: check if an entity's bounding box overlaps any solid tile or sandbox platform */
+	function _solidPushBlocked(ent){
+		if(IS_DUNGEON){
+			const l=Math.floor(ent.x/TILE),r=Math.floor((ent.x+ent.w-1)/TILE);
+			const t=Math.floor(ent.y/TILE),b=Math.floor((ent.y+ent.h-1)/TILE);
+			for(let rr=t;rr<=b;rr++)for(let cc=l;cc<=r;cc++)if(isSolid(cc,rr))return true;
+			return false;
+		}
+		if(ent.y+ent.h>GROUND_Y)return true;
+		for(const plat of sandboxPlatforms){
+			if(ent.x+ent.w>plat.x&&ent.x<plat.x+plat.w&&ent.y+ent.h>plat.y&&ent.y<plat.y+plat.h)return true;
+		}
+		return false;
+	}
+
 	/* Solidify platform & spell wall collision */
 	for(const p of projectiles){
 		if(!p.isSolidPlatform) continue;
-		const sw2=p.width*3, sh2=p.height*1.5;
-		const platBox={x:p.x-sw2/2, y:p.y-sh2/2, w:sw2, h:sh2};
+		const platBox=getSolidBox(p);
 		if(rectRect(player, platBox)){
 			const oL=(player.x+player.w)-platBox.x, oR=(platBox.x+platBox.w)-player.x;
 			const oT=(player.y+player.h)-platBox.y, oB=(platBox.y+platBox.h)-player.y;
 			const m=Math.min(oL,oR,oT,oB);
-			if(m===oT){player.y=platBox.y-player.h;player.vy=0;player.onGround=true;}
-			else if(m===oB){player.y=platBox.y+platBox.h;player.vy=0;}
-			else if(m===oL){player.x=platBox.x-player.w;player.vx=0;}
-			else{player.x=platBox.x+platBox.w;player.vx=0;}
+			const _ppX=player.x, _ppY=player.y;
+			if(m===oT){player.y=platBox.y-player.h;player.vy=0;player.onGround=true;
+				/* Carry: move player with the moving platform */
+				if(p.vx!==0||p.vy!==0){
+					player.x+=p.vx;player.y+=p.vy;
+					if(_solidPushBlocked(player)){player.x=_ppX;player.y=_ppY;p.momentum=0;p.vx=0;p.vy=0;}
+				}
+			}
+			else if(m===oB){
+				player.y=platBox.y+platBox.h;player.vy=0;
+				if(_solidPushBlocked(player)){player.x=_ppX;player.y=_ppY;}
+			}
+			else if(m===oL){
+				player.x=platBox.x-player.w;player.vx=0;
+				if(_solidPushBlocked(player)){player.x=_ppX;player.y=_ppY;p.momentum=0;p.vx=0;p.vy=0;}
+			}
+			else{
+				player.x=platBox.x+platBox.w;player.vx=0;
+				if(_solidPushBlocked(player)){player.x=_ppX;player.y=_ppY;p.momentum=0;p.vx=0;p.vy=0;}
+			}
 		}
 	}
 	for(const sw of spellWalls){
@@ -21726,6 +22305,63 @@ function update(){
 			} else {
 				spawnPhase(spell,0,uox,uoy,player.ultChargeFacing,1,true,castId,player.ultChargeSlot);
 			}
+			// Ultimate buff: slight speed and health boost (10s)
+			player._ultSpeedBonus = (player._ultSpeedBonus||0) + 0.06;
+			player._ultSpeedBonusTimer = 600;
+			health = Math.min(health + maxHealth * 0.05, maxHealth);
+			// Transformation activation
+			if(!player.transformActive && spell.phases[0]?.behavior === 'transformation'){
+				const _tph = spell.phases[0];
+				const _tLoadoutName = _tph.transformLoadoutName || '';
+				const _tLoadouts = (playerData.loadouts||[]).filter(l=>l.type==='transformation');
+				const _tLd = _tLoadoutName ? _tLoadouts.find(l=>l.name===_tLoadoutName) : _tLoadouts[0];
+				if(_tLd){
+					player.transformSavedSpells = JSON.parse(JSON.stringify(playerData.spells));
+					playerData.spells = JSON.parse(JSON.stringify(_tLd.spells));
+					renderHotbar();
+				}
+				const _tbp = _tph.transformBuffPoints || {};
+				player.transformBuffsActive = {
+					speedMult: 1 + (_tbp.speed||0)*0.15,
+					elemDmgMult: 1 + (_tbp.elemDmg||0)*0.10,
+					elemDmgType: _tbp.elemDmgType||'burn',
+					tp: !!_tbp.tp,
+					healthMult: 1 + (_tbp.health||0)*0.15,
+					archmageElem: !!_tbp.archmageElem,
+					summonAbsorb: !!_tbp.summonAbsorb,
+					summonPowerMult: 1 + (_tbp.summonPower||0)*0.10,
+					explosionImmunity: !!_tbp.explosionImmunity,
+					elemImmunity: !!_tbp.elemImmunity,
+				};
+				// Apply health boost
+				if((_tbp.health||0)>0){ maxHealth = Math.round(maxHealth * player.transformBuffsActive.healthMult); health = Math.min(health, maxHealth); }
+				// Summon absorption: absorb all current minions on transform
+				if(_tbp.summonAbsorb && playerMinions.length>0){
+					let _absorbedHp=0,_absorbedCount=playerMinions.length;
+					for(const _mn of playerMinions){ _absorbedHp+=(_mn.hp||0); }
+					const _hpGain=Math.round(_absorbedHp*0.30);
+					maxHealth+=_hpGain; health=Math.min(health+_hpGain,maxHealth);
+					// +1% damage bonus per summon absorbed (stored as dmg mult)
+					player.transformBuffsActive.absorbedDmgBonus=(player.transformBuffsActive.absorbedDmgBonus||0)+_absorbedCount*0.01;
+					// +2% speed per summon
+					player.transformBuffsActive.speedMult+= _absorbedCount*0.02;
+					playerMinions.length=0;
+					dmgNumbers.push({x:player.x+player.w/2,y:player.y-65,text:`Absorbed ${_absorbedCount} summons!`,age:0,color:player.transformAuraColor});
+				}
+				player.transformActive = true;
+				player.transformTimer = 3600; // 60 seconds
+				player.transformAuraStyle = _tph.transformAuraStyle || 'pulse';
+				player.transformAuraColor = _tph.transformAuraColor || spell.phases[0]?.color || '#ff8800';
+				player.transformAuraColor2 = _tph.transformAuraColor2 || '#ffffff';
+				player.transformAuraStrength = parseFloat(_tph.transformAuraStrength || 1);
+				// Big transform burst
+				for(let _tv=0;_tv<40;_tv++){
+					const _ta=Math.random()*Math.PI*2;
+					particles.push({x:player.x+player.w/2,y:player.y+player.h/2,vx:Math.cos(_ta)*(4+Math.random()*6),vy:Math.sin(_ta)*(4+Math.random()*6)-2,life:40+Math.random()*30,color:player.transformAuraColor});
+				}
+				// Show transform notification
+				dmgNumbers.push({x:player.x+player.w/2,y:player.y-50,text:'⚡ TRANSFORMATION!',age:0,color:player.transformAuraColor});
+			}
 			// Big release burst
 			for(let v=0;v<25;v++) particles.push({x:player.x+player.w/2,y:player.y+player.h/2,vx:(Math.random()-0.5)*8,vy:(Math.random()-0.5)*8-2,life:30+Math.random()*20,color:player.ultChargeColor});
 		}
@@ -21735,6 +22371,38 @@ function update(){
 	let anyCDChanged=false;
 	for(let i=0;i<10;i++){if(spellCooldowns[i]>0){spellCooldowns[i]--;anyCDChanged=true;}}
 	if(anyCDChanged)renderHotbar();
+	/* Ult speed bonus tick-down */
+	if((player._ultSpeedBonus||0)>0){
+		player._ultSpeedBonusTimer=(player._ultSpeedBonusTimer||0)-1;
+		if(player._ultSpeedBonusTimer<=0){player._ultSpeedBonus=0;player._ultSpeedBonusTimer=0;}
+	}
+	/* Transformation timer countdown */
+	if(player.transformActive){
+		player.transformTimer--;
+		// Show time warning at 10s
+		if(player.transformTimer===600) dmgNumbers.push({x:player.x+player.w/2,y:player.y-40,text:'⚡ 10s left!',age:0,color:player.transformAuraColor});
+		if(player.transformTimer<=0){
+			// Restore original spells
+			player.transformActive=false;
+			if(player.transformSavedSpells){
+				playerData.spells=player.transformSavedSpells;
+				player.transformSavedSpells=null;
+				renderHotbar();
+			}
+			// Remove health buff
+			if(player.transformBuffsActive?.healthMult>1){
+				const inv=1/player.transformBuffsActive.healthMult;
+				maxHealth=Math.round(maxHealth*inv);
+				health=Math.min(health,maxHealth);
+			}
+			player.transformBuffsActive=null;
+			for(let _tv=0;_tv<20;_tv++){
+				const _ta=Math.random()*Math.PI*2;
+				particles.push({x:player.x+player.w/2,y:player.y+player.h/2,vx:Math.cos(_ta)*(2+Math.random()*4),vy:Math.sin(_ta)*(2+Math.random()*4)-1,life:20+Math.random()*20,color:'#888888'});
+			}
+			dmgNumbers.push({x:player.x+player.w/2,y:player.y-40,text:'Transformation ended',age:0,color:'#888888'});
+		}
+	}
 
 	/* Update boss telegraphs (real-time based to support all refresh rates) */
 	for(let ti=bossTelegraphs.length-1;ti>=0;ti--){
@@ -22011,7 +22679,7 @@ function update(){
 			m.fireTimer++;
 			// Archmage summon passive behaviors
 			if(m.archmageElement){
-				// STUN: one-time massive speed boost
+				// STUN: one-time 5× speed boost — lightning archmage summons are extremely fast
 				if(m.archmageElement==='stun' && !m._amStunBoosted){
 					m.moveSpeed = (m.moveSpeed||1.0) * 5;
 					m._amStunBoosted = true;
@@ -22086,7 +22754,7 @@ function update(){
 		totalMana = 999999;
 		updateTotalManaHUD();
 	} else {
-		const curRegen=baseManaRegen*(playerBuffs.manaRegenTimer>0?playerBuffs.manaRegenMult:1);
+		const curRegen=baseManaRegen*(playerBuffs.manaRegenTimer>0?playerBuffs.manaRegenMult:1)*(player.transformActive?1.4:1);
 		mana=Math.min(maxMana,mana+curRegen);
 	}
 	updateManaHUD();
@@ -22294,7 +22962,11 @@ function update(){
 			const spawnX = domCX + (Math.random()-0.5) * activeDomain.w * 0.4;
 			const spawnY = domCY + (Math.random()-0.5) * activeDomain.h * 0.2;
 			const sPow = activeDomain.necroSummonPower;
-			const scaledHp = Math.round(et.hp * 2.0 + sPow * 30);
+			const _dcPh = activeDomain.necroSpellPh || {};
+			const _dcHealthBonus = (_dcPh.summonHealth||0) * 10;
+			const _dcSpeedMult = 1 + (_dcPh.summonSpeed||0) * 0.08;
+			const _dcRangeBonus = (_dcPh.summonRange||0) * 60;
+			const scaledHp = Math.round(et.hp * 0.65 + sPow * 25 + _dcHealthBonus);
 			playerMinions.push({
 				x:spawnX, y:spawnY, w:et.w, h:et.h,
 				vx:0, vy:0,
@@ -22307,10 +22979,10 @@ function update(){
 				onGround: false, target: null, summonClose: true,
 				isNecroSummon: true, necroType: typeId,
 				necroName: et.name, necroFlies: !!et.flies,
-				fireTimer: 0, fireCooldown: Math.round(FPS * 1.8),
-				detectRange: et.detectRange || 500,
-				moveSpeed: (et.moveSpeed || 1.5) * 1.3,
-				spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*1.5)) : [],
+				fireTimer: 0, fireCooldown: Math.round(FPS * 2.5),
+				detectRange: (et.detectRange || 500) + _dcRangeBonus,
+				moveSpeed: Math.min((et.moveSpeed || 1.5) * _dcSpeedMult, 5),
+				spellCooldowns: et.spells ? et.spells.map(() => Math.round(FPS*2)) : [],
 				// Archmage dual-class: domain necro summons inherit elemental behaviors
 				archmageElement: hasClass('archmage') && pendingNecroSummon ? (pendingNecroSummon.effects && pendingNecroSummon.effects[0] ? pendingNecroSummon.effects[0] : null) : null,
 			});
@@ -26708,6 +27380,7 @@ function render(){
 		ctx.restore();
 	}
 
+	_renderAura();
 	/* Render enemies */
 	for(const en of enemies){
 		if(en.dead){
@@ -26959,22 +27632,28 @@ function render(){
 						ctx.beginPath();ctx.moveTo(0,-r2*1.5);ctx.lineTo(r2*0.6,r2*0.3);ctx.lineTo(r2*0.15,r2*0.7);ctx.lineTo(-r2*0.15,r2*0.7);ctx.lineTo(-r2*0.6,r2*0.3);ctx.closePath();ctx.fill();ctx.stroke();
 						ctx.restore();
 					} else {
-						// Default archmage orb
-						ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();
+						// Default archmage orb — distinct glowing arcane missile
+						const dAng=Math.atan2(p.vy,p.vx);
+						ctx.save();ctx.translate(px,py);ctx.rotate(dAng);
+						ctx.shadowColor=p.color;ctx.shadowBlur=16;
+						ctx.fillStyle=p.color;ctx.globalAlpha=0.85;
+						ctx.beginPath();ctx.moveTo(r2*1.5,0);ctx.quadraticCurveTo(r2*0.2,r2*0.6,-r2*0.6,r2*0.3);ctx.quadraticCurveTo(-r2*0.3,0,-r2*0.6,-r2*0.3);ctx.quadraticCurveTo(r2*0.2,-r2*0.6,r2*1.5,0);ctx.fill();
+						ctx.fillStyle='#fff';ctx.shadowBlur=8;ctx.globalAlpha=0.7;
+						ctx.beginPath();ctx.arc(0,0,r2*0.35,0,Math.PI*2);ctx.fill();
+						// Orbiting sparks
+						for(let _si2=0;_si2<3;_si2++){const _sa2=p.age*0.15+_si2*(Math.PI*2/3);const _sr=r2*0.9;ctx.fillStyle='#fff';ctx.globalAlpha=0.5+Math.sin(p.age*0.2+_si2)*0.3;ctx.beginPath();ctx.arc(Math.cos(_sa2)*_sr,Math.sin(_sa2)*_sr,r2*0.18,0,Math.PI*2);ctx.fill();}
+						ctx.restore();
 					}
 				} else {
 					ctx.beginPath();ctx.arc(px,py,r2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(px,py,r2*0.4,0,Math.PI*2);ctx.fill();
 				}
 				break;
 			}
-			case'blade':{ctx.save();ctx.translate(px,py);ctx.rotate(p.age*0.3);ctx.fillRect(-p.width*1.8,-p.height*0.3,p.width*3.6,p.height*0.6);ctx.restore();break;}
-			case'beam':{const bx=p.startX-camera.x,by=p.startY-camera.y;ctx.save();ctx.translate(bx,by);ctx.rotate(p.beamAngle);ctx.globalAlpha=0.7;ctx.fillRect(0,-p.height/2,p.beamLen,p.height);ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.fillRect(0,-p.height*0.15,p.beamLen,p.height*0.3);ctx.restore();break;}
+			case'blade':{ctx.save();ctx.translate(px,py);ctx.rotate(Math.atan2(p.vy,p.vx));const bL=p.width*3.2,bW=Math.max(p.height,p.width)*0.5;ctx.fillStyle=p.color;ctx.globalAlpha=0.95;ctx.beginPath();ctx.moveTo(bL,0);ctx.lineTo(bL*0.08,bW*0.35);ctx.lineTo(-bL*0.3,bW);ctx.lineTo(-bL*0.3,-bW);ctx.lineTo(bL*0.08,-bW*0.35);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(255,255,255,0.65)';ctx.beginPath();ctx.moveTo(bL*0.85,0);ctx.lineTo(bL*0.06,bW*0.14);ctx.lineTo(-bL*0.22,bW*0.22);ctx.lineTo(-bL*0.22,-bW*0.22);ctx.lineTo(bL*0.06,-bW*0.14);ctx.closePath();ctx.fill();ctx.fillStyle=p.color;ctx.globalAlpha=1;ctx.fillRect(-bL*0.36,-bW*1.65,bL*0.09,bW*3.3);ctx.fillStyle='rgba(60,30,10,0.9)';ctx.fillRect(-bL*0.65,-bW*0.38,bL*0.29,bW*0.76);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(-bL*0.65,0,bW*0.48,0,Math.PI*2);ctx.fill();ctx.restore();break;}
+			case'beam':{const bx=p.startX-camera.x,by=p.startY-camera.y;ctx.save();ctx.translate(bx,by);ctx.rotate(p.beamAngle);const bH=p.height,bL2=p.beamLen;const bGrd=ctx.createLinearGradient(0,0,bL2,0);bGrd.addColorStop(0,'rgba(255,255,255,0.4)');bGrd.addColorStop(0.04,p.color);bGrd.addColorStop(0.96,p.color);bGrd.addColorStop(1,'rgba(255,255,255,0.4)');ctx.globalAlpha=0.75;ctx.fillStyle=bGrd;ctx.fillRect(0,-bH/2,bL2,bH);ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.fillRect(0,-bH*0.15,bL2,bH*0.3);const _bRgb=hexToRgb(p.color)||{r:255,g:255,b:255};const _bC=`rgba(${_bRgb.r},${_bRgb.g},${_bRgb.b},`;const capG0=ctx.createRadialGradient(0,0,0,0,0,bH*1.35);capG0.addColorStop(0,'rgba(255,255,255,0.95)');capG0.addColorStop(0.4,_bC+'0.8)');capG0.addColorStop(1,'rgba(0,0,0,0)');ctx.globalAlpha=0.85;ctx.fillStyle=capG0;ctx.beginPath();ctx.arc(0,0,bH*1.35,0,Math.PI*2);ctx.fill();const capG1=ctx.createRadialGradient(bL2,0,0,bL2,0,bH*1.75);capG1.addColorStop(0,'rgba(255,255,255,0.95)');capG1.addColorStop(0.35,_bC+'0.75)');capG1.addColorStop(1,'rgba(0,0,0,0)');ctx.globalAlpha=0.9;ctx.fillStyle=capG1;ctx.beginPath();ctx.arc(bL2,0,bH*1.75,0,Math.PI*2);ctx.fill();ctx.globalAlpha=0.7;ctx.strokeStyle='rgba(255,255,255,0.65)';ctx.lineWidth=1;for(let _bi=0;_bi<6;_bi++){const _ba=_bi*(Math.PI/3)+(p.age*0.18);const _br=bH*(0.9+Math.abs(Math.sin(p.age*0.25+_bi))*0.85);ctx.beginPath();ctx.moveTo(bL2,0);ctx.lineTo(bL2+Math.cos(_ba)*_br,Math.sin(_ba)*_br);ctx.stroke();}ctx.restore();break;}
 			case'ring':{const eR=p.width*4;ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.lineWidth=3;ctx.globalAlpha=0.7*(1-progress);ctx.stroke();break;}
-			case'cone':{const cL=progress*200*(p.phase.width||1),cH=cL*0.4*(p.phase.width||1);const cx2=p.startX-camera.x,cy2=p.startY-camera.y;
-				if(p.behavior==='rain'){ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(cx2-cH,cy2+cL);ctx.lineTo(cx2+cH,cy2+cL);ctx.closePath();}
-				else{ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(cx2+p.facing*cL,cy2-cH);ctx.lineTo(cx2+p.facing*cL,cy2+cH);ctx.closePath();}
-				ctx.globalAlpha=0.3*(1-progress*0.5);ctx.fill();ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.stroke();break;}
-			case'nova':{const eR=progress*p.width*8;ctx.globalAlpha=0.25*(1-progress);ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.globalAlpha=0.6*(1-progress);ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.stroke();break;}
+			case'cone':{const cL=progress*200*(p.phase.width||1),cH=cL*0.4*(p.phase.width||1);const cx2=p.startX-camera.x,cy2=p.startY-camera.y;const _cFd=1-progress*0.5;ctx.save();ctx.translate(cx2,cy2);if(p.behavior==='rain'){const _cgr=ctx.createLinearGradient(0,0,0,cL);_cgr.addColorStop(0,p.color);_cgr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=_cgr;ctx.globalAlpha=0.42*_cFd;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-cH,cL);ctx.lineTo(cH,cL);ctx.closePath();ctx.fill();const _cg2=ctx.createLinearGradient(0,0,0,cL*0.82);_cg2.addColorStop(0,'rgba(255,255,255,0.85)');_cg2.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=_cg2;ctx.globalAlpha=0.55*_cFd;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-cH*0.28,cL*0.82);ctx.lineTo(cH*0.28,cL*0.82);ctx.closePath();ctx.fill();ctx.globalAlpha=0.7*(1-progress);ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-cH,cL);ctx.stroke();ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(cH,cL);ctx.stroke();}else{const _cdir=p.facing;const _cgr=ctx.createLinearGradient(0,0,_cdir*cL,0);_cgr.addColorStop(0,p.color);_cgr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=_cgr;ctx.globalAlpha=0.42*_cFd;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(_cdir*cL,-cH);ctx.lineTo(_cdir*cL,cH);ctx.closePath();ctx.fill();const _cg2=ctx.createLinearGradient(0,0,_cdir*cL*0.82,0);_cg2.addColorStop(0,'rgba(255,255,255,0.85)');_cg2.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=_cg2;ctx.globalAlpha=0.55*_cFd;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(_cdir*cL*0.82,-cH*0.28);ctx.lineTo(_cdir*cL*0.82,cH*0.28);ctx.closePath();ctx.fill();ctx.globalAlpha=0.7*(1-progress);ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(_cdir*cL,-cH);ctx.stroke();ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(_cdir*cL,cH);ctx.stroke();}ctx.restore();break;}
+			case'nova':{const eR=progress*p.width*8;const _nFd=1-progress;for(let _ni=0;_ni<3;_ni++){const _nr=eR*(1-_ni*0.16);ctx.globalAlpha=Math.max(0,(0.55-_ni*0.15)*_nFd);ctx.lineWidth=3.5-_ni;ctx.strokeStyle=p.color;ctx.beginPath();ctx.arc(px,py,_nr,0,Math.PI*2);ctx.stroke();}ctx.globalAlpha=0.15*_nFd;ctx.beginPath();ctx.arc(px,py,eR,0,Math.PI*2);ctx.fill();const _spkN=10;ctx.lineWidth=1.5;ctx.strokeStyle=p.color;for(let _si=0;_si<_spkN;_si++){const _sa=_si*(Math.PI*2/_spkN);const _sl=(10+Math.abs(Math.sin(_sa*2.5+progress*Math.PI*3))*14)*_nFd;ctx.globalAlpha=0.75*_nFd;ctx.beginPath();ctx.moveTo(px+Math.cos(_sa)*eR,py+Math.sin(_sa)*eR);ctx.lineTo(px+Math.cos(_sa)*(eR+_sl),py+Math.sin(_sa)*(eR+_sl));ctx.stroke();}if(progress<0.3){const _cg=ctx.createRadialGradient(px,py,0,px,py,eR*0.5+1);_cg.addColorStop(0,'rgba(255,255,255,0.85)');_cg.addColorStop(1,'rgba(0,0,0,0)');ctx.globalAlpha=(0.3-progress)/0.3*0.7;ctx.fillStyle=_cg;ctx.beginPath();ctx.arc(px,py,eR*0.5+1,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.color;}ctx.strokeStyle=p.color;break;}
 			case'chain':{
 				const cr=p.width*0.7;
 				// Draw chain links along path from last bounce point to current position
@@ -27004,8 +27683,7 @@ function render(){
 				ctx.beginPath();ctx.ellipse(0,0,cr*0.38,cr*0.22,0,0,Math.PI*2);ctx.stroke();
 				ctx.restore();break;}
 			case'wall':{const ww=p.width*2,wh=p.height*6;ctx.globalAlpha=0.45;ctx.fillRect(px-ww/2,py-wh/2,ww,wh);ctx.globalAlpha=0.7;ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.strokeRect(px-ww/2,py-wh/2,ww,wh);break;}
-			case'solidify':{const sw2=p.width*3,sh2=p.height*1.5;ctx.globalAlpha=0.7;ctx.fillRect(px-sw2/2,py-sh2/2,sw2,sh2);break;}
-			case'spike':{ctx.save();ctx.translate(px,py);const skA=Math.atan2(p.vy,p.vx);ctx.rotate(skA);const sk=Math.max(p.width,p.height)*0.9;ctx.beginPath();ctx.moveTo(sk*2,0);ctx.lineTo(-sk,-sk*0.8);ctx.lineTo(-sk*0.3,0);ctx.lineTo(-sk,sk*0.8);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=0.5;ctx.beginPath();ctx.moveTo(sk*1.5,0);ctx.lineTo(-sk*0.2,-sk*0.25);ctx.lineTo(-sk*0.2,sk*0.25);ctx.closePath();ctx.fill();ctx.restore();break;}
+			case'spike':{ctx.save();ctx.translate(px,py);const skA=Math.atan2(p.vy,p.vx);ctx.rotate(skA);const sk=Math.max(p.width,p.height)*0.9;const _skRgb=hexToRgb(p.color)||{r:255,g:200,b:0};const _skG=ctx.createRadialGradient(sk*0.5,0,0,sk*0.2,0,sk*2.3);_skG.addColorStop(0,`rgba(${_skRgb.r},${_skRgb.g},${_skRgb.b},0.35)`);_skG.addColorStop(1,'rgba(0,0,0,0)');ctx.globalAlpha=1;ctx.fillStyle=_skG;ctx.beginPath();ctx.ellipse(sk*0.4,0,sk*2,sk*0.75,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.color;ctx.globalAlpha=0.95;ctx.beginPath();ctx.moveTo(sk*2,0);ctx.lineTo(-sk,-sk*0.8);ctx.lineTo(-sk*0.3,0);ctx.lineTo(-sk,sk*0.8);ctx.closePath();ctx.fill();ctx.globalAlpha=0.85;ctx.beginPath();ctx.moveTo(-sk*0.15,-sk*0.35);ctx.lineTo(-sk*1.05,-sk*1.15);ctx.lineTo(-sk*0.65,-sk*0.35);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(-sk*0.15,sk*0.35);ctx.lineTo(-sk*1.05,sk*1.15);ctx.lineTo(-sk*0.65,sk*0.35);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(255,255,255,0.7)';ctx.beginPath();ctx.moveTo(sk*1.6,0);ctx.lineTo(-sk*0.15,-sk*0.22);ctx.lineTo(-sk*0.15,sk*0.22);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(255,255,255,0.9)';ctx.globalAlpha=0.85;ctx.beginPath();ctx.arc(sk*1.92,0,sk*0.2,0,Math.PI*2);ctx.fill();ctx.restore();break;}
 			case'polygon':{ctx.save();ctx.translate(px,py);ctx.rotate(p.age*0.04);const pgR=Math.max(p.width,p.height)*1.0;const pgS=p.polygonSides||6;ctx.beginPath();for(let si=0;si<=pgS;si++){const a=si*Math.PI*2/pgS;if(si===0)ctx.moveTo(Math.cos(a)*pgR,Math.sin(a)*pgR);else ctx.lineTo(Math.cos(a)*pgR,Math.sin(a)*pgR);}ctx.closePath();ctx.fill();ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.globalAlpha=0.9;ctx.stroke();ctx.fillStyle='#fff';ctx.globalAlpha=0.25;ctx.beginPath();for(let si=0;si<=pgS;si++){const a=si*Math.PI*2/pgS;const ir=pgR*0.45;if(si===0)ctx.moveTo(Math.cos(a)*ir,Math.sin(a)*ir);else ctx.lineTo(Math.cos(a)*ir,Math.sin(a)*ir);}ctx.closePath();ctx.fill();ctx.restore();break;}
 			case'summon':{ctx.save();ctx.translate(px,py);const sr=p.width*1.2;ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.globalAlpha=0.6+Math.sin(p.age*0.1)*0.2;ctx.beginPath();ctx.arc(0,0,sr,0,Math.PI*2);ctx.stroke();ctx.rotate(p.age*0.08);ctx.beginPath();ctx.arc(0,0,sr*0.6,0,Math.PI*2);ctx.stroke();ctx.fillStyle=p.color;ctx.globalAlpha=0.7;for(let si=0;si<5;si++){const a=si*Math.PI*2/5-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*sr*0.8,Math.sin(a)*sr*0.8);ctx.stroke();}ctx.restore();break;}
 			case'meteor':{
@@ -27093,9 +27771,98 @@ function render(){
 				ctx.arc(0,0,sR*0.5,Math.PI*0.9,Math.PI*0.1,true);ctx.closePath();ctx.fill();
 				ctx.restore();break;
 			}
+			case'explosion':{
+				// Fixed visual size — width/height only scale the explosion AoE, not the projectile itself
+				const _eR=10;
+				const _eRgb3=hexToRgb(p.color)||{r:255,g:120,b:0};
+				const _eGlow=`rgba(${Math.min(255,_eRgb3.r+50)},${Math.min(255,_eRgb3.g+50)},${Math.min(255,_eRgb3.b+50)},1)`;
+				ctx.save();ctx.translate(px,py);
+				// Outer glow pulse — tinted to spell color
+				const _ePulse=0.85+Math.sin(p.age*0.25)*0.15;
+				ctx.shadowColor=p.color;ctx.shadowBlur=22;
+				ctx.globalAlpha=0.38+Math.sin(p.age*0.18)*0.1;
+				ctx.fillStyle=_eGlow;
+				ctx.beginPath();ctx.arc(0,0,_eR*2.2*_ePulse,0,Math.PI*2);ctx.fill();
+				// Body sphere
+				ctx.shadowBlur=12;ctx.globalAlpha=0.95;
+				ctx.fillStyle=p.color;
+				ctx.beginPath();ctx.arc(0,0,_eR,0,Math.PI*2);ctx.fill();
+				// Highlight shine
+				ctx.fillStyle='#ffffff';ctx.globalAlpha=0.65;ctx.shadowBlur=0;
+				ctx.beginPath();ctx.arc(-_eR*0.3,-_eR*0.35,_eR*0.38,0,Math.PI*2);ctx.fill();
+				// Fuse line + spark — spell color tinted
+				ctx.strokeStyle=_eGlow;ctx.lineWidth=2.5;ctx.globalAlpha=0.95;ctx.shadowColor=_eGlow;ctx.shadowBlur=8;
+				ctx.beginPath();ctx.moveTo(_eR*0.55,_eR*-0.55);ctx.lineTo(_eR*1.15,_eR*-1.25);ctx.stroke();
+				// Animated fuse spark tip
+				const _fOff=(p.age%6<3)?0:1;
+				ctx.fillStyle='#ffffff';ctx.globalAlpha=0.9;
+				ctx.beginPath();ctx.arc(_eR*1.15+_fOff,_eR*-1.25-_fOff,2,0,Math.PI*2);ctx.fill();
+				ctx.restore();break;
+			}
 		}
 		if(_doRotate)ctx.restore();
+		/* Solidify effect: crystalline glow around the projectile shape */
+		if(p.isSolidPlatform){
+			ctx.save();
+			ctx.shadowColor=p.color;ctx.shadowBlur=16;
+			const _sb=getSolidBounds(p);
+			if(_sb.type==='circle'){
+				ctx.globalAlpha=0.5;ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;
+				ctx.beginPath();ctx.arc(px,py,_sb.r,0,Math.PI*2);ctx.stroke();
+				ctx.globalAlpha=0.15;ctx.fillStyle=p.color;
+				ctx.beginPath();ctx.arc(px,py,_sb.r,0,Math.PI*2);ctx.fill();
+			}else{
+				ctx.globalAlpha=0.5;ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;
+				ctx.strokeRect(px-_sb.hw,py-_sb.hh,_sb.hw*2,_sb.hh*2);
+				ctx.globalAlpha=0.15;ctx.fillStyle=p.color;
+				ctx.fillRect(px-_sb.hw,py-_sb.hh,_sb.hw*2,_sb.hh*2);
+			}
+			ctx.restore();
+		}
 		ctx.globalAlpha=1;
+	}
+
+	/* Active explosion blasts — drawn on top of projectiles, extremely visible */
+	for(let _ei=activeExplosions.length-1;_ei>=0;_ei--){
+		const _exp=activeExplosions[_ei];
+		_exp.age++;
+		if(_exp.age>=_exp.maxAge){activeExplosions.splice(_ei,1);continue;}
+		const _t=_exp.age/_exp.maxAge;
+		const _ecx=_exp.x-camera.x,_ecy=_exp.y-camera.y;
+		// Phase: expand fast (0→0.35), then fade (0.35→1.0)
+		let _er,_ealpha;
+		if(_t<=0.35){_er=_exp.maxR*(_t/0.35);_ealpha=0.92;}
+		else{_er=_exp.maxR*(1+(_t-0.35)*0.2);_ealpha=0.92*(1-(_t-0.35)/0.65);}
+		const _expRgb=hexToRgb(_exp.color)||{r:255,g:100,b:0};
+		ctx.save();
+		// Radial gradient fill — white core → spell color tinted
+		const _gg=ctx.createRadialGradient(_ecx,_ecy,0,_ecx,_ecy,_er);
+		_gg.addColorStop(0,'rgba(255,255,255,'+(_ealpha*0.98)+')');
+		_gg.addColorStop(0.22,`rgba(${Math.min(255,_expRgb.r+120)},${Math.min(255,_expRgb.g+120)},${Math.min(255,_expRgb.b+120)},${_ealpha*0.88})`);
+		_gg.addColorStop(0.50,`rgba(${Math.min(255,_expRgb.r+50)},${Math.max(0,_expRgb.g)},${_expRgb.b},${_ealpha*0.62})`);
+		_gg.addColorStop(0.78,`rgba(${_expRgb.r},${Math.max(0,_expRgb.g-30)},${Math.max(0,_expRgb.b-30)},${_ealpha*0.28})`);
+		_gg.addColorStop(1,'rgba(0,0,0,0)');
+		ctx.fillStyle=_gg;ctx.globalAlpha=1;
+		ctx.beginPath();ctx.arc(_ecx,_ecy,_er,0,Math.PI*2);ctx.fill();
+		// White flash core (fades in first 45% of lifetime)
+		if(_t<0.45){
+			const _fa=(1-_t/0.45)*0.88;
+			ctx.fillStyle='rgba(255,255,255,'+_fa+')';
+			ctx.beginPath();ctx.arc(_ecx,_ecy,_er*0.3,0,Math.PI*2);ctx.fill();
+		}
+		// Shockwave ring — spell color tinted
+		ctx.shadowColor=_exp.color;ctx.shadowBlur=16;
+		ctx.strokeStyle=`rgba(${Math.min(255,_expRgb.r+80)},${Math.min(255,_expRgb.g+60)},${Math.min(255,_expRgb.b+60)},${_ealpha})`;
+		ctx.lineWidth=Math.max(1.5,5*(1-_t*1.2));
+		ctx.globalAlpha=1;
+		ctx.beginPath();ctx.arc(_ecx,_ecy,_er,0,Math.PI*2);ctx.stroke();
+		// Second inner ring (0.1–0.7 of lifetime)
+		if(_t>0.08&&_t<0.72){
+			ctx.strokeStyle=`rgba(${_expRgb.r},${_expRgb.g},${Math.min(255,_expRgb.b+40)},${_ealpha*0.55})`;
+			ctx.lineWidth=2;ctx.shadowBlur=6;
+			ctx.beginPath();ctx.arc(_ecx,_ecy,_er*0.55,0,Math.PI*2);ctx.stroke();
+		}
+		ctx.restore();
 	}
 
 	/* Warrior melee slashes */
@@ -27273,6 +28040,578 @@ function render(){
 		ctx.beginPath();ctx.ellipse(gfx,gfy,gf.radius*0.6+flicker,gf.radius*0.3+flicker*0.4,0,0,Math.PI*2);ctx.stroke();
 		ctx.restore();
 	}
+
+	/* Transformation Aura */
+	function _renderAura(){
+	if(player.transformActive){
+		const _ac  = player.transformAuraColor  || '#ff8800';
+		const _ac2 = player.transformAuraColor2 || '#ffffff';
+		const _as  = player.transformAuraStyle   || 'pulse';
+		const _str = Math.max(1, Math.min(10, player.transformAuraStrength || 1));
+		// Strength scaling: size grows 0–3× extra, glow grows proportionally
+		const _sSz  = 1 + (_str - 1) * 0.32;   // size multiplier  (1.0 – 3.88)
+		const _sGlw = 10 + (_str - 1) * 4;      // shadow blur base (10 – 46)
+		const _sAlp = 0.45 + (_str - 1) * 0.055; // base alpha      (0.45 – 1.0, clamped)
+		const _acx = player.x - camera.x + player.w / 2;
+		const _acy = player.y - camera.y + player.h / 2;
+		const _rgb  = hexToRgb(_ac)  || {r:255,g:136,b:0};
+		const _rgb2 = hexToRgb(_ac2) || {r:255,g:255,b:255};
+		const _t = Date.now() / 1000; // seconds — smooth continuous time
+		ctx.save();
+
+		// ── helper: interpolate between two rgb colours (t 0→1) ──────────────
+		const _lerpRgb = (a, b, f) => `rgba(${Math.round(a.r+(b.r-a.r)*f)},${Math.round(a.g+(b.g-a.g)*f)},${Math.round(a.b+(b.b-a.b)*f)},`;
+
+		if(_as === 'pulse'){
+			// Four expanding rings with trailing glow — outer ring uses secondary colour
+			const ringCount = 3 + Math.floor(_str * 0.5);
+			for(let _ri = 0; _ri < ringCount; _ri++){
+				const _phase = (_t * 0.9 + _ri / ringCount) % 1;
+				const _r  = (18 + _phase * 55) * _sSz;
+				const _a  = Math.max(0, _sAlp * (1 - _phase) * 0.85);
+				const _col = _ri % 2 === 0 ? _ac : _ac2;
+				ctx.globalAlpha = _a;
+				ctx.strokeStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw * (1 - _phase * 0.5);
+				ctx.lineWidth = (3 - _phase * 1.5) * _sSz;
+				ctx.beginPath(); ctx.arc(_acx, _acy, _r, 0, Math.PI * 2); ctx.stroke();
+			}
+			// Inner steady glow pool on ground
+			const _ig = ctx.createRadialGradient(_acx, _acy, 2, _acx, _acy, 28 * _sSz);
+			_ig.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${Math.min(1,_sAlp * 0.7)})`);
+			_ig.addColorStop(0.5, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},${_sAlp * 0.4})`);
+			_ig.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.fillStyle = _ig;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 28 * _sSz, 0, Math.PI * 2); ctx.fill();
+			// Shimmering ground halo
+			ctx.globalAlpha = 0.18 + Math.sin(_t * 3.1) * 0.08;
+			ctx.fillStyle = _ac;
+			ctx.beginPath(); ctx.ellipse(_acx, _acy + player.h * 0.45, 26 * _sSz, 7 * _sSz, 0, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'orbit'){
+			// Orbiting particles on two different orbital planes + bright core
+			const orbCount = 6 + Math.floor(_str * 0.8);
+			for(let _oi = 0; _oi < orbCount; _oi++){
+				const _ang = _t * 2.2 + _oi * (Math.PI * 2 / orbCount);
+				const _rOrb = (28 + Math.sin(_t * 1.8 + _oi) * 8) * _sSz;
+				const _ox = _acx + Math.cos(_ang) * _rOrb;
+				const _oy = _acy + Math.sin(_ang) * _rOrb * 0.55; // elliptical orbit
+				const _col = _oi % 2 === 0 ? _ac : _ac2;
+				const _pSz = (3 + Math.sin(_t * 4 + _oi) * 1) * _sSz * 0.6;
+				ctx.globalAlpha = Math.min(1, _sAlp * 0.95);
+				ctx.fillStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw * 0.7;
+				ctx.beginPath(); ctx.arc(_ox, _oy, _pSz, 0, Math.PI * 2); ctx.fill();
+				// Trail — 3 fading dots behind each particle
+				for(let _tr = 1; _tr <= 3; _tr++){
+					const _ta = _ang - _tr * 0.18;
+					const _tx = _acx + Math.cos(_ta) * _rOrb;
+					const _ty = _acy + Math.sin(_ta) * _rOrb * 0.55;
+					ctx.globalAlpha = _sAlp * (0.5 - _tr * 0.13);
+					ctx.beginPath(); ctx.arc(_tx, _ty, _pSz * (1 - _tr * 0.2), 0, Math.PI * 2); ctx.fill();
+				}
+			}
+			// Core bright flash-pulse
+			ctx.globalAlpha = 0.25 + Math.abs(Math.sin(_t * 3)) * 0.25 * (_str / 10);
+			const _cg2 = ctx.createRadialGradient(_acx, _acy, 1, _acx, _acy, 18 * _sSz);
+			_cg2.addColorStop(0, _ac2); _cg2.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.fillStyle = _cg2; ctx.shadowBlur = 0;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 18 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'spiral'){
+			// Dual-colour spiral arms (like a galaxy) with particle spray
+			const armCount = 2;
+			const stepsPerArm = 16 + Math.floor(_str * 1.5);
+			for(let _arm = 0; _arm < armCount; _arm++){
+				for(let _si = 0; _si < stepsPerArm; _si++){
+					const _frac = _si / stepsPerArm;
+					const _ang = _t * 2.5 + _arm * Math.PI + _frac * Math.PI * 3.5;
+					const _r = (6 + _frac * 40) * _sSz;
+					const _sx = _acx + Math.cos(_ang) * _r;
+					const _sy = _acy + Math.sin(_ang) * _r;
+					const _col = _arm === 0 ? _ac : _ac2;
+					const _a = _sAlp * (1 - _frac * 0.6) * 0.8;
+					const _pSz = (3.5 - _frac * 1.5) * _sSz * 0.75;
+					ctx.globalAlpha = Math.max(0, _a);
+					ctx.fillStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw * 0.5;
+					ctx.beginPath(); ctx.arc(_sx, _sy, Math.max(0.5, _pSz), 0, Math.PI * 2); ctx.fill();
+				}
+			}
+			// Bright nucleus
+			ctx.globalAlpha = Math.min(1, _sAlp);
+			const _ng2 = ctx.createRadialGradient(_acx, _acy, 0, _acx, _acy, 14 * _sSz);
+			_ng2.addColorStop(0, _ac2); _ng2.addColorStop(0.4, _ac); _ng2.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.fillStyle = _ng2; ctx.shadowBlur = 0;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 14 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'nova'){
+			// Alternating primary/secondary spikes with lengths that breathe, plus particle jets
+			const _np = 8 + Math.floor(_str * 0.6);
+			for(let _ni = 0; _ni < _np; _ni++){
+				const _ang = _t * 0.8 + _ni * (Math.PI * 2 / _np);
+				const _breath = Math.sin(_t * 3.5 + _ni * 0.7);
+				const _innerR = 15 * _sSz;
+				const _outerR = (38 + _breath * 14) * _sSz;
+				const _col = _ni % 2 === 0 ? _ac : _ac2;
+				ctx.globalAlpha = Math.min(1, _sAlp * 0.9);
+				ctx.strokeStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw;
+				ctx.lineWidth = (2.5 + (_str * 0.15)) * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_acx + Math.cos(_ang) * _innerR, _acy + Math.sin(_ang) * _innerR);
+				ctx.lineTo(_acx + Math.cos(_ang) * _outerR, _acy + Math.sin(_ang) * _outerR);
+				ctx.stroke();
+				// Secondary shorter spike between each main spike
+				const _midAng = _ang + Math.PI / _np;
+				const _midOut = (22 + _breath * 6) * _sSz;
+				ctx.globalAlpha = Math.min(1, _sAlp * 0.5);
+				ctx.lineWidth = 1.5 * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_acx + Math.cos(_midAng) * _innerR * 0.7, _acy + Math.sin(_midAng) * _innerR * 0.7);
+				ctx.lineTo(_acx + Math.cos(_midAng) * _midOut, _acy + Math.sin(_midAng) * _midOut);
+				ctx.stroke();
+			}
+			// Radial gradient core — outer is primary, very centre is secondary
+			ctx.shadowBlur = 0;
+			const _nc = ctx.createRadialGradient(_acx, _acy, 0, _acx, _acy, 20 * _sSz);
+			_nc.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${Math.min(1,_sAlp)})`);
+			_nc.addColorStop(0.5, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},${_sAlp * 0.6})`);
+			_nc.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.fillStyle = _nc;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 20 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'veil'){
+			// Ghostly curtain of upward-floating wisps with secondary-colour accents
+			const _vRate = Math.floor(2 + (10 - _str) * 0.3);
+			if(Math.floor(_t * 60) % _vRate === 0 && particles.length < MAX_PARTICLES * 0.9){
+				for(let _vb = 0; _vb < 1 + Math.floor(_str * 0.3); _vb++){
+					const _vx = _acx + camera.x + (Math.random() - 0.5) * 44 * _sSz;
+					const _vy = _acy + camera.y + player.h * 0.4;
+					const _vcol = Math.random() < 0.25 ? _ac2 : _ac;
+					particles.push({x:_vx, y:_vy, vx:(Math.random()-0.5)*0.9, vy:-1.5-Math.random()*2.5*_sSz, life:45+Math.random()*30, color:_vcol, r:2.5+Math.random()*2*_sSz});
+				}
+			}
+			// Wide ethereal outer glow aura
+			const _vg = ctx.createRadialGradient(_acx, _acy, 5, _acx, _acy, 52 * _sSz);
+			_vg.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${_sAlp * 0.35})`);
+			_vg.addColorStop(0.4, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},${_sAlp * 0.25})`);
+			_vg.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.fillStyle = _vg;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 52 * _sSz, 0, Math.PI * 2); ctx.fill();
+			// Sweeping translucent veil curtains
+			for(let _vc = 0; _vc < 4; _vc++){
+				const _va = Math.sin(_t * 1.2 + _vc * 1.57) * 20 * _sSz;
+				const _vxOff = _va;
+				ctx.globalAlpha = 0.12 * _sAlp;
+				ctx.fillStyle = _vc % 2 === 0 ? _ac : _ac2;
+				ctx.beginPath();
+				ctx.moveTo(_acx + _vxOff - 12 * _sSz, _acy + player.h * 0.5);
+				ctx.bezierCurveTo(_acx + _vxOff - 6 * _sSz, _acy - 20 * _sSz, _acx + _vxOff + 6 * _sSz, _acy - 20 * _sSz, _acx + _vxOff + 12 * _sSz, _acy + player.h * 0.5);
+				ctx.closePath(); ctx.fill();
+			}
+
+		} else if(_as === 'shatter'){
+			// Crystalline shards orbiting with gap-filling secondary-colour lattice lines
+			const shardCount = 6 + Math.floor(_str * 0.5);
+			for(let _ci = 0; _ci < shardCount; _ci++){
+				const _ang = _ci * (Math.PI * 2 / shardCount) + _t * 1.1;
+				const _orb = (28 + Math.sin(_t * 2 + _ci) * 6) * _sSz;
+				const _cx2 = _acx + Math.cos(_ang) * _orb;
+				const _cy2 = _acy + Math.sin(_ang) * _orb;
+				const _cs = (6 + Math.sin(_t * 3 + _ci) * 2) * _sSz * 0.7;
+				const _col = _ci % 2 === 0 ? _ac : _ac2;
+				ctx.globalAlpha = Math.min(1, _sAlp * 0.9);
+				ctx.strokeStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw * 0.8;
+				ctx.fillStyle = `rgba(${_ci%2===0?_rgb.r:_rgb2.r},${_ci%2===0?_rgb.g:_rgb2.g},${_ci%2===0?_rgb.b:_rgb2.b},0.25)`;
+				ctx.lineWidth = 1.5;
+				// Diamond shard
+				ctx.beginPath();
+				ctx.moveTo(_cx2, _cy2 - _cs);
+				ctx.lineTo(_cx2 + _cs * 0.55, _cy2);
+				ctx.lineTo(_cx2, _cy2 + _cs * 0.7);
+				ctx.lineTo(_cx2 - _cs * 0.55, _cy2);
+				ctx.closePath();
+				ctx.fill(); ctx.stroke();
+				// Lattice line to next shard
+				const _nextAng = (_ci + 1) * (Math.PI * 2 / shardCount) + _t * 1.1;
+				const _nx = _acx + Math.cos(_nextAng) * _orb, _ny = _acy + Math.sin(_nextAng) * _orb;
+				ctx.globalAlpha = _sAlp * 0.25;
+				ctx.strokeStyle = _ac2; ctx.lineWidth = 1; ctx.shadowBlur = 0;
+				ctx.beginPath(); ctx.moveTo(_cx2, _cy2); ctx.lineTo(_nx, _ny); ctx.stroke();
+			}
+			// Icy core glow
+			ctx.shadowBlur = 0;
+			const _icG = ctx.createRadialGradient(_acx, _acy, 0, _acx, _acy, 16 * _sSz);
+			_icG.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${Math.min(1,_sAlp * 0.8)})`);
+			_icG.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.fillStyle = _icG;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 16 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'corona'){
+			// Layered corona — pulsing main ring, animated prominences, gradient disc
+			const _cPulse = 1 + Math.sin(_t * 2.5) * 0.1;
+			const _cRad = 36 * _sSz * _cPulse;
+			// Outer halo disc
+			const _hdG = ctx.createRadialGradient(_acx, _acy, _cRad * 0.4, _acx, _acy, _cRad * 1.6);
+			_hdG.addColorStop(0, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},${_sAlp * 0.25})`);
+			_hdG.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.fillStyle = _hdG;
+			ctx.beginPath(); ctx.arc(_acx, _acy, _cRad * 1.6, 0, Math.PI * 2); ctx.fill();
+			// Main ring
+			ctx.globalAlpha = Math.min(1, _sAlp * 0.85);
+			ctx.strokeStyle = _ac; ctx.shadowColor = _ac; ctx.shadowBlur = _sGlw * 1.2;
+			ctx.lineWidth = 3 * _sSz;
+			ctx.beginPath(); ctx.arc(_acx, _acy, _cRad, 0, Math.PI * 2); ctx.stroke();
+			// Secondary ring slightly offset
+			ctx.globalAlpha = _sAlp * 0.4;
+			ctx.strokeStyle = _ac2; ctx.shadowColor = _ac2; ctx.lineWidth = 1.5 * _sSz;
+			ctx.beginPath(); ctx.arc(_acx, _acy, _cRad * 0.82, 0, Math.PI * 2); ctx.stroke();
+			// Solar prominences
+			const flareCount = 8 + Math.floor(_str * 0.5);
+			for(let _fi = 0; _fi < flareCount; _fi++){
+				const _fa = _t * 0.7 + _fi * (Math.PI * 2 / flareCount);
+				const _fBreath = 0.5 + Math.abs(Math.sin(_t * 2.1 + _fi)) * 0.5;
+				const _fLen = (12 + _fBreath * 22) * _sSz;
+				const _col = _fi % 3 === 0 ? _ac2 : _ac;
+				ctx.globalAlpha = Math.min(1, _fBreath * _sAlp * 0.8);
+				ctx.strokeStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw * 0.6;
+				ctx.lineWidth = (2 + _fBreath) * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_acx + Math.cos(_fa) * _cRad * 0.9, _acy + Math.sin(_fa) * _cRad * 0.9);
+				ctx.lineTo(_acx + Math.cos(_fa) * (_cRad + _fLen), _acy + Math.sin(_fa) * (_cRad + _fLen));
+				ctx.stroke();
+			}
+			// Core gradient — white-hot centre
+			ctx.shadowBlur = 0;
+			const _coreG = ctx.createRadialGradient(_acx, _acy, 0, _acx, _acy, 22 * _sSz);
+			_coreG.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${Math.min(1,_sAlp)})`);
+			_coreG.addColorStop(0.45, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},${_sAlp * 0.55})`);
+			_coreG.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.fillStyle = _coreG;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 22 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'storm'){
+			// Multi-bolt lightning cage — bolts jump between anchor points around the player
+			const anchors = [];
+			const anchorCount = 4 + Math.floor(_str * 0.4);
+			for(let _ai = 0; _ai < anchorCount; _ai++){
+				const _aa = _t * 0.5 + _ai * (Math.PI * 2 / anchorCount);
+				const _ar = (30 + Math.sin(_t * 3 + _ai) * 10) * _sSz;
+				anchors.push({x:_acx + Math.cos(_aa) * _ar, y:_acy + Math.sin(_aa) * _ar});
+			}
+			// Draw each bolt between adjacent anchors
+			for(let _bi = 0; _bi < anchors.length; _bi++){
+				const _bA = anchors[_bi];
+				const _bB = anchors[(_bi + 1) % anchors.length];
+				if(Math.floor(_t * 18 + _bi) % 3 === 0) continue; // flicker
+				ctx.globalAlpha = Math.min(1, _sAlp);
+				const _col = _bi % 2 === 0 ? _ac : _ac2;
+				ctx.strokeStyle = _col; ctx.shadowColor = _col; ctx.shadowBlur = _sGlw;
+				ctx.lineWidth = 1.5 * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_bA.x, _bA.y);
+				const _bmx = (_bA.x + _bB.x) / 2 + (Math.random() - 0.5) * 20 * _sSz;
+				const _bmy = (_bA.y + _bB.y) / 2 + (Math.random() - 0.5) * 20 * _sSz;
+				ctx.quadraticCurveTo(_bmx, _bmy, _bB.x, _bB.y);
+				ctx.stroke();
+				// Glow nodes at each anchor
+				ctx.globalAlpha = _sAlp * 0.7;
+				ctx.fillStyle = _col; ctx.shadowBlur = _sGlw * 0.5;
+				ctx.beginPath(); ctx.arc(_bA.x, _bA.y, 3 * _sSz, 0, Math.PI * 2); ctx.fill();
+			}
+			// Central discharge core
+			ctx.shadowBlur = 0;
+			const _stCG = ctx.createRadialGradient(_acx, _acy, 0, _acx, _acy, 16 * _sSz);
+			_stCG.addColorStop(0, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},${Math.min(1,_sAlp * 0.8)})`);
+			_stCG.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.fillStyle = _stCG;
+			ctx.beginPath(); ctx.arc(_acx, _acy, 16 * _sSz, 0, Math.PI * 2); ctx.fill();
+
+		} else if(_as === 'powersurge'){
+			// ── Power Surge — wide flowing energy column (classic variant) ─────
+			const _pw = player.w, _ph2 = player.h;
+			const _footX = _acx, _footY = _acy + _ph2 * 0.5;
+			const _baseW = (_pw * 1.1 + (_str - 1) * 4) * _sSz;
+			const _topH  = (80 + (_str - 1) * 20) * _sSz;
+			const colourFlip = Math.sin(_t * 6) > 0;
+
+			// 1. Ground ripple rings
+			for(let _gr = 0; _gr < 2; _gr++){
+				const _gp = (_t * 1.6 + _gr * 0.5) % 1;
+				const _grW = (16 + _gp * 60) * _sSz;
+				const _ga  = Math.pow(1 - _gp, 1.5) * _sAlp;
+				ctx.globalAlpha = Math.max(0, _ga);
+				ctx.strokeStyle = _gr === 0 ? _ac : _ac2;
+				ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.8;
+				ctx.lineWidth = (3 - _gp * 2) * _sSz;
+				ctx.beginPath();
+				ctx.ellipse(_footX, _footY, _grW, _grW * 0.22, 0, 0, Math.PI * 2);
+				ctx.stroke();
+			}
+
+			// 2. Wide smooth pillar
+			const _sgSurge = 28 + Math.floor(_str * 2);
+			const _buildEdgeSurge = (side) => {
+				const pts = [];
+				for(let _s = 0; _s <= _sgSurge; _s++){
+					const _frac = _s / _sgSurge;
+					const _taper = 0.2 + (1 - _frac) * 0.8;
+					const _noise =
+						Math.sin(_t * 5.2  + _frac * 7.3  * side) * 7   * _sSz +
+						Math.sin(_t * 9.1  + _frac * 13   * side) * 3.5 * _sSz +
+						Math.sin(_t * 14.3 + _frac * 22   * side) * 2   * _sSz;
+					pts.push({x: _footX + side * (_baseW * _taper + _noise), y: _footY - _frac * _topH});
+				}
+				return pts;
+			};
+			const _lps = _buildEdgeSurge(-1), _rps = _buildEdgeSurge(1);
+
+			// Pillar fill — exact primary colour, full opacity body, only top 18% fades
+			const _psGrad = ctx.createLinearGradient(_footX, _footY, _footX, _footY - _topH);
+			_psGrad.addColorStop(0,    `rgba(${_rgb.r},${_rgb.g},${_rgb.b},1)`);
+			_psGrad.addColorStop(0.82, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},1)`);
+			_psGrad.addColorStop(0.97, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},0.15)`);
+			_psGrad.addColorStop(1,    `rgba(${_rgb.r},${_rgb.g},${_rgb.b},0)`);
+			ctx.globalAlpha = 1;
+			ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 1.5;
+			ctx.fillStyle = _psGrad;
+			ctx.beginPath();
+			ctx.moveTo(_lps[0].x, _lps[0].y);
+			for(const p of _lps) ctx.lineTo(p.x, p.y);
+			for(let _r = _rps.length - 1; _r >= 0; _r--) ctx.lineTo(_rps[_r].x, _rps[_r].y);
+			ctx.closePath();
+			ctx.fill();
+
+			// Edge outlines — primary colour
+			ctx.globalAlpha = Math.min(1, _sAlp * 0.95);
+			ctx.strokeStyle = _ac; ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 1.2;
+			ctx.lineWidth = 1.5 * _sSz;
+			ctx.beginPath();
+			ctx.moveTo(_lps[0].x, _lps[0].y);
+			for(const p of _lps) ctx.lineTo(p.x, p.y);
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.moveTo(_rps[0].x, _rps[0].y);
+			for(const p of _rps) ctx.lineTo(p.x, p.y);
+			ctx.stroke();
+
+			// 3. Core beam — exact secondary colour, full opacity
+			const _coreW2 = (_pw * 0.18 + (_str - 1) * 1) * _sSz;
+			const _psCoreGrd = ctx.createLinearGradient(_footX - _coreW2, 0, _footX + _coreW2, 0);
+			_psCoreGrd.addColorStop(0,   'rgba(0,0,0,0)');
+			_psCoreGrd.addColorStop(0.3, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},1)`);
+			_psCoreGrd.addColorStop(0.7, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},1)`);
+			_psCoreGrd.addColorStop(1,   'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.shadowBlur = _sGlw * 0.9; ctx.shadowColor = _ac2;
+			ctx.fillStyle = _psCoreGrd;
+			ctx.fillRect(_footX - _coreW2, _footY + 4 * _sSz, _coreW2 * 2, -(_topH + 6 * _sSz));
+
+			// 4. Upward strands
+			const _scSurge = 3 + Math.floor(_str * 0.5);
+			for(let _ss = 0; _ss < _scSurge; _ss++){
+				const _sOff   = Math.sin(_t * 2.3 + _ss * 2.1) * _baseW * 0.55;
+				const _sPhase = (_t * 0.7 + _ss / _scSurge) % 1;
+				const _sYTop  = _footY - _topH * (0.4 + _sPhase * 0.6);
+				ctx.globalAlpha = Math.min(1, _sAlp * (1 - _sPhase) * 0.8);
+				ctx.strokeStyle = _ss % 2 === 0 ? _ac2 : _ac;
+				ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.5;
+				ctx.lineWidth = (1.5 + _str * 0.1) * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_footX + _sOff, _footY);
+				ctx.bezierCurveTo(
+					_footX + _sOff + Math.sin(_t * 3.7 + _ss) * 10 * _sSz, _footY - _topH * 0.3,
+					_footX + _sOff + Math.sin(_t * 2.9 + _ss) * 8  * _sSz, _footY - _topH * 0.65,
+					_footX + Math.sin(_t * 1.8 + _ss) * 6 * _sSz, _sYTop
+				);
+				ctx.stroke();
+			}
+
+			// 5. Fleck particles
+			if(Math.floor(_t * 60) % 2 === 0 && particles.length < MAX_PARTICLES * 0.9){
+				const _pxS = _footX + camera.x + (Math.random() - 0.5) * _baseW * 1.5;
+				const _pyS = _footY + camera.y - Math.random() * _topH * 0.8;
+				particles.push({x:_pxS, y:_pyS, vx:(Math.random()-0.5)*1.2, vy:-1.8-Math.random()*2*_sSz,
+					life:25+Math.random()*20, color: Math.random() < 0.4 ? _ac2 : _ac, r:2+Math.random()*2.5*_sSz});
+			}
+
+		} else if(_as === 'powerleakage'){
+			// ── Power Leakage — compact sharp crackling pillar ──────────────
+			const _pw = player.w, _ph2 = player.h;
+			const _footX = _acx, _footY = _acy + _ph2 * 0.5;
+			const _baseW = (_pw * 0.65 + (_str - 1) * 2.0) * _sSz;
+			const _topH  = (48 + (_str - 1) * 11) * _sSz;
+			const colourFlip = Math.sin(_t * 8) > 0;
+
+			// 1. Ground ripple rings (3, sharp)
+			for(let _gr = 0; _gr < 3; _gr++){
+				const _gp = (_t * 2.0 + _gr * 0.33) % 1;
+				const _grW = (8 + _gp * 40) * _sSz;
+				const _ga  = Math.pow(1 - _gp, 1.8) * _sAlp;
+				ctx.globalAlpha = Math.max(0, _ga);
+				ctx.strokeStyle = _gr % 2 === 0 ? _ac : _ac2;
+				ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw;
+				ctx.lineWidth = (3.5 - _gp * 3) * _sSz;
+				ctx.beginPath();
+				ctx.ellipse(_footX, _footY, _grW, _grW * 0.18, 0, 0, Math.PI * 2);
+				ctx.stroke();
+			}
+
+			// 2. Pillar with high-frequency sharp jagged edges
+			const segments = 50 + Math.floor(_str * 4);
+			const buildEdge = (side) => {
+				const pts = [];
+				for(let _s = 0; _s <= segments; _s++){
+					const _frac = _s / segments;
+					const _taper = 0.06 + Math.pow(1 - _frac, 1.6) * 0.94;
+					const _noise =
+						Math.sin(_t * 8.5  + _frac * 15 * side) * 8.5 * _sSz +
+						Math.sin(_t * 16.3 + _frac * 29 * side) * 4.0 * _sSz +
+						Math.sin(_t * 25.7 + _frac * 47 * side) * 2.0 * _sSz +
+						Math.sin(_t * 41.2 + _frac * 73 * side) * 0.9 * _sSz;
+					pts.push({x: _footX + side * (_baseW * _taper + _noise), y: _footY - _frac * _topH});
+				}
+				return pts;
+			};
+			const leftPts  = buildEdge(-1);
+			const rightPts = buildEdge( 1);
+
+			// Pillar fill — exact primary colour, full opacity body, only tip fades
+			const _pilGrad = ctx.createLinearGradient(_footX, _footY, _footX, _footY - _topH);
+			_pilGrad.addColorStop(0,    `rgba(${_rgb.r},${_rgb.g},${_rgb.b},1)`);
+			_pilGrad.addColorStop(0.84, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},1)`);
+			_pilGrad.addColorStop(0.97, `rgba(${_rgb.r},${_rgb.g},${_rgb.b},0.15)`);
+			_pilGrad.addColorStop(1,    `rgba(${_rgb.r},${_rgb.g},${_rgb.b},0)`);
+			ctx.globalAlpha = 1;
+			ctx.shadowColor = _ac2; // use secondary for glow so dark primaries still show
+			ctx.shadowBlur  = _sGlw * 1.8;
+			ctx.fillStyle   = _pilGrad;
+			ctx.beginPath();
+			ctx.moveTo(leftPts[0].x, leftPts[0].y);
+			for(const p of leftPts)  ctx.lineTo(p.x, p.y);
+			for(let _r = rightPts.length - 1; _r >= 0; _r--) ctx.lineTo(rightPts[_r].x, rightPts[_r].y);
+			ctx.closePath();
+			ctx.fill();
+
+			// Primary edge outline
+			ctx.globalAlpha = Math.min(1, _sAlp);
+			ctx.strokeStyle = _ac; ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw;
+			ctx.lineWidth = 1.8 * _sSz;
+			ctx.beginPath();
+			ctx.moveTo(leftPts[0].x, leftPts[0].y);
+			for(const p of leftPts)  ctx.lineTo(p.x, p.y);
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.moveTo(rightPts[0].x, rightPts[0].y);
+			for(const p of rightPts) ctx.lineTo(p.x, p.y);
+			ctx.stroke();
+
+			// Inner secondary-colour edge inset
+			const _edgeIn = _baseW * 0.09;
+			ctx.globalAlpha = _sAlp * 0.65;
+			ctx.strokeStyle = _ac2; ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.5;
+			ctx.lineWidth = 1.0 * _sSz;
+			ctx.beginPath();
+			ctx.moveTo(leftPts[0].x + _edgeIn, leftPts[0].y);
+			for(const p of leftPts)  ctx.lineTo(p.x + _edgeIn, p.y);
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.moveTo(rightPts[0].x - _edgeIn, rightPts[0].y);
+			for(const p of rightPts) ctx.lineTo(p.x - _edgeIn, p.y);
+			ctx.stroke();
+
+			// Discharge spikes
+			const spikeCount = 4 + Math.floor(_str * 0.7);
+			for(let _sp2 = 0; _sp2 < spikeCount; _sp2++){
+				const _spFrac = (_t * 1.1 + _sp2 * 0.21) % 1;
+				const _spIdx  = Math.min(segments, Math.round(_spFrac * segments));
+				for(const _side of [-1, 1]){
+					const _ePts = _side === -1 ? leftPts : rightPts;
+					if(!_ePts[_spIdx]) continue;
+					const _epx = _ePts[_spIdx].x, _epy = _ePts[_spIdx].y;
+					const _sLen = (4 + Math.random() * 9) * _sSz;
+					const _sAng = _side * (Math.PI * 0.5 + (Math.random() - 0.5) * 0.9);
+					const _scol = _sp2 % 2 === 0 ? _ac : _ac2;
+					ctx.globalAlpha = Math.min(1, _sAlp * 0.95);
+					ctx.strokeStyle = _scol; ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.8;
+					ctx.lineWidth = (0.7 + Math.random() * 0.5) * _sSz;
+					ctx.beginPath();
+					ctx.moveTo(_epx, _epy);
+					ctx.lineTo(_epx + Math.cos(_sAng) * _sLen, _epy + Math.sin(_sAng) * _sLen * 0.55);
+					ctx.stroke();
+				}
+			}
+
+			// 3. Interior shimmer lines (secondary colour)
+			const shimCount = 2 + Math.floor(_str * 0.35);
+			for(let _sh = 0; _sh < shimCount; _sh++){
+				const _shX   = _footX + Math.sin(_t * 3.3 + _sh * 1.9) * _baseW * 0.38;
+				const _shTop = _footY - _topH * (0.28 + Math.abs(Math.sin(_t * 2.1 + _sh)) * 0.22);
+				const _shA   = Math.abs(Math.sin(_t * 4.7 + _sh * 2.3)) * _sAlp * 0.85;
+				ctx.globalAlpha = Math.min(1, _shA);
+				ctx.strokeStyle = _ac2; ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.35;
+				ctx.lineWidth = 0.9 * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_shX, _footY);
+				ctx.quadraticCurveTo(
+					_shX + Math.sin(_t * 5.3 + _sh) * 5 * _sSz, _footY - _topH * 0.5,
+					_shX + Math.sin(_t * 3.1 + _sh) * 3 * _sSz, _shTop
+				);
+				ctx.stroke();
+			}
+
+			// 4. Core beam — exact secondary colour, full opacity
+			const _coreW = (_pw * 0.09 + (_str - 1) * 0.65) * _sSz;
+			const _coreGrd = ctx.createLinearGradient(_footX - _coreW, 0, _footX + _coreW, 0);
+			_coreGrd.addColorStop(0,    'rgba(0,0,0,0)');
+			_coreGrd.addColorStop(0.25, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},1)`);
+			_coreGrd.addColorStop(0.75, `rgba(${_rgb2.r},${_rgb2.g},${_rgb2.b},1)`);
+			_coreGrd.addColorStop(1,    'rgba(0,0,0,0)');
+			ctx.globalAlpha = 1; ctx.shadowBlur = _sGlw * 0.9; ctx.shadowColor = _ac2;
+			ctx.fillStyle = _coreGrd;
+			ctx.fillRect(_footX - _coreW, _footY + 3 * _sSz, _coreW * 2, -(_topH + 5 * _sSz));
+
+			// 5. Upward energy strands
+			const strandCount = 3 + Math.floor(_str * 0.5);
+			for(let _ss = 0; _ss < strandCount; _ss++){
+				const _sOff   = Math.sin(_t * 2.6 + _ss * 2.1) * _baseW * 0.4;
+				const _sPhase = (_t * 0.95 + _ss / strandCount) % 1;
+				const _sYTop  = _footY - _topH * (0.35 + _sPhase * 0.65);
+				const _sx1    = _footX + _sOff;
+				ctx.globalAlpha = Math.min(1, _sAlp * Math.pow(1 - _sPhase, 0.7));
+				ctx.strokeStyle = _ss % 2 === 0 ? _ac : _ac2;
+				ctx.shadowColor = _ac2; ctx.shadowBlur = _sGlw * 0.5;
+				ctx.lineWidth = (1.2 + _str * 0.07) * _sSz;
+				ctx.beginPath();
+				ctx.moveTo(_sx1, _footY);
+				ctx.bezierCurveTo(
+					_sx1 + Math.sin(_t * 4.3 + _ss) * 7 * _sSz, _footY - _topH * 0.3,
+					_sx1 + Math.sin(_t * 3.3 + _ss) * 5 * _sSz, _footY - _topH * 0.65,
+					_footX + Math.sin(_t * 2.2 + _ss) * 3 * _sSz, _sYTop
+				);
+				ctx.stroke();
+			}
+
+			// 6. Power-fleck particles (player colours only)
+			if(Math.floor(_t * 60) % 2 === 0 && particles.length < MAX_PARTICLES * 0.9){
+				const _pxF = _footX + camera.x + (Math.random() - 0.5) * _baseW * 1.1;
+				const _pyF = _footY + camera.y - Math.random() * _topH * 0.75;
+				particles.push({x:_pxF, y:_pyF, vx:(Math.random()-0.5)*0.8, vy:-1.3-Math.random()*1.6*_sSz,
+					life:18+Math.random()*16, color: Math.random() < 0.42 ? _ac2 : _ac, r:1.2+Math.random()*1.8*_sSz});
+			}
+		}
+
+		// ── Transformation timer bar underneath player ──────────────────────
+		const _timeRatio = player.transformTimer / 3600;
+		const _barW = player.w * 1.2;
+		const _barX = player.x - camera.x - player.w * 0.1;
+		const _barY = player.y - camera.y + player.h + 4;
+		ctx.globalAlpha = 0.8;
+		ctx.shadowBlur = 0;
+		ctx.fillStyle = '#222'; ctx.fillRect(_barX, _barY, _barW, 4);
+		// Gradient bar — primary → secondary
+		const _barGrd = ctx.createLinearGradient(_barX, 0, _barX + _barW, 0);
+		_barGrd.addColorStop(0, _ac); _barGrd.addColorStop(1, _ac2);
+		ctx.fillStyle = _barGrd; ctx.fillRect(_barX, _barY, _barW * _timeRatio, 4);
+		ctx.restore();
+	}
+	} // _renderAura
 
 	/* Player */
 	if(player.iFrames<=0||(player.iFrames%4<2)){

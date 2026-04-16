@@ -478,7 +478,10 @@ input,select{font-family:inherit}
 	<!-- RIGHT: Spell Slots -->
 	<div id="rightCol">
 		<div class="panel" style="flex:1;display:flex;flex-direction:column;gap:8px">
-			<h3>Spell Loadout <span style="font-size:11px;color:var(--muted);text-transform:none">(click to edit)</span></h3>
+			<div style="display:flex;align-items:center;gap:8px">
+				<h3 style="flex:1">Spell Loadout <span style="font-size:11px;color:var(--muted);text-transform:none">(click to edit)</span></h3>
+				<button class="btn btn-ghost" id="loadoutMgrBtn" style="font-size:.8em;padding:3px 10px" title="Manage saved spell loadouts">📦 Loadouts</button>
+			</div>
 			<div id="spellSlots" style="display:flex;flex-direction:column;gap:6px"></div>
 		</div>
 		<div class="panel" style="margin-top:8px">
@@ -500,6 +503,24 @@ input,select{font-family:inherit}
 		<button class="btn btn-danger" id="vowClearBtn">Remove Vow</button>
 		<button class="btn btn-ghost" id="vowCancelBtn">Cancel</button>
 		<button class="btn btn-primary" id="vowSaveBtn">Save Vow</button>
+	</div>
+</div>
+</div>
+
+<!-- ==================== LOADOUT MANAGER MODAL ==================== -->
+<div class="modal-overlay" id="loadoutModal" style="display:none">
+<div class="modal" style="max-width:480px">
+	<div class="modal-head">
+		<h2>📦 Spell Loadouts</h2>
+		<button class="close-btn" id="loadoutModalClose">✕</button>
+	</div>
+	<div class="modal-body" id="loadoutModalBody" style="display:flex;flex-direction:column;gap:10px">
+		<!-- rendered by JS -->
+	</div>
+	<div class="modal-foot" style="gap:6px">
+		<button class="btn btn-primary" id="loadoutNewStdBtn">+ New Standard</button>
+		<button class="btn btn-primary" id="loadoutNewTransBtn" style="background:#ff8800">⚡ New Transformation</button>
+		<button class="btn btn-ghost" id="loadoutSaveCurrentBtn">💾 Save Current</button>
 	</div>
 </div>
 </div>
@@ -553,11 +574,10 @@ const SHAPES = {
 	blade:    { label:'Blade',    icon:'🗡️', controlReq:2,  manaCost:7,  desc:'Slashing blade projectile', dmgNote:'' },
 	beam:     { label:'Beam',     icon:'⚡', controlReq:4,  manaCost:10, desc:'Continuous energy beam', dmgNote:'-35% dmg' },
 	ring:     { label:'Ring',     icon:'⭕', controlReq:5,  manaCost:12, desc:'Expanding energy ring', dmgNote:'' },
-	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast', dmgNote:'' },
+	cone:     { label:'Cone',     icon:'🔺', controlReq:4,  manaCost:10, desc:'Fan-shaped blast', dmgNote:'-65% dmg' },
 	nova:     { label:'Nova',     icon:'💥', controlReq:7,  manaCost:15, desc:'Expanding explosion from a point', dmgNote:'' },
 	chain:    { label:'Chain',    icon:'⛓️', controlReq:9,  manaCost:18, desc:'Jumps between targets, can stun on each hit', dmgNote:'' },
 	wall:     { label:'Wall',     icon:'🧱', controlReq:6,  manaCost:12, desc:'Stationary barrier', dmgNote:'' },
-	solidify: { label:'Platform', icon:'🟩', controlReq:4,  manaCost:10, desc:'Solid platform you can stand on', dmgNote:'no dmg' },
 	spike:    { label:'Spike',    icon:'🔱', controlReq:3,  manaCost:8,  desc:'Pointed projectile that faces its direction and pierces', dmgNote:'' },
 	polygon:  { label:'Polygon',  icon:'⬡',  controlReq:3,  manaCost:9,  desc:'Customizable polygon with any number of sides', dmgNote:'' },
 	allyOrb:  { label:'Ally Orb',  icon:'💚', controlReq:1,  manaCost:6,  desc:'Orb that hits you / allies instead of enemies', dmgNote:'heals' },
@@ -565,6 +585,7 @@ const SHAPES = {
 	meteor:   { label:'Meteor',   icon:'☄️', controlReq:6,  manaCost:16, desc:'Blazing comet: +distance dmg, AoE explosion on impact/expire (50% splash)', dmgNote:'-25% dmg' },
 	vortex:   { label:'Vortex',   icon:'🌀', controlReq:7,  manaCost:18, desc:'Slow-moving void that pulls enemies in and deals DoT (30%)', dmgNote:'30% DoT' },
 	slash:    { label:'Slash',    icon:'🌙', controlReq:2,  manaCost:7,  desc:'Curved crescent arc projectile', dmgNote:'' },
+	explosion:{ label:'Explosion',icon:'💣', controlReq:5,  manaCost:14, desc:'Detonates on hit, expire, wall, enemy projectile, or dispel contact — AoE damage. Width/Height scale explosion radius; projectile visual is fixed size. Self-damages player at 30% if close.', dmgNote:'AoE ×14' },
 	same:     { label:'Same',     icon:'🔄', controlReq:0,  manaCost:0,  desc:'Re-uses the previous phase shape — allows different behavior on same projectile', dmgNote:'' },
 
 };
@@ -593,11 +614,13 @@ const BEHAVIORS = {
 	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place', dmgNote:'' },
 	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet', dmgNote:'' },
 	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position', dmgNote:'' },
-	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:5,  desc:'Projectiles around you in a circle (uses Around Self Count slider)', dmgNote:'' },
+	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:6,  desc:'Projectiles around you in a circle (uses Around Self Count slider)', dmgNote:'' },
 	ground:       { label:'Ground',       controlReq:3,  manaCost:4,  desc:'Erupts from ground at nearest enemy within radius. Expand radius for mana.', dmgNote:'+40% dmg' },
 	zigzag:       { label:'Zigzag',       controlReq:4,  manaCost:5,  desc:'Weaves in a sine wave pattern', dmgNote:'' },
 	teleport:     { label:'Teleport',     controlReq:6,  manaCost:7,  desc:'Blinks forward at intervals, hard to dodge', dmgNote:'' },
-	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing. Matching elemental spells buffed.', dmgNote:'10k+ mana', ultimateOnly:true },
+	control:      { label:'Control',      controlReq:3,  manaCost:30, desc:'Projectile follows your cursor — starts at player and glides to cursor position. Allows up to 30s duration.', dmgNote:'-85% dmg' },
+	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing. Matching elemental spells buffed. Max 2 phases. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
+	transformation:{ label:'Transformation', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Unleash your true power — transforms you for 60 seconds, switching to your Transformation loadout with enhanced limits (power 15, size 5.5, 4 phases). Spend 5 points on powerful buffs. Customize your aura. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
 
 };
 
@@ -618,6 +641,7 @@ const EFFECTS = {
 	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
 	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:6, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
 	randomDelay:{ label:'Random Delay',icon:'🎲', controlReq:1, manaCost:2, desc:'Each projectile spawns after a random delay', category:'utility', dmgNote:'' },
+	evenDelay:   { label:'Even Delay',  icon:'⏳', controlReq:1, manaCost:2, desc:'Projectiles spawn at equal intervals across a set duration', category:'utility', dmgNote:'' },
 	phaseThrough:{ label:'Phase',   icon:'👻', controlReq:6, manaCost:20, desc:'Projectile passes through walls', category:'utility', dmgNote:'-45% dmg' },
 	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay', category:'utility', dmgNote:'' },
 	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current', category:'utility', dmgNote:'' },
@@ -632,6 +656,9 @@ const EFFECTS = {
 	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
 	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
 	rotate:       { label:'Rotate',      icon:'🔃', controlReq:1, manaCost:4, desc:'Spins the projectile around its own center as it travels', category:'utility', dmgNote:'' },
+	solidify:     { label:'Solidify',    icon:'🟩', controlReq:4, manaCost:10, desc:'Turns projectile into a solid platform — blocks projectiles, walkable. Moving solidified objects push enemies with momentum. 10 mana (stationary) / 100 mana (moving). Phase bypasses.', category:'utility', dmgNote:'momentum dmg' },
+	awayFromPlayer:{ label:'Away From Player', icon:'↗️', controlReq:2, manaCost:4, desc:'Projectiles shoot away from the player instead of toward the cursor', category:'utility', dmgNote:'' },
+	solidObjectBreak:{ label:'Solid Object Break', icon:'💥', controlReq:1, manaCost:100, desc:'Destroys all solidify projectiles when cast. Costs 100 mana but breaks any number of solid objects at once.', category:'utility', dmgNote:'' },
 };
 
 /* Effect category rules: 'exclusive' means only one per phase */
@@ -683,22 +710,22 @@ const MAGE_CLASSES = [
 
 const SHAPE_RANK_REQ = {
 	missile:0, orb:0, allyOrb:0, same:0,
-	blade:1, spike:1, polygon:1, solidify:1,
+	blade:1, spike:1, polygon:1,
 	beam:2, cone:2, wall:2,
 	ring:3, nova:3, meteor:3,
-	chain:4, vortex:4, summon:4,
+	chain:4, vortex:4, summon:4, explosion:4,
 };
 const BEHAVIOR_RANK_REQ = {
 	straight:0, stationary:0, selfCast:0,
 	lob:1, underfoot:1,
-	homing:2, boomerang:2, groundSurge:2,
+	homing:2, boomerang:2, groundSurge:2, control:2,
 	aroundSelf:3, ground:3, zigzag:3,
 	orbit:4, rain:4, barrage:4, teleport:4,
-	domain:5,
+	domain:5, transformation:5,
 };
 const EFFECT_RANK_REQ = {
-	knockback:0, randomDelay:0, resetProjectiles:0,
-	burn:1, freeze:1, forceJump:1,
+	knockback:0, randomDelay:0, evenDelay:0, resetProjectiles:0,
+	burn:1, freeze:1, forceJump:1, solidify:1,
 	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
 	stun:3, healSelf:3, shield:3, phaseFork:3, damageRelease:3, damageHeal:3,
 	lifesteal:4, blind:4, shatter:4, mark:4, dispel:4,
@@ -1046,6 +1073,9 @@ function defaultPlayerState(){
 		spells: new Array(10).fill(null),  // each slot: null or spell object
 		vows: [null, null, null],  // 3 vow slots
 		domainVow: null,  // 4th special domain vow slot
+		loadouts: [],      // saved spell loadouts: [{name, spells, type:'standard'|'transformation'}]
+		activeLoadoutIdx: -1, // which loadout is active (-1 = unsaved)
+		transformSpells: new Array(10).fill(null), // transformation loadout spells
 	};
 }
 
@@ -1098,6 +1128,9 @@ function loadState(){
 			if(s.xp == null) s.xp = 0;
 			if(!s.mageClass) s.mageClass = 'none';
 			if(!s.mageClass2) s.mageClass2 = 'none';
+			if(!s.loadouts) s.loadouts = [];
+			if(s.activeLoadoutIdx == null) s.activeLoadoutIdx = -1;
+			if(!s.transformSpells) s.transformSpells = new Array(10).fill(null);
 			return s;
 		}
 	} catch(e){}
@@ -1123,6 +1156,109 @@ function saveState(){
 	updateSpellBoosts();
 	localStorage.setItem('magicBattle_playerData', JSON.stringify(STATE));
 }
+
+/* =============================================================
+   LOADOUT MANAGER
+   ============================================================= */
+function renderLoadoutModal(){
+	const body = document.getElementById('loadoutModalBody');
+	if(!body) return;
+	if(!STATE.loadouts.length){
+		body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px">No saved loadouts yet.<br>Click <b>+ New Standard</b> or <b>⚡ New Transformation</b> to save one.</div>';
+		return;
+	}
+	body.innerHTML = '';
+	STATE.loadouts.forEach((ld, idx) => {
+		const isActive = STATE.activeLoadoutIdx === idx;
+		const row = document.createElement('div');
+		const _isTransform = ld.type === 'transformation';
+		const _borderCol = isActive ? (_isTransform ? '#ff8800' : '#4488ff') : 'var(--border)';
+		row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;background:var(--panel2);border:1px solid ' + _borderCol;
+		const typeTag = _isTransform
+			? '<span style="color:#ff8800;font-size:.75em;font-weight:bold">⚡TRANSFORM</span>'
+			: '<span style="color:var(--muted);font-size:.75em">STD</span>';
+		const switchLabel = _isTransform ? (isActive ? '✏️ Editing' : '✏️ Edit') : (isActive ? '✓ Active' : 'Switch');
+		row.innerHTML = `
+			<span style="min-width:20px;color:var(--muted);font-size:.85em">${idx+1}.</span>
+			${typeTag}
+			<input type="text" class="ld-name-input" value="${ld.name.replace(/"/g,'&quot;')}" data-idx="${idx}"
+				style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:.9em;padding:2px"/>
+			<button class="btn btn-ghost ld-switch" data-idx="${idx}" style="font-size:.78em;padding:2px 8px">${switchLabel}</button>
+			<button class="btn btn-danger ld-delete" data-idx="${idx}" style="font-size:.78em;padding:2px 8px">✕</button>
+		`;
+		body.appendChild(row);
+	});
+	// Name-edit handlers
+	body.querySelectorAll('.ld-name-input').forEach(inp => {
+		inp.addEventListener('change', () => {
+			STATE.loadouts[+inp.dataset.idx].name = inp.value.trim()||'Loadout '+(+inp.dataset.idx+1);
+			saveState();
+		});
+	});
+	// Switch handlers
+	body.querySelectorAll('.ld-switch').forEach(btn => {
+		btn.addEventListener('click', () => {
+			const idx = +btn.dataset.idx;
+			const ld = STATE.loadouts[idx];
+			STATE.spells = JSON.parse(JSON.stringify(ld.spells));
+			// also sync transformSpells if transformation loadout
+			if(ld.type === 'transformation') STATE.transformSpells = JSON.parse(JSON.stringify(ld.spells));
+			STATE.activeLoadoutIdx = idx;
+			saveState(); renderSpellSlots(); renderLoadoutModal();
+		});
+	});
+	// Delete handlers
+	body.querySelectorAll('.ld-delete').forEach(btn => {
+		btn.addEventListener('click', () => {
+			const idx = +btn.dataset.idx;
+			// Protect last basic loadout
+			if(STATE.loadouts[idx].type !== 'transformation'){
+				const standardCount = STATE.loadouts.filter(l => l.type !== 'transformation').length;
+				if(standardCount <= 1){ alert('You must keep at least one basic spell loadout!'); return; }
+			}
+			if(!confirm('Delete loadout "'+STATE.loadouts[idx].name+'"?')) return;
+			STATE.loadouts.splice(idx, 1);
+			if(STATE.activeLoadoutIdx >= STATE.loadouts.length) STATE.activeLoadoutIdx = STATE.loadouts.length - 1;
+			saveState(); renderLoadoutModal();
+		});
+	});
+}
+
+function openLoadoutModal(){
+	renderLoadoutModal();
+	document.getElementById('loadoutModal').style.display = 'flex';
+}
+
+function createNewLoadout(type){
+	const name = prompt('Name this '+(type==='transformation'?'Transformation ':'')+'loadout:', type==='transformation'?'Transform Loadout '+(STATE.loadouts.filter(l=>l.type==='transformation').length+1):'Loadout '+(STATE.loadouts.length+1));
+	if(!name) return;
+	const emptySpells = new Array(10).fill(null);
+	STATE.loadouts.push({ name: name.trim(), spells: emptySpells, type });
+	STATE.activeLoadoutIdx = STATE.loadouts.length - 1;
+	if(type === 'transformation') STATE.transformSpells = JSON.parse(JSON.stringify(emptySpells));
+	saveState(); renderLoadoutModal(); renderSpellSlots();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+	const lBtn = document.getElementById('loadoutMgrBtn');
+	if(lBtn) lBtn.addEventListener('click', openLoadoutModal);
+	document.getElementById('loadoutModalClose')?.addEventListener('click', () => { document.getElementById('loadoutModal').style.display='none'; });
+	document.getElementById('loadoutNewStdBtn')?.addEventListener('click', () => createNewLoadout('standard'));
+	document.getElementById('loadoutNewTransBtn')?.addEventListener('click', () => createNewLoadout('transformation'));
+	document.getElementById('loadoutSaveCurrentBtn')?.addEventListener('click', () => {
+		if(STATE.activeLoadoutIdx < 0 || STATE.activeLoadoutIdx >= STATE.loadouts.length){
+			alert('No active loadout — create one first with "+ New Standard" or "⚡ New Transformation".');
+			return;
+		}
+		STATE.loadouts[STATE.activeLoadoutIdx].spells = JSON.parse(JSON.stringify(STATE.spells));
+		if(STATE.loadouts[STATE.activeLoadoutIdx].type==='transformation') STATE.transformSpells = JSON.parse(JSON.stringify(STATE.spells));
+		saveState(); renderLoadoutModal();
+		const btn = document.getElementById('loadoutSaveCurrentBtn');
+		const orig = btn.textContent;
+		btn.textContent='✓ Saved!';
+		setTimeout(()=>btn.textContent=orig, 1200);
+	});
+});
 
 /* =============================================================
    COMPUTED STATS (base + equipment)
@@ -1718,6 +1854,7 @@ const DICT_EFFECT_DETAILS = {
 	shield:    { phaseNote:'Provides a temporary defence boost on hit.', extraNote:'' },
 	lifesteal: { phaseNote:'Heals you for 20% of damage dealt. Domain element: matching grants +50% damage.', extraNote:'Heal: 20% of damage dealt' },
 	randomDelay:{ phaseNote:'Each projectile in a multi-count spell spawns after a random delay instead of simultaneously.', extraNote:'' },
+	evenDelay:   { phaseNote:'Each projectile spawns at an equal interval, evenly spaced over the specified duration. Projectile 1 fires immediately; the last fires at the end of the duration.', extraNote:'' },
 	phaseThrough:{ phaseNote:'Projectile passes through solid walls and platforms. Massive damage penalty unless from a domain.', extraNote:'Damage: ×0.55 (−45%) — domain projectiles exempt' },
 	timedRelease:{ phaseNote:'Automatically triggers the spell\'s after-effects after a set delay.', extraNote:'' },
 	phaseFork: { phaseNote:'Triggers the next phase after a delay WITHOUT ending the current phase. Both run simultaneously. Repeats cost +35 mana each.', extraNote:'Extra mana: +35 per repeat' },
@@ -2029,7 +2166,7 @@ function renderDictEffects(){
 function renderDictDomains(){
 	let html = '<div class="dict-section-title">⚡ Domain Expansion — Shape Effects</div>';
 	html += '<p class="dict-detail">Domain Expansion is an <b>Ultimate-only</b> behavior (spell slot 0). It creates a massive zone covering 1.8× the screen. The <b>shape you choose in Phase 1</b> determines the domain\'s special per-frame effect and how sub-phase projectiles spawn.</p>';
-	html += '<p class="dict-detail"><b>Base mana cost:</b> 1000 (behavior) + shape cost + effect costs. Ultimate cost = spell cost × 10 (uses Total Mana). <b>Charge time:</b> 3 seconds.</p>';
+	html += '<p class="dict-detail"><b>Base cost:</b> Capped at <b>25k</b> total mana maximum (regardless of spell complexity). <b>Max phases:</b> 2 (domain + 1 sub-phase).</p>';
 	html += '<p class="dict-detail"><b>Sub-phases:</b> Phases after Phase 1 fire from domain edges with forced homing (except Meteor → straight from top, Spike → straight from ground).</p>';
 
 	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Shape-Specific Domain Effects</div>';
@@ -2102,10 +2239,12 @@ function renderDictUltimates(){
 	html += '<div class="dict-card">';
 	html += '<h4>⚡ How Ultimates Work</h4>';
 	html += '<p class="dict-detail"><b>Cost:</b> Spell mana cost × 10 (paid from Total Mana, not regular mana).</p>';
-	html += '<p class="dict-detail"><b>Necromancer Domain:</b> Costs ×2 (20k+ instead of 10k+).</p>';
+	html += '<p class="dict-detail"><b>Necromancer Domain:</b> Costs ×2 (20k instead of 10k).</p>';
+	html += '<p class="dict-detail"><b>Domain / Transformation:</b> Capped at 25k mana maximum regardless of spell complexity.</p>';
 	html += '<p class="dict-detail"><b>Charge Time:</b> 3 seconds (180 frames at 60fps). You are vulnerable during the charge.</p>';
 	html += '<p class="dict-detail"><b>Control Discount:</b> Same as normal spells — higher Magic Control reduces effective mana cost by 1.5% per point (min ×0.3).</p>';
 	html += '<p class="dict-detail"><b>Cooldown Formula:</b> 24 + (avgPower × 16) + (rawCost × 0.15) + 180 (charge duration). Modified by Vow cooldown reductions.</p>';
+	html += '<p class="dict-detail"><b>Cast Buff:</b> Every ultimate cast grants +6% speed and +5% health for 10 seconds.</p>';
 	html += '</div>';
 
 	html += '<div class="dict-card">';
@@ -2117,7 +2256,33 @@ function renderDictUltimates(){
 	html += '<div class="dict-card">';
 	html += '<h4>🔷 Domain as Ultimate</h4>';
 	html += '<p class="dict-detail">Domain Expansion behavior is <b>ultimate-only</b> — it can only be used in Slot 0 as Phase 1. The domain phase creates the zone, and subsequent phases fire projectiles from the domain edges.</p>';
+	html += '<p class="dict-detail"><b>Limit:</b> Domain spells are capped at <b>2 phases</b> (domain + 1 sub-phase). Cost is capped at <b>25k total mana</b>.</p>';
 	html += '<p class="dict-detail"><b>Domain element:</b> Set the elemental type (burn/freeze/poison/stun/lifesteal) for +50% damage matching bonus.</p>';
+	html += '</div>';
+
+	html += '<div class="dict-card" style="border-color:#ff8800">';
+	html += '<h4 style="color:#ff8800">⚡ Transformation</h4>';
+	html += '<p class="dict-detail">Transformation is a new <b>ultimate-only</b> behavior. When cast, it transforms you for <b>60 seconds</b>, switching your active spell loadout to a Transformation-type loadout with enhanced limits:</p>';
+	html += '<ul class="dict-detail" style="padding-left:18px;">';
+	html += '<li>Max power: <b>15</b> (vs 20 normally)</li>';
+	html += '<li>Max size: <b>5.5</b> (vs 8 normally)</li>';
+	html += '<li>Up to <b>4 phases</b></li>';
+	html += '<li>Costs up to <b>25k mana</b> (capped)</li>';
+	html += '</ul>';
+	html += '<p class="dict-detail"><b>Buff System:</b> Spend 5 points on buffs when building the transformation spell:</p>';
+	html += '<ul class="dict-detail" style="padding-left:18px;margin-top:4px">';
+	html += '<li>🏃 <b>Speed:</b> +15% per point</li>';
+	html += '<li>💥 <b>Element Damage:</b> +10% per point for chosen element</li>';
+	html += '<li>🌀 <b>Ranger TP</b> (3 pts): teleport with [F] during transformation</li>';
+	html += '<li>❤️ <b>Health:</b> +15% max HP per point (restored after)</li>';
+	html += '<li>🔮 <b>Archmage Elemental</b> (3 pts): elemental attacks gain archmage secondary effects</li>';
+	html += '<li>👾 <b>Summon Absorb</b> (5 pts): absorb all summons on activation (+30% of their HP, +1% dmg/summon, +2% speed/summon)</li>';
+	html += '<li>👾 <b>Summon Power:</b> +10% summon damage per point</li>';
+	html += '<li>💣 <b>Explosion Immunity</b> (3 pts): immune to self-explosion damage (effects still apply)</li>';
+	html += '<li>🛡️ <b>Elemental Immunity</b> (5 pts): immune to burn, freeze, poison, stun during transformation</li>';
+	html += '</ul>';
+	html += '<p class="dict-detail"><b>Aura:</b> A customizable aura surrounds you during transformation. Choose from 8 styles (pulse, orbit, spiral, nova, veil, shatter, corona, storm) and set the aura color.</p>';
+	html += '<p class="dict-detail"><b>Transformation Loadout:</b> Create Transformation-type loadouts in the <b>📦 Loadout Manager</b>. These spells are used during the 60-second window. After it ends, your original spells are restored.</p>';
 	html += '</div>';
 
 	return html;
@@ -3024,15 +3189,34 @@ function craftItem(recipe){
 /* =============================================================
    RENDER: SPELL SLOTS (right col)
    ============================================================= */
+function getSlotKeybinds(){
+	try{ return JSON.parse(localStorage.getItem('magicBattle_slotKeybinds')||'{}'); }catch(e){ return {}; }
+}
+function setSlotKeybind(slotIdx, key){
+	const kb = getSlotKeybinds();
+	if(key) kb[slotIdx] = key; else delete kb[slotIdx];
+	localStorage.setItem('magicBattle_slotKeybinds', JSON.stringify(kb));
+}
+
 function renderSpellSlots(){
 	const wrap = document.getElementById('spellSlots');
 	wrap.innerHTML = '';
+	// Banner when editing a transformation loadout
+	if(STATE.loadouts[STATE.activeLoadoutIdx]?.type === 'transformation'){
+		const _tlBanner = document.createElement('div');
+		_tlBanner.style.cssText = 'background:rgba(255,136,0,0.12);border:1px solid #ff8800;color:#ff8800;padding:6px 10px;border-radius:6px;margin-bottom:6px;font-size:.82em;text-align:center';
+		_tlBanner.innerHTML = '⚡ Editing <b>Transformation Loadout</b> — these spells only activate during Transformation';
+		wrap.appendChild(_tlBanner);
+	}
 	const stats = computeStats();
+	const keybinds = getSlotKeybinds();
 	for(let i = 0; i < 10; i++){
 		const sp = STATE.spells[i];
 		const el = document.createElement('div');
 		const isUlt = (i === 9);
 		el.className = 'spell-slot' + (isUlt ? ' ultimate-slot' : '');
+		el.style.cssText = 'display:flex;align-items:center;gap:4px';
+		const kbKey = keybinds[i] || '';
 		if(sp){
 			const baseCost = calcSpellManaCost(sp);
 			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
@@ -3046,12 +3230,33 @@ function renderSpellSlots(){
 				<span class="sp-color" style="background:${sp.phases[0]?.color||'#888'}"></span>
 				<span class="sp-name" style="${canUse?'':'color:var(--red);text-decoration:line-through'}">${sp.name}</span>
 				<span class="sp-mana">${isUlt ? (cost*10)+' ⚡' : cost+' 💧'}</span>
+				<button class="kb-btn" data-slot="${i}" title="Click to set keybind for this spell" style="margin-left:auto;padding:1px 6px;font-size:.75em;background:var(--panel2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text);flex-shrink:0">${kbKey ? '🔑 '+kbKey : '🔑 —'}</button>
 			`;
 			if(!canUse) el.title = `Requires ${req} Control (you have ${stats.magicControl})`;
 		} else {
-			el.innerHTML = `<span class="sp-num">${isUlt ? '⚡0' : (i+1)}</span><span class="sp-empty">${isUlt ? 'Ultimate — click to create' : 'Empty — click to create'}</span>`;
+			el.innerHTML = `<span class="sp-num">${isUlt ? '⚡0' : (i+1)}</span><span class="sp-empty" style="flex:1">${isUlt ? 'Ultimate — click to create' : 'Empty — click to create'}</span>
+				<button class="kb-btn" data-slot="${i}" title="Click to set keybind for this spell" style="margin-left:auto;padding:1px 6px;font-size:.75em;background:var(--panel2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text);flex-shrink:0">${kbKey ? '🔑 '+kbKey : '🔑 —'}</button>`;
 		}
-		el.addEventListener('click', () => openSpellBuilder(i));
+		// Main slot click opens builder (not keybind button)
+		el.addEventListener('click', e => {
+			if(e.target.closest('.kb-btn')) return;
+			openSpellBuilder(i);
+		});
+		// Keybind button
+		el.querySelector('.kb-btn').addEventListener('click', e => {
+			e.stopPropagation();
+			const btn = e.currentTarget;
+			btn.textContent = '🔑 Press key...';
+			btn.style.color = '#ffaa00';
+			const handler = ev => {
+				ev.preventDefault(); ev.stopPropagation();
+				if(ev.key === 'Escape'){ setSlotKeybind(i, ''); }
+				else { setSlotKeybind(i, ev.key); }
+				document.removeEventListener('keydown', handler, true);
+				renderSpellSlots();
+			};
+			document.addEventListener('keydown', handler, true);
+		});
 		wrap.appendChild(el);
 	}
 }
@@ -4029,15 +4234,21 @@ function newPhase(){
 		aroundSelfCount:4, aroundSelfRadius:50,
 		chainStunTime:0,
 		rainHeight:150,
+		barrageHeight:200,
 		groundRadius:200, groundAutoLock:true,
 		summonRange:0, summonHealth:0, summonSpeed:0, summonClose:false, summonSelfReliance:false,
 		effectPower:1, effectDuration:1,
 		randomDelayMax:0.5,
+		evenDelayDuration:0.5,
 		afterHitEffect:'none', polygonSides:6,
 		noHit:false, vortexDuration:1,
 		holdDown:false,
 		// Domain expansion properties
 		domainElement:'burn', domainColor:'#ff4400', domainPattern:'flames',
+		// Transformation properties
+		transformAuraStyle:'pulse', transformAuraColor:'#ff8800', transformAuraColor2:'#ffffff', transformAuraStrength:1,
+		transformBuffPoints:{}, // {speed:0, elemDmg:0, elemDmgType:'burn', tp:false, health:0, archmageElem:false, summonAbsorb:false, summonPower:0, explosionImmunity:false, elemImmunity:false}
+		transformLoadoutName:'', // which transformation loadout to switch to ('' = first found)
 	};
 }
 
@@ -4066,12 +4277,24 @@ document.getElementById('saveSpellBtn').addEventListener('click', () => {
 	if(editingSlot === 9) spellCopy.isUltimate = true;
 	else delete spellCopy.isUltimate;
 	STATE.spells[editingSlot] = spellCopy;
+	// Auto-save into the active loadout so it stays in sync
+	if(STATE.activeLoadoutIdx >= 0 && STATE.activeLoadoutIdx < STATE.loadouts.length){
+		STATE.loadouts[STATE.activeLoadoutIdx].spells[editingSlot] = JSON.parse(JSON.stringify(spellCopy));
+		if(STATE.loadouts[STATE.activeLoadoutIdx].type === 'transformation')
+			STATE.transformSpells[editingSlot] = JSON.parse(JSON.stringify(spellCopy));
+	}
 	saveState();
 	closeSpellBuilder();
 	renderSpellSlots();
 });
 document.getElementById('clearSpellBtn').addEventListener('click', () => {
 	STATE.spells[editingSlot] = null;
+	// Auto-save the cleared slot into the active loadout
+	if(STATE.activeLoadoutIdx >= 0 && STATE.activeLoadoutIdx < STATE.loadouts.length){
+		STATE.loadouts[STATE.activeLoadoutIdx].spells[editingSlot] = null;
+		if(STATE.loadouts[STATE.activeLoadoutIdx].type === 'transformation')
+			STATE.transformSpells[editingSlot] = null;
+	}
 	saveState();
 	closeSpellBuilder();
 	renderSpellSlots();
@@ -4127,7 +4350,8 @@ document.getElementById('importSpellBtn').addEventListener('click', () => {
 
 document.getElementById('addPhaseBtn').addEventListener('click', () => {
 	const vowPhaseBonus = calcVowBoostsForSlot(editingSlot).phases || 0;
-	const maxPhases = ((editingSlot === 9) ? 5 : 3) + vowPhaseBonus;
+	const ph0beh = builderSpell.phases[0]?.behavior;
+	const maxPhases = ph0beh === 'domain' ? 2 : ph0beh === 'transformation' ? 4 : ((editingSlot === 9) ? 5 : 3) + vowPhaseBonus;
 	if(builderSpell.phases.length >= maxPhases) return;
 	builderSpell.phases.push(newPhase());
 	renderBuilder();
@@ -4144,8 +4368,10 @@ function renderBuilder(){
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const isUlt = (editingSlot === 9);
+	const isTransformLoadout = STATE.loadouts[STATE.activeLoadoutIdx]?.type === 'transformation';
 	const vowPhaseBonus = _vbBuilder.phases || 0;
-	const maxPhases = (isUlt ? 5 : 3) + vowPhaseBonus;
+	const _ph0beh = builderSpell.phases[0]?.behavior;
+	const maxPhases = _ph0beh === 'domain' ? 2 : _ph0beh === 'transformation' ? 4 : (isUlt ? 5 : 3) + vowPhaseBonus;
 
 	/* Gather vow-locked effects & shapes */
 	const vowLockedEffects = new Set();
@@ -4226,8 +4452,12 @@ function renderBuilder(){
 
 		// Check if this is a domain phase (phase 1 with domain behavior)
 		const isDomainPhase = idx === 0 && ph.behavior === 'domain';
+		// Check if this is a transformation phase (phase 1 with transformation behavior)
+		const isTransformPhase = idx === 0 && ph.behavior === 'transformation';
 		// Check if spell has domain (affects subsequent phases)
 		const spellHasDomain = builderSpell.phases[0]?.behavior === 'domain';
+		// Check if spell has transformation (affects subsequent phases)
+		const spellHasTransformation = builderSpell.phases[0]?.behavior === 'transformation';
 
 		// Behavior
 		html += `<div class="prow"><label>Behavior</label><select data-idx="${idx}" data-prop="behavior">`;
@@ -4235,14 +4465,17 @@ function renderBuilder(){
 			const behItemReq = BEH_ITEM_REQ[k];
 			const behItemLocked = behItemReq && !hasItemEquipped(behItemReq);
 			const behRankLocked = !isBehaviorUnlocked(k);
-			// Domain only available for ultimates on phase 1
+			// Domain/Transformation only available for ultimates on phase 1
 			const domainLocked = v.ultimateOnly && (!isUlt || idx > 0);
+			// Transformation behavior not allowed inside transformation loadouts
+			const transformSelfLocked = k === 'transformation' && isTransformLoadout;
 			// If spell has domain and this is phase 2+, behavior is forced to homing
 			const forcedHoming = spellHasDomain && idx > 0 && k !== 'homing';
-			const locked = behItemLocked || behRankLocked || domainLocked || forcedHoming;
+			const locked = behItemLocked || behRankLocked || domainLocked || forcedHoming || transformSelfLocked;
 			let lockLabel = behItemLocked ? ` 🔒 ${ITEM_DB[behItemReq]?.name||behItemReq}` : (behRankLocked ? ` 🔒 ${MAGE_RANKS[BEHAVIOR_RANK_REQ[k]]?.name||'?'}` : '');
 			if(domainLocked && !behItemLocked && !behRankLocked) lockLabel = ' 🔒 Ult Phase 1 Only';
 			if(forcedHoming && !behItemLocked && !behRankLocked) lockLabel = ' 🔒 Domain forces Homing';
+			if(transformSelfLocked && !behItemLocked && !behRankLocked) lockLabel = ' 🔒 Not in transform loadout';
 			html += `<option value="${k}" ${ph.behavior===k?'selected':''} ${locked?'disabled':''}>${v.label} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${lockLabel}</option>`;
 		}
 		html += `</select></div>`;
@@ -4277,20 +4510,97 @@ function renderBuilder(){
 				</div></div>`;
 		}
 
-		// sliders: width, height, speed, duration, power - skip for domain phase 1
-		if(!isDomainPhase){
+		// Transformation-specific settings (phase 1 only)
+		if(isTransformPhase){
+			if(!ph.transformAuraStyle) ph.transformAuraStyle='pulse';
+			if(!ph.transformAuraColor) ph.transformAuraColor='#ff8800';
+			if(!ph.transformAuraColor2) ph.transformAuraColor2='#ffffff';
+			if(!ph.transformAuraStrength) ph.transformAuraStrength=1;
+			if(!ph.transformBuffPoints) ph.transformBuffPoints={};
+			if(!ph.transformLoadoutName) ph.transformLoadoutName='';
+			const bp=ph.transformBuffPoints;
+			const totalPts=(bp.speed||0)+(bp.elemDmg||0)+(bp.tp?3:0)+(bp.health||0)+(bp.archmageElem?3:0)+(bp.summonAbsorb?5:0)+(bp.summonPower||0)+(bp.explosionImmunity?3:0)+(bp.elemImmunity?5:0);
+			const remPts=5-totalPts;
+			html += `<div class="prow" style="border-top:2px solid #ff8800;padding-top:8px;margin-top:8px"><label style="color:#ff8800;font-weight:bold">⚡ TRANSFORMATION ⚡</label></div>`;
+			html += `<div class="prow" style="color:#aaa;font-size:.85em">Transforms for 60 seconds. Switches to your Transformation loadout spells (power 15, size 5.5, 4 phases). 25k mana.</div>`;
+			// Aura Style
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">🌟 Aura Settings</label></div>`;
+			html += `<div class="prow"><label>Aura Style</label><select data-idx="${idx}" data-prop="transformAuraStyle">
+				<option value="pulse" ${ph.transformAuraStyle==='pulse'?'selected':''}>💫 Pulse — glowing rings</option>
+				<option value="orbit" ${ph.transformAuraStyle==='orbit'?'selected':''}>🔵 Orbit — orbiting particles</option>
+				<option value="spiral" ${ph.transformAuraStyle==='spiral'?'selected':''}>🌀 Spiral — spinning wisps</option>
+				<option value="nova" ${ph.transformAuraStyle==='nova'?'selected':''}>⭐ Nova — radiating spikes</option>
+				<option value="veil" ${ph.transformAuraStyle==='veil'?'selected':''}>✨ Veil — flowing upward</option>
+				<option value="shatter" ${ph.transformAuraStyle==='shatter'?'selected':''}>💎 Shatter — crystal lattice</option>
+				<option value="corona" ${ph.transformAuraStyle==='corona'?'selected':''}>☀️ Corona — sun corona</option>
+				<option value="storm" ${ph.transformAuraStyle==='storm'?'selected':''}>⚡ Storm — lightning arcs</option>
+				<option value="powerleakage" ${ph.transformAuraStyle==='powerleakage'?'selected':''}>🔥 Power Leakage — sharp crackling pillar</option>
+				<option value="powersurge" ${ph.transformAuraStyle==='powersurge'?'selected':''}>🌊 Power Surge — wide flowing energy column</option>
+			</select></div>`;
+			const _aStrV = ph.transformAuraStrength||1;
+			html += `<div class="prow"><label>Aura Strength: ${_aStrV}</label>
+				<div class="range-row"><input type="range" min="1" max="10" step="1" value="${_aStrV}" data-idx="${idx}" data-prop="transformAuraStrength"/><span class="range-val">${_aStrV}</span></div></div>`;
+			html += `<div class="prow"><label>Aura Color (Primary)</label><input type="color" value="${ph.transformAuraColor}" data-idx="${idx}" data-prop="transformAuraColor"/></div>`;
+			html += `<div class="prow"><label>Aura Color (Secondary)</label><input type="color" value="${ph.transformAuraColor2||'#ffffff'}" data-idx="${idx}" data-prop="transformAuraColor2"/></div>`;
+			// Transformation Loadout selector
+			const transLoadouts=STATE.loadouts.filter(l=>l.type==='transformation');
+			html += `<div class="prow"><label>Transformation Loadout</label><select data-idx="${idx}" data-prop="transformLoadoutName">
+				<option value=""${!ph.transformLoadoutName?' selected':''}>— First found —</option>`;
+			for(const tl of transLoadouts) html+=`<option value="${tl.name}"${ph.transformLoadoutName===tl.name?' selected':''}>${tl.name}</option>`;
+			html+=`</select></div>`;
+			if(transLoadouts.length===0) html+=`<div class="prow" style="color:#ff8800;font-size:.82em">ℹ️ No Transformation loadouts yet. Create one in the Loadout Manager.</div>`;
+			// Buff point allocation
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">💠 Buff Points: <b>${remPts}</b> / 5 remaining</label></div>`;
+			if(remPts<0) html+=`<div class="prow" style="color:#ff4444;font-size:.82em">⚠️ Over budget! Remove some buffs. Excess points will be ignored.</div>`;
+			// speed
+			html+=`<div class="prow"><label>🏃 Speed +${(bp.speed||0)*15}% (${bp.speed||0} pts)</label>
+				<input type="range" min="0" max="5" step="1" value="${bp.speed||0}" data-idx="${idx}" data-prop="transformBuffPoints.speed"/></div>`;
+			// elem dmg
+			html+=`<div class="prow"><label>💥 Elem Damage +${(bp.elemDmg||0)*10}% (${bp.elemDmg||0} pts)</label>
+				<input type="range" min="0" max="5" step="1" value="${bp.elemDmg||0}" data-idx="${idx}" data-prop="transformBuffPoints.elemDmg"/></div>`;
+			if((bp.elemDmg||0)>0){
+				html+=`<div class="prow"><label>Elem Type</label><select data-idx="${idx}" data-prop="transformBuffPoints.elemDmgType">`;
+				for(const el of ['burn','freeze','poison','stun','lifesteal']){
+					const fx=EFFECTS[el];
+					html+=`<option value="${el}"${(bp.elemDmgType||'burn')===el?' selected':''}>${fx.icon} ${fx.label}</option>`;
+				}
+				html+=`</select></div>`;
+			}
+			// tp
+			html+=`<div class="prow"><label>🌀 Ranger TP (3 pts) <input type="checkbox" data-idx="${idx}" data-prop="transformBuffPoints.tp" ${bp.tp?'checked':''}/></label></div>`;
+			// health
+			html+=`<div class="prow"><label>❤️ Health +${(bp.health||0)*15}% (${bp.health||0} pts)</label>
+				<input type="range" min="0" max="5" step="1" value="${bp.health||0}" data-idx="${idx}" data-prop="transformBuffPoints.health"/></div>`;
+			// archmage elem
+			html+=`<div class="prow"><label>🔮 Archmage Elemental (3 pts) <input type="checkbox" data-idx="${idx}" data-prop="transformBuffPoints.archmageElem" ${bp.archmageElem?'checked':''}/></label></div>`;
+			// summon absorb
+			html+=`<div class="prow"><label>👾 Summon Absorb (5 pts) <input type="checkbox" data-idx="${idx}" data-prop="transformBuffPoints.summonAbsorb" ${bp.summonAbsorb?'checked':''}/></label></div>`;
+			// summon power
+			html+=`<div class="prow"><label>👾 Summon Power +${(bp.summonPower||0)*10}% (${bp.summonPower||0} pts)</label>
+				<input type="range" min="0" max="5" step="1" value="${bp.summonPower||0}" data-idx="${idx}" data-prop="transformBuffPoints.summonPower"/></div>`;
+			// explosion immunity
+			html+=`<div class="prow"><label>💣 Explosion Immunity (3 pts) <input type="checkbox" data-idx="${idx}" data-prop="transformBuffPoints.explosionImmunity" ${bp.explosionImmunity?'checked':''}/></label></div>`;
+			// elemental immunity
+			html+=`<div class="prow"><label>🛡️ Elemental Immunity (5 pts) <input type="checkbox" data-idx="${idx}" data-prop="transformBuffPoints.elemImmunity" ${bp.elemImmunity?'checked':''}/></label></div>`;
+		}
+
+		// sliders: width, height, speed, duration, power - skip for domain or transformation phase 1
+		if(!isDomainPhase && !isTransformPhase){
 		const isBigShape = ph.shape === 'solidify' || ph.shape === 'wall';
 		// Domain spells cap power at 10 max on phase 2+
 		const domainPowerCap = spellHasDomain && idx > 0;
+		// Transformation spells get enhanced limits (power 15, size 5.5) on phase 2+
+		const transEnhanced = (spellHasTransformation && idx > 0) || isTransformLoadout;
 		// Rank caps power output
 		const rankPowerCap = getRankMaxPower();
-		const basePowerMax = domainPowerCap ? 10 : (isUlt ? 20 : 10);
+		const basePowerMax = domainPowerCap ? 10 : transEnhanced ? 15 : (isUlt ? 20 : 10);
 		const powerMax = Math.min(basePowerMax, rankPowerCap);
+		const sizeMax = transEnhanced ? 5.5 : isBigShape?(isUlt?10:6):(isUlt?8:3);
 		const sliders = [
-			{ prop:'width',    label:'Width',    min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
-			{ prop:'height',   label:'Height',   min:0.3, max:isBigShape?(isUlt?10:6):(isUlt?8:3), step:0.1 },
+			{ prop:'width',    label:'Width',    min:0.3, max:sizeMax, step:0.1 },
+			{ prop:'height',   label:'Height',   min:0.3, max:sizeMax, step:0.1 },
 			{ prop:'speed',    label:'Speed',    min:0.3, max:isUlt?5:3, step:0.1 },
-			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.behavior==='ground'||ph.shape==='beam'||ph.shape==='solidify'?30:isUlt?10:5), step:0.1 },
+			{ prop:'duration', label:'Duration', min:0.3, max:(ph.behavior==='stationary'||ph.behavior==='selfCast'||ph.behavior==='ground'||ph.behavior==='control'||ph.shape==='beam'||(ph.effects&&ph.effects.includes('solidify'))?30:isUlt?10:5), step:0.1 },
 			{ prop:'power',    label:'Power',    min:0.5, max:powerMax, step:0.1 },
 		];
 		for(const sl of sliders){
@@ -4341,6 +4651,14 @@ function renderBuilder(){
 				<input type="range" min="50" max="800" step="10" value="${ph.rainHeight}" data-idx="${idx}" data-prop="rainHeight"/></div>`;
 		}
 
+		// barrage-specific settings
+		if(ph.behavior === 'barrage'){
+			if(!ph.barrageHeight) ph.barrageHeight = 200;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Barrage Settings</label></div>`;
+			html += `<div class="prow"><label>Barrage Spread: ${ph.barrageHeight}</label>
+				<input type="range" min="30" max="600" step="10" value="${ph.barrageHeight}" data-idx="${idx}" data-prop="barrageHeight"/></div>`;
+		}
+
 		// orbit-specific settings
 		if(ph.behavior === 'orbit'){
 			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Orbit Settings</label></div>`;
@@ -4388,8 +4706,8 @@ function renderBuilder(){
 		}
 		} // end if(!isDomainPhase)
 
-		// effects — grouped by category (domain phase only shows domain element, already handled above)
-		if(!isDomainPhase){
+		// effects — grouped by category (domain/transformation phase shows no effects)
+		if(!isDomainPhase && !isTransformPhase){
 		html += `<div class="prow"><label>Effects</label></div>`;
 		const catOrder = ['elemental','movement','cc','support','buff','utility','store'];
 		for(const cat of catOrder){
@@ -4404,9 +4722,11 @@ function renderBuilder(){
 				const fxItemLocked = fxItemReq && !hasItemEquipped(fxItemReq);
 				const fxRankLocked = !isEffectUnlocked(k);
 				// check if another exclusive effect in this category is already active
-				const blocked = vowLocked || fxItemLocked || fxRankLocked || (!active && catInfo.exclusive && catEffects.some(([k2])=>k2!==k && ph.effects.includes(k2)));
-				const lockLabel = vowLocked ? ' 🔒 vow' : (fxItemLocked ? ` 🔒 ${ITEM_DB[fxItemReq]?.name||fxItemReq}` : (fxRankLocked ? ` 🔒 ${MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name||'?'}` : ''));
-				html += `<div class="fx-chip ${active&&!vowLocked&&!fxItemLocked&&!fxRankLocked?'active':''} ${blocked?'blocked':''}" data-idx="${idx}" data-fx="${k}" data-cat="${cat}" title="${v.desc} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${vowLocked?' — sacrificed by binding vow' : (fxItemLocked ? ' — requires '+(ITEM_DB[fxItemReq]?.name||fxItemReq) : (fxRankLocked ? ' — requires '+MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name+' rank' : (blocked ? ' — already have one from this category' : '')))}">${v.icon} ${v.label}${v.dmgNote?' <span style="font-size:9px;color:#ff9;opacity:0.7">['+v.dmgNote+']</span>' : ''}${lockLabel}</div>`;
+				const solidifyBlockedShapes = new Set(['explosion','vortex','summon','allyOrb']);
+				const shapeSolidifyBlocked = k==='solidify' && solidifyBlockedShapes.has(ph.shape);
+				const blocked = vowLocked || fxItemLocked || fxRankLocked || shapeSolidifyBlocked || (!active && catInfo.exclusive && catEffects.some(([k2])=>k2!==k && ph.effects.includes(k2)));
+				const lockLabel = vowLocked ? ' 🔒 vow' : (fxItemLocked ? ` 🔒 ${ITEM_DB[fxItemReq]?.name||fxItemReq}` : (fxRankLocked ? ` 🔒 ${MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name||'?'}` : (shapeSolidifyBlocked ? ' 🚫 shape' : '')));
+				html += `<div class="fx-chip ${active&&!vowLocked&&!fxItemLocked&&!fxRankLocked?'active':''} ${blocked?'blocked':''}" data-idx="${idx}" data-fx="${k}" data-cat="${cat}" title="${v.desc} (ctrl ${v.controlReq}+)${v.dmgNote?' ['+v.dmgNote+']':''}${vowLocked?' — sacrificed by binding vow' : (fxItemLocked ? ' — requires '+(ITEM_DB[fxItemReq]?.name||fxItemReq) : (fxRankLocked ? ' — requires '+MAGE_RANKS[EFFECT_RANK_REQ[k]]?.name+' rank' : (shapeSolidifyBlocked ? ' — solidify cannot be used with this shape' : (blocked ? ' — already have one from this category' : ''))))}">${v.icon} ${v.label}${v.dmgNote?' <span style="font-size:9px;color:#ff9;opacity:0.7">['+v.dmgNote+']</span>' : ''}${lockLabel}</div>`;
 			}
 			html += `</div></div>`;
 		}
@@ -4456,6 +4776,7 @@ function renderBuilder(){
 		if(ph.effects.includes('phaseFork')){
 			const pfd = ph.phaseForkDelay != null ? ph.phaseForkDelay : 1;
 			const pfr = ph.phaseForkRepeats != null ? ph.phaseForkRepeats : 1;
+			const pfct = !!ph.phaseForkCursorTrack;
 			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Phase Fork Settings</label></div>`;
 			html += `<div class="prow"><label>Fork Delay: ${pfd.toFixed(1)}s</label>
 				<div class="range-row">
@@ -4467,6 +4788,7 @@ function renderBuilder(){
 					<input type="range" min="1" max="25" step="1" value="${pfr}" data-idx="${idx}" data-prop="phaseForkRepeats"/>
 					<span class="range-val">${pfr}</span>
 				</div></div>`;
+			html += `<div class="prow"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-idx="${idx}" data-prop="phaseForkCursorTrack" ${pfct?'checked':''}/> Cursor Tracking <span style="font-size:.8em;color:#ff9">(−15% fork damage)</span></label></div>`;
 		}
 
 		// random delay settings
@@ -4477,6 +4799,16 @@ function renderBuilder(){
 				<div class="range-row">
 					<input type="range" min="0.1" max="3" step="0.1" value="${rdMax}" data-idx="${idx}" data-prop="randomDelayMax"/>
 					<span class="range-val">${rdMax.toFixed(1)}</span>
+				</div></div>`;
+		}
+		// even delay settings
+		if(ph.effects.includes('evenDelay')){
+			const edDur = ph.evenDelayDuration != null ? ph.evenDelayDuration : 0.5;
+			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Even Delay Settings</label></div>`;
+			html += `<div class="prow"><label>Total Duration: ${edDur.toFixed(1)}s</label>
+				<div class="range-row">
+					<input type="range" min="0.1" max="3" step="0.1" value="${edDur}" data-idx="${idx}" data-prop="evenDelayDuration"/>
+					<span class="range-val">${edDur.toFixed(1)}</span>
 				</div></div>`;
 		}
 		} // end if(!isDomainPhase) for effects
@@ -4493,11 +4825,15 @@ function renderBuilder(){
 			<option value="true" ${ph.noHit?'selected':''}>On — visual only, no damage</option>
 		</select></div>`;
 
-		// holdDown toggle — hold projectile at player before releasing
-		html += `<div class="prow"><label>Hold Down</label><select data-idx="${idx}" data-prop="holdDown">
-			<option value="false" ${!ph.holdDown?'selected':''}>Off — fires immediately</option>
-			<option value="true" ${ph.holdDown?'selected':''}>On — hold before throwing</option>
-		</select></div>`;
+		// holdDown toggle — only available on phase 1 (prevents hold breaking multi-phase logic)
+		if(idx === 0){
+			html += `<div class="prow"><label>Hold Down</label><select data-idx="${idx}" data-prop="holdDown">
+				<option value="false" ${!ph.holdDown?'selected':''}>Off — fires immediately</option>
+				<option value="true" ${ph.holdDown?'selected':''}>On — hold before throwing</option>
+			</select></div>`;
+		} else {
+			html += `<div class="prow" style="opacity:0.45"><label>Hold Down</label><span style="font-size:0.82em;color:var(--muted)">Hold only available on Phase 1</span></div>`;
+		}
 
 		// trail
 		html += `<div class="prow"><label>Trail</label><select data-idx="${idx}" data-prop="trail">`;
@@ -4574,7 +4910,18 @@ function renderBuilder(){
 			let val = el.value;
 			if(val === 'true') val = true;
 			else if(val === 'false') val = false;
-			builderSpell.phases[+el.dataset.idx][prop] = val;
+			const ph = builderSpell.phases[+el.dataset.idx];
+			if(prop.includes('.')){const [obj,key]=prop.split('.');if(!ph[obj])ph[obj]={};ph[obj][key]=val;}
+			else ph[prop] = val;
+			renderBuilder();
+		});
+	});
+	wrap.querySelectorAll('input[type=checkbox][data-prop]').forEach(el => {
+		el.addEventListener('change', () => {
+			const prop = el.dataset.prop;
+			const ph = builderSpell.phases[+el.dataset.idx];
+			if(prop.includes('.')){const [obj,key]=prop.split('.');if(!ph[obj])ph[obj]={};ph[obj][key]=el.checked;}
+			else ph[prop] = el.checked;
 			renderBuilder();
 		});
 	});
@@ -4582,11 +4929,13 @@ function renderBuilder(){
 		el.addEventListener('input', () => {
 			const val = parseFloat(el.value);
 			const prop = el.dataset.prop;
-			if (prop === 'aroundSelfCount' || prop === 'aroundSelfRadius' || prop === 'rainHeight' || prop === 'polygonSides') {
-				builderSpell.phases[+el.dataset.idx][prop] = Math.round(val);
+			const ph = builderSpell.phases[+el.dataset.idx];
+			if (prop === 'aroundSelfCount' || prop === 'aroundSelfRadius' || prop === 'rainHeight' || prop === 'barrageHeight' || prop === 'polygonSides') {
+				ph[prop] = Math.round(val);
 				renderBuilder(); return;
 			}
-			builderSpell.phases[+el.dataset.idx][prop] = val;
+			if(prop.includes('.')){const [obj,key]=prop.split('.');if(!ph[obj])ph[obj]={};ph[obj][key]=Math.round(val);renderBuilder();return;}
+			ph[prop] = val;
 			const row = el.closest('.prow');
 			const valSpan = row.querySelector('.range-val');
 			if(valSpan) valSpan.textContent = val.toFixed ? val.toFixed(1) : val;
@@ -4704,6 +5053,7 @@ function generateSpellDescription(spell){
 			const pfr = ph.phaseForkRepeats||1;
 			s += ` Also forks to next phase after ${pfd.toFixed(1)}s`;
 			if(pfr > 1) s += ` (${pfr}× repeats)`;
+			if(ph.phaseForkCursorTrack) s += ' (cursor-guided, −15% dmg)';
 			s += '.';
 		}
 
