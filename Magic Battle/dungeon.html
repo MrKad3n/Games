@@ -102,6 +102,14 @@ canvas{display:block}
 </div>
 <div id="hotbar"></div>
 
+<!-- Debug Panel -->
+<button id="debugBtn" onclick="document.getElementById('debugPanel').classList.toggle('open')" style="position:fixed;top:50px;left:14px;z-index:60;padding:5px 12px;font:12px Arial,sans-serif;background:rgba(255,255,255,.12);color:#0f0;border:1px solid rgba(0,255,0,.3);border-radius:5px;cursor:pointer">Debug</button>
+<div id="debugPanel" style="position:fixed;top:80px;left:14px;z-index:60;width:380px;max-height:70vh;overflow-y:auto;background:rgba(0,0,0,0.92);border:1px solid rgba(0,255,0,.3);border-radius:8px;padding:10px;font:11px monospace;color:#0f0;display:none;user-select:text">
+	<div style="display:flex;justify-content:space-between;margin-bottom:6px"><b>DEBUG INFO</b><button onclick="navigator.clipboard.writeText(document.getElementById('debugContent').innerText)" style="font:10px Arial;background:#333;color:#0f0;border:1px solid #0f0;border-radius:3px;cursor:pointer;padding:2px 8px">Copy All</button></div>
+	<pre id="debugContent" style="white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.4"></pre>
+</div>
+<style>#debugPanel.open{display:block!important}</style>
+
 <!-- Dialogue System -->
 <div id="dialogueOverlay">
 	<div id="dialogueBox">
@@ -428,7 +436,132 @@ const REWARD_ITEM_INFO = {
 	forge_coal:   { name:'Forge Coal',     icon:'⬛' },
 	forge_core:   { name:'Forge Core',     icon:'⚙️' },
 	colossus_gear:{ name:'Colossus Gear',  icon:'🔧' },
+	fang_fragment:   { name:'Fang Fragment',    icon:'🦴' },
+	raw_silk:        { name:'Raw Silk',         icon:'🧵' },
+	beast_hide:      { name:'Beast Hide',       icon:'🐾' },
+	spirit_wisp:     { name:'Spirit Wisp',      icon:'👻' },
+	venom_gland:     { name:'Venom Gland',      icon:'☠️' },
+	luminous_spore:  { name:'Luminous Spore',   icon:'🍄' },
+	thorned_vine:    { name:'Thorned Vine',     icon:'🌾' },
+	crystal_fragment:{ name:'Crystal Fragment',  icon:'💠' },
+	wing_membrane:   { name:'Wing Membrane',    icon:'🦇' },
+	stone_chip:      { name:'Stone Chip',       icon:'🧱' },
+	enchanted_bark:  { name:'Enchanted Bark',   icon:'🪵' },
+	electric_plume:  { name:'Electric Plume',   icon:'⚡' },
+	dark_residue:    { name:'Dark Residue',     icon:'🫧' },
+	bone_dust:       { name:'Bone Dust',        icon:'💀' },
+	sand_pearl:      { name:'Sand Pearl',       icon:'🏜️' },
+	serpent_scale:   { name:'Serpent Scale',     icon:'🐍' },
+	abyssal_ink:     { name:'Abyssal Ink',      icon:'🖋️' },
+	coral_shard:     { name:'Coral Shard',      icon:'🪸' },
+	scarab_shell:    { name:'Scarab Shell',     icon:'🪲' },
+	mummy_wrap:      { name:'Mummy Wrap',       icon:'🩹' },
+	djinn_essence:   { name:'Djinn Essence',    icon:'🌀' },
+	magma_droplet:   { name:'Magma Droplet',    icon:'🩸' },
+	salamander_tail: { name:'Salamander Tail',  icon:'🦎' },
+	wind_essence:    { name:'Wind Essence',     icon:'💨' },
+	root_heartwood:  { name:'Root Heartwood',   icon:'🪹' },
+	treant_heartstone:{ name:'Treant Heartstone',icon:'💚' },
+	raptor_crest:    { name:'Raptor Crest',     icon:'🦅' },
+	horror_tendril:  { name:'Horror Tendril',   icon:'🐙' },
+	hatchling_fang:  { name:'Hatchling Fang',   icon:'🐲' },
+	pyraxis_ember:   { name:'Pyraxis Ember',    icon:'☄️' },
+	seraphel_feather:{ name:'Seraphel Feather', icon:'🪽' },
+	arbiter_eye:     { name:'Arbiter Eye',      icon:'🔮' },
 };
+
+/* === ENEMY DROP TABLES === */
+/* Each enemy type maps to an array of { id, chance (0-1), min, max } */
+const ENEMY_DROPS = {
+	// --- Fire dungeon enemies ---
+	imp:              [{ id:'ember_shard', chance:0.5, min:1, max:2 }, { id:'fang_fragment', chance:0.3, min:1, max:1 }],
+	flameSerpent:     [{ id:'ember_shard', chance:0.4, min:1, max:2 }, { id:'serpent_scale', chance:0.25, min:1, max:1 }],
+	emberMage:        [{ id:'ember_shard', chance:0.5, min:1, max:2 }, { id:'arcane_dust', chance:0.35, min:1, max:2 }],
+	magmaGolem:       [{ id:'lava_essence', chance:0.3, min:1, max:1 }, { id:'stone_chip', chance:0.45, min:1, max:2 }, { id:'magma_droplet', chance:0.2, min:1, max:1 }],
+	fireSprite:       [{ id:'ember_shard', chance:0.6, min:1, max:2 }, { id:'spirit_wisp', chance:0.2, min:1, max:1 }],
+	// --- Ice dungeon enemies ---
+	frostWraith:      [{ id:'ice_crystal', chance:0.4, min:1, max:2 }, { id:'spirit_wisp', chance:0.3, min:1, max:1 }],
+	iceArcher:        [{ id:'ice_crystal', chance:0.4, min:1, max:1 }, { id:'crystal_fragment', chance:0.25, min:1, max:1 }],
+	snowBeast:        [{ id:'permafrost', chance:0.3, min:1, max:1 }, { id:'beast_hide', chance:0.45, min:1, max:2 }],
+	cryoMage:         [{ id:'ice_crystal', chance:0.5, min:1, max:2 }, { id:'arcane_dust', chance:0.35, min:1, max:2 }],
+	glacierSentinel:  [{ id:'permafrost', chance:0.35, min:1, max:1 }, { id:'stone_chip', chance:0.4, min:1, max:2 }, { id:'crystal_fragment', chance:0.2, min:1, max:1 }],
+	// --- Earth dungeon enemies ---
+	rockGolem:        [{ id:'stone_chip', chance:0.55, min:1, max:3 }, { id:'ancient_amber', chance:0.15, min:1, max:1 }],
+	vineCrawler:      [{ id:'thorned_vine', chance:0.5, min:1, max:2 }, { id:'venom_gland', chance:0.2, min:1, max:1 }],
+	caveSpider:       [{ id:'raw_silk', chance:0.5, min:1, max:2 }, { id:'venom_gland', chance:0.3, min:1, max:1 }],
+	crystalMage:      [{ id:'crystal_fragment', chance:0.45, min:1, max:2 }, { id:'arcane_dust', chance:0.35, min:1, max:2 }],
+	mudElemental:     [{ id:'stone_chip', chance:0.4, min:1, max:2 }, { id:'mana_herb', chance:0.3, min:1, max:1 }],
+	// --- Iron forge enemies ---
+	ironSentinel:     [{ id:'iron_plate', chance:0.4, min:1, max:2 }, { id:'stone_chip', chance:0.3, min:1, max:1 }],
+	forgeDrone:       [{ id:'forge_coal', chance:0.45, min:1, max:2 }, { id:'iron_plate', chance:0.2, min:1, max:1 }],
+	slagBrute:        [{ id:'iron_plate', chance:0.35, min:1, max:2 }, { id:'magma_droplet', chance:0.25, min:1, max:1 }, { id:'forge_coal', chance:0.3, min:1, max:1 }],
+	// --- Sylvaris wildes enemies ---
+	thornWolf:        [{ id:'beast_hide', chance:0.5, min:1, max:2 }, { id:'fang_fragment', chance:0.4, min:1, max:2 }],
+	sporeFungus:      [{ id:'luminous_spore', chance:0.6, min:1, max:3 }, { id:'mana_herb', chance:0.25, min:1, max:1 }],
+	mossWraith:       [{ id:'spirit_wisp', chance:0.4, min:1, max:1 }, { id:'dark_residue', chance:0.3, min:1, max:1 }, { id:'enchanted_bark', chance:0.2, min:1, max:1 }],
+	willowWisp:       [{ id:'spirit_wisp', chance:0.55, min:1, max:2 }, { id:'luminous_spore', chance:0.2, min:1, max:1 }],
+	glowBeetle:       [{ id:'luminous_spore', chance:0.5, min:1, max:2 }, { id:'scarab_shell', chance:0.3, min:1, max:1 }],
+	stalactiteBat:    [{ id:'wing_membrane', chance:0.5, min:1, max:2 }, { id:'fang_fragment', chance:0.25, min:1, max:1 }],
+	skyVine:          [{ id:'thorned_vine', chance:0.55, min:1, max:2 }, { id:'wind_essence', chance:0.2, min:1, max:1 }],
+	windSylph:        [{ id:'wind_essence', chance:0.45, min:1, max:2 }, { id:'spirit_wisp', chance:0.25, min:1, max:1 }],
+	// --- Darkened Sylvaris enemies ---
+	darkVineCrawler:  [{ id:'dark_residue', chance:0.55, min:1, max:2 }, { id:'thorned_vine', chance:0.3, min:1, max:1 }, { id:'shadow_essence', chance:0.1, min:1, max:1 }],
+	darkThornWolf:    [{ id:'dark_residue', chance:0.5, min:1, max:2 }, { id:'beast_hide', chance:0.35, min:1, max:1 }, { id:'shadow_essence', chance:0.1, min:1, max:1 }],
+	darkMossWraith:   [{ id:'dark_residue', chance:0.5, min:1, max:2 }, { id:'spirit_wisp', chance:0.35, min:1, max:1 }, { id:'shadow_essence', chance:0.12, min:1, max:1 }],
+	// --- Dragon Graveyard ---
+	boneWraith:       [{ id:'bone_dust', chance:0.55, min:1, max:2 }, { id:'spirit_wisp', chance:0.25, min:1, max:1 }],
+	// --- Storm Islands ---
+	flameSalamander:  [{ id:'salamander_tail', chance:0.4, min:1, max:1 }, { id:'ember_shard', chance:0.35, min:1, max:2 }, { id:'magma_droplet', chance:0.2, min:1, max:1 }],
+	magmaImp:         [{ id:'magma_droplet', chance:0.45, min:1, max:2 }, { id:'ember_shard', chance:0.3, min:1, max:1 }],
+	// --- Sea Temple ---
+	abyssalGuardian:  [{ id:'abyssal_ink', chance:0.4, min:1, max:1 }, { id:'coral_shard', chance:0.3, min:1, max:1 }],
+	coralSentinel:    [{ id:'coral_shard', chance:0.5, min:1, max:2 }, { id:'crystal_fragment', chance:0.2, min:1, max:1 }],
+	depthSerpent:     [{ id:'serpent_scale', chance:0.4, min:1, max:2 }, { id:'abyssal_ink', chance:0.25, min:1, max:1 }],
+	// --- Black Sands Desert ---
+	sandWraith:       [{ id:'sand_pearl', chance:0.35, min:1, max:1 }, { id:'spirit_wisp', chance:0.3, min:1, max:1 }],
+	tombGuardian:     [{ id:'bone_dust', chance:0.4, min:1, max:2 }, { id:'mummy_wrap', chance:0.25, min:1, max:1 }],
+	desertSerpent:    [{ id:'serpent_scale', chance:0.4, min:1, max:2 }, { id:'sand_pearl', chance:0.2, min:1, max:1 }],
+	mummyWarrior:     [{ id:'mummy_wrap', chance:0.45, min:1, max:2 }, { id:'bone_dust', chance:0.3, min:1, max:1 }],
+	scarabSwarm:      [{ id:'scarab_shell', chance:0.6, min:1, max:3 }, { id:'venom_gland', chance:0.15, min:1, max:1 }],
+	sandstormDjinn:   [{ id:'djinn_essence', chance:0.35, min:1, max:1 }, { id:'sand_pearl', chance:0.3, min:1, max:1 }, { id:'wind_essence', chance:0.2, min:1, max:1 }],
+};
+
+/* Drop tables for non-dungeon bosses (high tier drops) */
+const BOSS_DROPS = {
+	elderTreant:   [{ id:'treant_heartstone', chance:1.0, min:1, max:1 }, { id:'root_heartwood', chance:0.8, min:1, max:2 }, { id:'enchanted_bark', chance:1.0, min:2, max:4 }],
+	stormRaptor:   [{ id:'raptor_crest', chance:1.0, min:1, max:1 }, { id:'electric_plume', chance:0.8, min:2, max:3 }, { id:'wind_essence', chance:1.0, min:2, max:4 }],
+	deepRootHorror:[{ id:'horror_tendril', chance:1.0, min:1, max:2 }, { id:'dark_residue', chance:1.0, min:3, max:5 }, { id:'root_heartwood', chance:0.7, min:1, max:2 }, { id:'shadow_essence', chance:0.5, min:1, max:2 }],
+	babyDragon:    [{ id:'hatchling_fang', chance:1.0, min:1, max:1 }, { id:'ice_crystal', chance:1.0, min:3, max:5 }, { id:'dragon_scale', chance:0.4, min:1, max:1 }],
+	fireColossus:  [{ id:'pyraxis_ember', chance:1.0, min:1, max:1 }, { id:'magma_droplet', chance:1.0, min:3, max:5 }, { id:'molten_core', chance:0.5, min:1, max:1 }],
+	seraphel:      [{ id:'seraphel_feather', chance:1.0, min:1, max:2 }, { id:'starlight_dew', chance:0.8, min:1, max:2 }, { id:'arcane_dust', chance:1.0, min:5, max:8 }],
+	voidArbiter:   [{ id:'arbiter_eye', chance:1.0, min:1, max:1 }, { id:'void_shard', chance:1.0, min:3, max:5 }, { id:'shadow_essence', chance:0.8, min:2, max:3 }],
+};
+
+/* Roll drops for a killed enemy and add to inventory */
+function rollEnemyDrops(en){
+	const table = BOSS_DROPS[en.type] || ENEMY_DROPS[en.type];
+	if(!table) return;
+	const dropped = [];
+	for(const entry of table){
+		if(Math.random() < entry.chance){
+			const qty = entry.min + Math.floor(Math.random() * (entry.max - entry.min + 1));
+			const existing = playerData.inventory.find(e => e.itemId === entry.id);
+			if(existing) existing.qty += qty;
+			else playerData.inventory.push({ itemId: entry.id, qty: qty });
+			dropped.push({ id: entry.id, qty });
+		}
+	}
+	if(dropped.length > 0){
+		localStorage.setItem('magicBattle_playerData', JSON.stringify(playerData));
+		const cx = en.x + en.w/2, cy = en.y;
+		for(let i = 0; i < dropped.length; i++){
+			const info = REWARD_ITEM_INFO[dropped[i].id];
+			if(info){
+				dmgNumbers.push({ x:cx, y:cy - 25 - i*20, text:info.icon + ' +' + dropped[i].qty + ' ' + info.name, age:0, color:'#ffcc44' });
+			}
+		}
+	}
+}
 
 function grantBossRewards(){
 	const rewards = BOSS_REWARDS[DUNGEON_TYPE] && BOSS_REWARDS[DUNGEON_TYPE][DIFFICULTY];
@@ -527,16 +660,20 @@ if(playerData.loadouts && playerData.activeLoadoutIdx >= 0){
 	}
 }
 
-/* Active mage class for quick access */
-const activeMageClass = playerData.mageClass || 'none';
+/* Active mage class for quick access — read live from playerData so class changes take effect immediately */
+let activeMageClass = playerData.mageClass || 'none';
 /* Second class — derive from vow data or fallback to persisted mageClass2 */
 {
 	const _dcVow = playerData.vows && playerData.vows.find(v => v && v.boostType === 'dualClass' && v.secondClass);
 	if(_dcVow) playerData.mageClass2 = _dcVow.secondClass;
 }
-const activeMageClass2 = playerData.mageClass2 || 'none';
+let activeMageClass2 = playerData.mageClass2 || 'none';
 /* Helper: returns true if the player has a given class (either primary or secondary) */
-function hasClass(cls){ return activeMageClass===cls || activeMageClass2===cls; }
+function hasClass(cls){
+	activeMageClass = playerData.mageClass || 'none';
+	activeMageClass2 = playerData.mageClass2 || 'none';
+	return activeMageClass===cls || activeMageClass2===cls;
+}
 
 /* =============================================================
    MAGE RANK SYSTEM
@@ -2418,7 +2555,7 @@ const CITY_CONFIG = {
 				if(stQ === 139) return [{ name:'Mira', icon:'🔮', text:"Lifesteal drains 20% of damage dealt as HP! Sustain through combat by dealing damage." }];
 				if(stQ === 141) return [{ name:'Mira', icon:'🔮', text:"Blind reduces enemy detection range. They can't see you coming!" }];
 				if(stQ === 143) return [{ name:'Mira', icon:'🔮', text:"Shatter breaks the spell into fragments on kill. More hits from a single projectile!" }];
-				if(stQ === 145) return [{ name:'Mira', icon:'🔮', text:"Mark tags enemies for +30% damage from all sources. Devastate marked targets!" }];
+				if(stQ === 145) return [{ name:'Mira', icon:'🔮', text:"Mark slows enemies significantly but your spell deals much less damage. Great for controlling tough foes!" }];
 				if(stQ === 147) return [{ name:'Mira', icon:'🔮', text:"Dispel destroys enemy projectiles on contact! Use with Wall shape for maximum blocking." }];
 				if(stQ === 149) return [{ name:'Mira', icon:'🔮', text:"Chain + Burn = burning chain lightning! Spreads fire across an entire group!" }];
 				if(stQ === 151) return [{ name:'Mira', icon:'🔮', text:"Vortex + Stun = a pulling vortex that paralyzes! Nothing escapes this combo." }];
@@ -2428,7 +2565,7 @@ const CITY_CONFIG = {
 				if(stQ === 159) return [{ name:'Mira', icon:'🔮', text:"Wall + Dispel = a barrier that destroys enemy projectiles! Essential for boss fights." }];
 				if(stQ === 161) return [{ name:'Mira', icon:'🔮', text:"Barrage + Shatter = overwhelming volleys that fragment into even more projectiles!" }];
 				if(stQ === 163) return [{ name:'Mira', icon:'🔮', text:"Challenge: build a spell with 3 different effects at once! The ultimate multi-tool spell." }];
-				if(stQ === 165) return [{ name:'Mira', icon:'🔮', text:"Meteor + Mark = tag targets with a meteor for devastating follow-up damage!" }];
+				if(stQ === 165) return [{ name:'Mira', icon:'🔮', text:"Meteor + Mark = a huge slow meteor! Enemies can barely move after being hit." }];
 				if(stQ === 167) return [{ name:'Mira', icon:'🔮', text:"Orbit + Heal Self gives you passive healing! The orbs circle and heal you constantly." }];
 				if(stQ === 169) return [
 					{ name:'Mira', icon:'🔮', text:"Archmage rank mastered! You command chains, vortexes, summons, and devastating combos." },
@@ -2806,27 +2943,27 @@ const SYLVARIS_CONFIG = {
 		{ x:6400, y:2600, w:250, h:20 },
 		{ x:7000, y:2700, w:200, h:20 },
 		// === GIANT TREE BASE (x: 13000-14000) ===
-		{ x:13000, y:2800, w:500, h:30 },
-		{ x:13200, y:2500, w:400, h:25 },
+		{ x:13000, y:2800, w:500, h:30, isBranch:true },
+		{ x:13200, y:2500, w:400, h:25, isBranch:true },
 		// === GIANT TREE ASCENDING (x: 13000-16000, y: 500-2500) ===
-		{ x:13400, y:2200, w:350, h:20 },
-		{ x:13100, y:1900, w:300, h:20 },
-		{ x:13500, y:1600, w:350, h:20 },
-		{ x:13200, y:1300, w:300, h:20 },
-		{ x:13600, y:1000, w:350, h:20 },
-		{ x:14000, y:1200, w:300, h:20 },
-		{ x:14400, y:1000, w:350, h:20 },
-		{ x:14200, y:700, w:300, h:20 },
-		{ x:14600, y:500, w:400, h:20 },
+		{ x:13400, y:2200, w:350, h:20, isBranch:true },
+		{ x:13100, y:1900, w:300, h:20, isBranch:true },
+		{ x:13500, y:1600, w:350, h:20, isBranch:true },
+		{ x:13200, y:1300, w:300, h:20, isBranch:true },
+		{ x:13600, y:1000, w:350, h:20, isBranch:true },
+		{ x:14000, y:1200, w:300, h:20, isBranch:true },
+		{ x:14400, y:1000, w:350, h:20, isBranch:true },
+		{ x:14200, y:700, w:300, h:20, isBranch:true },
+		{ x:14600, y:500, w:400, h:20, isBranch:true },
 		// === TREE CANOPY (x: 14500-17000, y: 300-700) ===
-		{ x:14800, y:700, w:300, h:20 },
-		{ x:15200, y:600, w:350, h:20 },
-		{ x:15600, y:500, w:300, h:20 },
-		{ x:16000, y:400, w:350, h:20 },
-		{ x:16400, y:300, w:400, h:25 },
-		{ x:16800, y:450, w:300, h:20 },
-		{ x:15000, y:400, w:250, h:20 },
-		{ x:15400, y:300, w:280, h:20 },
+		{ x:14800, y:700, w:300, h:20, isBranch:true },
+		{ x:15200, y:600, w:350, h:20, isBranch:true },
+		{ x:15600, y:500, w:300, h:20, isBranch:true },
+		{ x:16000, y:400, w:350, h:20, isBranch:true },
+		{ x:16400, y:300, w:400, h:25, isBranch:true },
+		{ x:16800, y:450, w:300, h:20, isBranch:true },
+		{ x:15000, y:400, w:250, h:20, isBranch:true },
+		{ x:15400, y:300, w:280, h:20, isBranch:true },
 		// === SCATTERED CONNECTING PLATFORMS ===
 		{ x:12000, y:2800, w:200, h:20 },
 		{ x:12500, y:2650, w:250, h:20 },
@@ -2841,48 +2978,116 @@ const SYLVARIS_CONFIG = {
 		{ x:17700, y:2500, w:250, h:20 },
 		{ x:17500, y:2700, w:300, h:20 },
 		{ x:17800, y:2850, w:350, h:20 },
-		// === CORRUPTED TREE AREA (x:18200-18800, ground level) ===
-		{ x:18100, y:2900, w:400, h:20 },
-		{ x:18400, y:2800, w:300, h:20 },
-		{ x:18600, y:2900, w:350, h:20 },
+		// === CORRUPTED TREE AREA (trimmed to keep cave entrance unobstructed) ===
 		// === DEEP ROOT BOSS ARENA PLATFORMS (x:15200-16400, underground) ===
 		{ x:15400, y:4100, w:300, h:20 },
 		{ x:16000, y:4100, w:300, h:20 },
 		{ x:15700, y:3900, w:250, h:20 },
 		// Corridor 3 connecting platforms
 		{ x:16400, y:3840, w:250, h:20 },
-		{ x:16900, y:3840, w:250, h:20 },
+		// Removed x:16900 platform (caused standable glitch/phase-to-surface near x~17080)
 	],
-	// Cave tunnel corridors (carved into tilemap as air)
+	// Cave tunnel corridors (carved into tilemap as air — curved overlapping segments)
 	caveCorridors: [
-		// Entrance shaft (drops from surface into first corridor)
-		{ x:7120, y:3000, w:200, h:400 },
-		// Corridor 1 (going right)
-		{ x:7120, y:3200, w:2360, h:200 },
-		// Shaft down 1 (right end, connects C1 to C2)
-		{ x:9280, y:3200, w:200, h:520 },
-		// Corridor 2 (going left)
-		{ x:7320, y:3520, w:2160, h:200 },
-		// Shaft down 2 (left end, connects C2 to C3)
-		{ x:7320, y:3520, w:200, h:520 },
-		// Corridor 3 (going right - boss path)
-		{ x:7320, y:3840, w:3760, h:200 },
-		// Boss chamber (tall room at end)
+		// === MAIN CAVE (entrance at x:7120) ===
+		// Entrance shaft (extended upward so tilemap has air above groundY for smooth surface→cave entry)
+		{ x:7060, y:2900, w:300, h:540 },
+
+		// Corridor 1: curves right with gentle S-shape
+		{ x:7060, y:3200, w:440, h:240 },
+		{ x:7420, y:3180, w:440, h:240 },
+		{ x:7780, y:3150, w:440, h:260 },
+		{ x:8140, y:3140, w:440, h:280 },
+		{ x:8500, y:3160, w:440, h:260 },
+		{ x:8820, y:3180, w:440, h:240 },
+		{ x:9080, y:3200, w:440, h:240 },
+		// Mushroom Grotto — cavern branching off corridor 1 (with surface opening shaft)
+		{ x:7920, y:2900, w:160, h:160 },
+		{ x:7880, y:3020, w:520, h:420 },
+		// Small alcove (exploration nook above C1)
+		{ x:8600, y:3040, w:240, h:320 },
+
+		// Shaft 1 (right side, wider and staggered)
+		{ x:9200, y:3160, w:320, h:320 },
+		{ x:9220, y:3440, w:300, h:300 },
+
+		// Corridor 2: curves left with undulation
+		{ x:8960, y:3520, w:540, h:240 },
+		{ x:8600, y:3540, w:440, h:240 },
+		{ x:8240, y:3520, w:440, h:280 },
+		{ x:7880, y:3500, w:440, h:280 },
+		{ x:7520, y:3520, w:440, h:260 },
+		{ x:7160, y:3530, w:440, h:250 },
+		// Crystal Chamber — wider cavern along corridor 2
+		{ x:8080, y:3380, w:520, h:400 },
+		// Dead-end alcove below C2
+		{ x:7560, y:3600, w:200, h:300 },
+
+		// Shaft 2 (left side)
+		{ x:7160, y:3520, w:320, h:300 },
+		{ x:7180, y:3780, w:300, h:280 },
+
+		// Corridor 3: winds right to boss with dramatic curves
+		{ x:7080, y:3840, w:440, h:260 },
+		{ x:7440, y:3820, w:440, h:260 },
+		{ x:7800, y:3800, w:440, h:280 },
+		{ x:8160, y:3810, w:440, h:270 },
+		{ x:8520, y:3830, w:440, h:260 },
+		{ x:8840, y:3850, w:440, h:240 },
+		{ x:9160, y:3840, w:440, h:260 },
+		{ x:9480, y:3820, w:440, h:270 },
+		{ x:9800, y:3830, w:440, h:260 },
+		{ x:10080, y:3840, w:320, h:240 },
+		// Pre-boss antechamber (widened)
+		{ x:9960, y:3700, w:440, h:380 },
+		// Dead-end alcove off C3
+		{ x:8700, y:3720, w:280, h:360 },
+
+		// Boss chamber (Elder Treant arena)
 		{ x:10200, y:3440, w:1200, h:800 },
-		// === CORRUPTED ROOT TUNNELS (entrance at x:18400, underground) ===
-		// Entrance shaft (drops from surface)
-		{ x:18400, y:3000, w:200, h:400 },
-		// Corridor 1 (going left underground)
-		{ x:17200, y:3200, w:1400, h:200 },
-		// Shaft down (connects C1 to C2)
-		{ x:17200, y:3200, w:200, h:520 },
-		// Corridor 2 (going right, deeper)
-		{ x:17200, y:3520, w:1600, h:200 },
-		// Shaft down to Deep Root boss arena
-		{ x:17200, y:3520, w:200, h:520 },
-		// Corridor 3 (going left to boss)
-		{ x:14200, y:3840, w:3200, h:200 },
-		// Deep Root Horror boss arena (large chamber)
+
+		// === CORRUPTED ROOT TUNNELS (entrance at x:18400) ===
+		// Entrance shaft (extended upward for smooth surface→cave entry)
+		{ x:18340, y:2900, w:300, h:540 },
+
+		// Corridor 1: curves left with natural bends
+		{ x:18120, y:3200, w:520, h:240 },
+		{ x:17760, y:3180, w:440, h:260 },
+		{ x:17400, y:3170, w:440, h:260 },
+		{ x:17080, y:3190, w:440, h:240 },
+		// Root Chamber — widened cavern
+		{ x:17280, y:3080, w:480, h:360 },
+
+		// Shaft down (staggered)
+		{ x:17080, y:3200, w:320, h:300 },
+		{ x:17100, y:3460, w:300, h:280 },
+
+		// Corridor 2: goes right, deeper, curved
+		{ x:17080, y:3520, w:440, h:260 },
+		{ x:17440, y:3540, w:440, h:240 },
+		{ x:17760, y:3530, w:440, h:260 },
+		{ x:18080, y:3520, w:440, h:240 },
+		{ x:18400, y:3510, w:440, h:260 },
+		// Corruption Nexus — side room
+		{ x:17800, y:3400, w:480, h:380 },
+
+		// Shaft down to boss
+		{ x:17080, y:3520, w:320, h:300 },
+		{ x:17100, y:3780, w:300, h:280 },
+
+		// Corridor 3: winds left to boss — long winding path
+		{ x:16840, y:3840, w:440, h:260 },
+		{ x:16480, y:3820, w:440, h:260 },
+		{ x:16120, y:3810, w:440, h:280 },
+		{ x:15760, y:3830, w:440, h:260 },
+		{ x:15400, y:3840, w:440, h:260 },
+		{ x:15040, y:3820, w:440, h:280 },
+		{ x:14680, y:3830, w:440, h:260 },
+		{ x:14320, y:3840, w:440, h:260 },
+		// Pre-boss widening
+		{ x:13800, y:3720, w:500, h:380 },
+
+		// Deep Root Horror boss arena
 		{ x:12800, y:3200, w:2200, h:1200 },
 	],
 	// Cave tilemap rendering colors
@@ -2896,7 +3101,7 @@ const SYLVARIS_CONFIG = {
 	enemySpawns: [
 		// === FOREST SECTION: Sylva(300) to Fern(4500) to Grothar(8000) ===
 		// Between Sylva and Scout Fern (x:800-4200)
-		{ type:'thornWolf', x:900, y:3000, patrol:[700,1200] },
+
 		{ type:'sporeFungus', x:1400, y:3000, patrol:[1200,1700] },
 		{ type:'thornWolf', x:1900, y:3000, patrol:[1600,2200] },
 		{ type:'vineCrawler', x:2200, y:3000, patrol:[1900,2500] },
@@ -2998,7 +3203,7 @@ const SYLVARIS_CONFIG = {
 			}
 		},
 		{
-			id:'grothar', name:'Grothar the Delver', x:8000, icon:'⛏️', color:'#8a6a4a',
+			id:'grothar', name:'Grothar the Delver', x:6900, icon:'⛏️', color:'#8a6a4a',
 			w:84, h:118, district:'Cave Entrance',
 			getDialogue(qi){
 				if(qi===7||qi===8) return [
@@ -3829,13 +4034,25 @@ if(IS_SANDBOX){
 	];
 } else if(IS_SYLVARIS){
 	sandboxPlatforms = [
-		// Surface ground split with cave entrance gaps (x:7120-7320 and x:18400-18600 open for descent)
-		{ x:0, y:SYLVARIS_CONFIG.groundY, w:7120, h:40 },
-		{ x:7320, y:SYLVARIS_CONFIG.groundY, w:18400 - 7320, h:40 },
-		{ x:18600, y:SYLVARIS_CONFIG.groundY, w:WORLD_W - 18600, h:40 },
+		// Surface ground split with full cave shaft gaps
+		// Main cave shaft: x 7060-7360, mushroom opening: x 7920-8080, corrupted-root shaft: x 18340-18640
+		{ x:0, y:SYLVARIS_CONFIG.groundY, w:7060, h:40 },
+		{ x:7360, y:SYLVARIS_CONFIG.groundY, w:7920 - 7360, h:40 },
+		{ x:8080, y:SYLVARIS_CONFIG.groundY, w:18340 - 8080, h:40 },
+		{ x:18640, y:SYLVARIS_CONFIG.groundY, w:WORLD_W - 18640, h:40 },
 		// World bottom boundary
 		{ x:0, y:WORLD_H - 50, w:WORLD_W, h:50 },
 		...SYLVARIS_CONFIG.platforms,
+		// Giant tree trunk collision — left wall
+		{ x:13880, y:-500, w:30, h:900, isTreeTrunk:true },   // Top section (y:-500 to y:400)
+		{ x:13880, y:600, w:30, h:2400, isTreeTrunk:true },    // Bottom section (y:600 to y:3000)
+		// Giant tree trunk collision — right wall
+		{ x:14090, y:-500, w:30, h:900, isTreeTrunk:true },   // Top section (y:-500 to y:400)
+		{ x:14090, y:600, w:30, h:2400, isTreeTrunk:true },    // Bottom section (y:600 to y:3000)
+		// Tree opening top ledge (blocks jumping through the gap from outside)
+		{ x:13880, y:400, w:240, h:20, isTreeTrunk:true },
+		// Tree opening floor (prevents falling through the trunk interior)
+		{ x:13910, y:580, w:180, h:20, isTreeTrunk:true },
 		{ x:-50, y:0, w:50, h:WORLD_H },
 		{ x:WORLD_W, y:0, w:50, h:WORLD_H },
 	];
@@ -9906,7 +10123,7 @@ const SPELL_TEACHER_QUESTS = [
 /* 142*/ { title:'Cast with Blind', desc:'Use a spell with the Blind effect.', check(){ return stFlags.cast_blind; } },
 /* 143*/ { title:'Lesson: Shatter Effect', desc:'Talk to Mira about Shatter — on-kill fragmentation.', check(){ return stFlags.st_143; } },
 /* 144*/ { title:'Cast with Shatter', desc:'Use a spell with the Shatter effect.', check(){ return stFlags.cast_shatter; } },
-/* 145*/ { title:'Lesson: Mark Effect', desc:'Talk to Mira about Mark — tagging enemies for +30% damage.', check(){ return stFlags.st_145; } },
+/* 145*/ { title:'Lesson: Mark Effect', desc:'Talk to Mira about Mark — slowing enemies with reduced damage.', check(){ return stFlags.st_145; } },
 /* 146*/ { title:'Cast with Mark', desc:'Use a spell with the Mark effect.', check(){ return stFlags.cast_mark; } },
 /* 147*/ { title:'Lesson: Dispel Effect', desc:'Talk to Mira about Dispel — destroying enemy projectiles.', check(){ return stFlags.st_147; } },
 /* 148*/ { title:'Cast with Dispel', desc:'Use a spell with the Dispel effect.', check(){ return stFlags.cast_dispel; } },
@@ -10731,6 +10948,8 @@ function moveEntityTile(ent){
 		}
 		// Inside volcano zone — fall through to tilemap collision below
 	}
+	// Save whether entity started underground (for Sylvaris cave ceiling clamp)
+	const _wasUnderground = IS_SYLVARIS && ent.y + ent.h > SYLVARIS_CONFIG.groundY;
 	// Horizontal — step in increments to prevent phasing through walls
 	const maxStep = TILE - 1; // Max pixels per step to prevent skipping tiles
 	let remainX = ent.vx;
@@ -10780,9 +10999,43 @@ function moveEntityTile(ent){
 		}
 		if(hitWallY) break;
 	}
+	// Sylvaris underground: also check sandboxPlatforms for cave ledges
+	if(IS_SYLVARIS && ent.y + ent.h > SYLVARIS_CONFIG.groundY + 50){
+		for(const plat of sandboxPlatforms){
+			if(plat.y <= SYLVARIS_CONFIG.groundY) continue;
+			if(ent.x + ent.w > plat.x && ent.x < plat.x + plat.w &&
+			   ent.y + ent.h > plat.y && ent.y < plat.y + plat.h){
+				if(ent.vy >= 0){
+					ent.y = plat.y - ent.h;
+					ent.vy = 0;
+					ent.onGround = true;
+				}
+			}
+		}
+	}
+	// Sylvaris: prevent phasing to surface when hitting cave ceiling
+	if(_wasUnderground && IS_SYLVARIS && ent.y + ent.h <= SYLVARIS_CONFIG.groundY){
+		const _entCX = ent.x + ent.w/2;
+		const _gRow = Math.floor(SYLVARIS_CONFIG.groundY / TILE);
+		const _gCol = Math.floor(_entCX / TILE);
+		let _ceilingBlocked = false;
+		// Check if there's a solid tile at the ground row (cave ceiling)
+		if(isSolid(_gCol, _gRow)) _ceilingBlocked = true;
+		// Also check ground platforms
+		if(!_ceilingBlocked){
+			for(const plat of sandboxPlatforms){
+				if(plat.y === SYLVARIS_CONFIG.groundY && _entCX >= plat.x && _entCX <= plat.x + plat.w){
+					_ceilingBlocked = true;
+					break;
+				}
+			}
+		}
+		if(_ceilingBlocked){
+			ent.y = SYLVARIS_CONFIG.groundY - ent.h;
+			ent.vy = 0;
+		}
+	}
 }
-
-/* Open-sky mode movement (sandbox/raid) - uses platforms instead of tilemap */
 function moveEntitySandbox(ent){
 	// Leviathan path stage check (cache once per frame)
 	const _levPathActive = IS_STORMISLANDS && (JSON.parse(localStorage.getItem('magicBattle_stormIslandsQuest') || '{}').stage || 0) >= 11;
@@ -11654,11 +11907,11 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 			}
 			proj.startX = proj.x; proj.startY = proj.y;
 		}
-		if(resolvedShape==='solidify'){proj.isSolidPlatform=true;proj.vx=0;proj.vy=0;}
+		if(resolvedShape==='solidify'){proj.isSolidPlatform=true;proj.momentum=Math.sqrt(proj.vx*proj.vx+proj.vy*proj.vy);proj.initialMomentum=proj.momentum;}
 		const _solidifyBlockedShapes=new Set(['explosion','vortex','summon','allyOrb']);
 		if(proj.effects.includes('solidify')&&!_solidifyBlockedShapes.has(proj.shape)){proj.isSolidPlatform=true;proj.momentum=Math.sqrt(proj.vx*proj.vx+proj.vy*proj.vy);proj.initialMomentum=proj.momentum;}
 		if(effectiveBehavior==='rain'){const s2=200*(ph.width||1);proj.x=originX+(i-(count-1)/2)*(s2/Math.max(count-1,1));proj.y=originY-(ph.rainHeight||150);const rainAngle=Math.PI/2+spreadAngle;proj.vx=Math.cos(rainAngle)*spd*0.8;proj.vy=Math.sin(rainAngle)*spd*0.8;proj.startX=proj.x;proj.startY=proj.y;proj.facing=1;proj.beamAngle=rainAngle;}
-		if(effectiveBehavior==='barrage'){const _bSpread=ph.barrageHeight||200;const _bmwx=mouseScreenX+camera.x,_bmwy=mouseScreenY+camera.y;const barrageAngle=Math.atan2(_bmwy-originY,_bmwx-originX)+spreadAngle;const _bPerp=barrageAngle+Math.PI/2;const _bOff=(i-(count-1)/2)*(_bSpread/Math.max(count-1,1));proj.x=originX+Math.cos(barrageAngle)*60+Math.cos(_bPerp)*_bOff;proj.y=originY+Math.sin(barrageAngle)*60+Math.sin(_bPerp)*_bOff;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS=0;while(isSolid(Math.floor(proj.x/TILE),Math.floor(proj.y/TILE))&&_bnS<8){proj.x=originX+(proj.x-originX)*0.7;proj.y=originY+(proj.y-originY)*0.7;_bnS++;}}if(proj.y>GROUND_Y-10)proj.y=GROUND_Y-20;proj.vx=Math.cos(barrageAngle)*spd*0.8;proj.vy=Math.sin(barrageAngle)*spd*0.8;proj._barrageAngle=barrageAngle;proj._barrageYOffset=_bOff;proj.startX=proj.x;proj.startY=proj.y;proj.beamAngle=barrageAngle;}
+		if(effectiveBehavior==='barrage'){const _bSpread=ph.barrageHeight||200;const _bmwx=mouseScreenX+camera.x,_bmwy=mouseScreenY+camera.y;const barrageAngle=Math.atan2(_bmwy-originY,_bmwx-originX)+spreadAngle;const _bPerp=barrageAngle+Math.PI/2;const _bOff=(i-(count-1)/2)*(_bSpread/Math.max(count-1,1));proj.x=originX+Math.cos(barrageAngle)*60+Math.cos(_bPerp)*_bOff;proj.y=originY+Math.sin(barrageAngle)*60+Math.sin(_bPerp)*_bOff;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS=0;while(isSolid(Math.floor(proj.x/TILE),Math.floor(proj.y/TILE))&&_bnS<8){proj.x=originX+(proj.x-originX)*0.7;proj.y=originY+(proj.y-originY)*0.7;_bnS++;}}if(proj.y>GROUND_Y-10&&!(IS_SYLVARIS&&originY>SYLVARIS_CONFIG.groundY))proj.y=GROUND_Y-20;proj.vx=Math.cos(barrageAngle)*spd*0.8;proj.vy=Math.sin(barrageAngle)*spd*0.8;proj._barrageAngle=barrageAngle;proj._barrageYOffset=_bOff;proj.startX=proj.x;proj.startY=proj.y;proj.beamAngle=barrageAngle;}
 		if(effectiveBehavior==='stationary'){proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='control'){proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='groundSurge'){proj.vy=0;const mWorldX=mouseScreenX+camera.x;const gsDir=mWorldX>(player.x+player.w/2)?1:-1;proj.vx=gsDir*spd;proj._gsTrack=true;}
@@ -11784,13 +12037,21 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 			proj.vx *= 3;
 			proj.vy *= 3;
 		}
+		// For solidify shape with stationary behavior (vx=vy=0), clear momentum
+		if(resolvedShape==='solidify'&&proj.vx===0&&proj.vy===0){proj.momentum=0;proj.initialMomentum=0;}
 		// Solidify spawn offset: push projectile away from player based on its solidify radius
 		if(proj.isSolidPlatform && (proj.vx!==0||proj.vy!==0)){
 			const _sb=getSolidBounds(proj);
 			const _sr=_sb.type==='circle'?_sb.r:Math.max(_sb.hw,_sb.hh);
 			const _sAng=Math.atan2(proj.vy,proj.vx);
-			proj.x+=Math.cos(_sAng)*(_sr+10);
-			proj.y+=Math.sin(_sAng)*(_sr+10);
+			const _offX=Math.cos(_sAng)*(_sr+10);
+			const _offY=Math.sin(_sAng)*(_sr+10);
+			// Don't apply offset if it would push into a solid tile (prevents instant stop when shooting down at floor)
+			const _destC=Math.floor((proj.x+_offX)/TILE),_destR=Math.floor((proj.y+_offY)/TILE);
+			if(IS_SANDBOX||IS_RAID||IS_OPENWORLD||IS_CITY||IS_OBSERVATORY||IS_DRAGONGRAVEYARD||!isSolid(_destC,_destR)){
+				proj.x+=_offX;
+				proj.y+=_offY;
+			}
 			proj.startX=proj.x;proj.startY=proj.y;
 		}
 		projectiles.push(proj);
@@ -11836,7 +12097,7 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 		const _solidifyBlockedShapes2=new Set(['explosion','vortex','summon','allyOrb']);
 		if(p.effects.includes('solidify')&&!_solidifyBlockedShapes2.has(p.shape)){p.isSolidPlatform=true;p.momentum=Math.sqrt(p.vx*p.vx+p.vy*p.vy);p.initialMomentum=p.momentum;}
 		if(ph.behavior==='rain'){p.vx=0;p.vy=spd*0.8;p.startX=ox;p.startY=oy;p.beamAngle=Math.PI/2;}
-		if(ph.behavior==='barrage'){const _bSpread2=ph.barrageHeight||200;const _bmwx2=mouseScreenX+camera.x,_bmwy2=mouseScreenY+camera.y;const _bAng2=Math.atan2(_bmwy2-oy,_bmwx2-ox);const _bPerp2=_bAng2+Math.PI/2;const _bOff2=(si-(count-1)/2)*(_bSpread2/Math.max(count-1,1));p.x=ox+Math.cos(_bAng2)*60+Math.cos(_bPerp2)*_bOff2;p.y=oy+Math.sin(_bAng2)*60+Math.sin(_bPerp2)*_bOff2;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS2=0;while(isSolid(Math.floor(p.x/TILE),Math.floor(p.y/TILE))&&_bnS2<8){p.x=ox+(p.x-ox)*0.7;p.y=oy+(p.y-oy)*0.7;_bnS2++;}}if(p.y>GROUND_Y-10)p.y=GROUND_Y-20;p.vx=Math.cos(_bAng2)*spd*0.8;p.vy=Math.sin(_bAng2)*spd*0.8;p._barrageAngle=_bAng2;p._barrageYOffset=_bOff2;p.startX=p.x;p.startY=p.y;p.beamAngle=_bAng2;}
+		if(ph.behavior==='barrage'){const _bSpread2=ph.barrageHeight||200;const _bmwx2=mouseScreenX+camera.x,_bmwy2=mouseScreenY+camera.y;const _bAng2=Math.atan2(_bmwy2-oy,_bmwx2-ox);const _bPerp2=_bAng2+Math.PI/2;const _bOff2=(si-(count-1)/2)*(_bSpread2/Math.max(count-1,1));p.x=ox+Math.cos(_bAng2)*60+Math.cos(_bPerp2)*_bOff2;p.y=oy+Math.sin(_bAng2)*60+Math.sin(_bPerp2)*_bOff2;if(!IS_SANDBOX&&!IS_RAID&&!IS_OPENWORLD&&!IS_CITY&&!IS_OBSERVATORY&&!IS_DRAGONGRAVEYARD){let _bnS2=0;while(isSolid(Math.floor(p.x/TILE),Math.floor(p.y/TILE))&&_bnS2<8){p.x=ox+(p.x-ox)*0.7;p.y=oy+(p.y-oy)*0.7;_bnS2++;}}if(p.y>GROUND_Y-10&&!(IS_SYLVARIS&&oy>SYLVARIS_CONFIG.groundY))p.y=GROUND_Y-20;p.vx=Math.cos(_bAng2)*spd*0.8;p.vy=Math.sin(_bAng2)*spd*0.8;p._barrageAngle=_bAng2;p._barrageYOffset=_bOff2;p.startX=p.x;p.startY=p.y;p.beamAngle=_bAng2;}
 		if(ph.behavior==='stationary'){p.vx=0;p.vy=0;}
 		if(ph.behavior==='control'){p.vx=0;p.vy=0;}
 		if(ph.behavior==='groundSurge'){p.vy=0;p.vx=of*spd;}
@@ -11878,7 +12139,8 @@ let _eprojDmgNerf = 1; // global nerf multiplier for chrono domain summoned enem
 function spawnEnemyProj(x,y,vx,vy,opts){
 	const ENEMY_DMG_BUFF = 1.4; // global enemy damage buff multiplier
 	const nerfMult = _eprojDmgNerf !== 1 ? _eprojDmgNerf : 1;
-	const scaledPower = Math.round((opts.power||8) * DIFF_DMG_MULT * ENEMY_DMG_BUFF * nerfMult);
+	const sylvarisNerf = IS_SYLVARIS ? 0.65 : 1; // Sylvaris enemies deal ~35% less damage
+	const scaledPower = Math.round((opts.power||8) * DIFF_DMG_MULT * ENEMY_DMG_BUFF * nerfMult * sylvarisNerf);
 	// Auto-enable noWallCollide for projectiles spawned in the leviathan arena
 	let nwc = opts.noWallCollide||false;
 	if(!nwc && x>=LEV_ARENA.x-200 && x<=LEV_ARENA.x+LEV_ARENA.w+200 && y>=LEV_ARENA.y-400 && y<=LEV_ARENA.y+LEV_ARENA.h+400) nwc=true;
@@ -16623,7 +16885,7 @@ function updateProjectiles(){
 				if(p.effects.includes('phaseThrough')&&!PIERCE_SET.has(p.shape)&&p._phaseHitMap){
 					const _ph=p._phaseHitMap.get(en);
 					if(_ph&&_ph.count>=3)continue;
-					const _phCD=30+Math.floor((p.maxAge/60)*20);
+					const _phCD=15+Math.floor((p.maxAge/60)*10);
 					if(_ph&&(p.age-_ph.lastAge)<_phCD)continue;
 					// allow re-hit — fall through
 				} else continue;
@@ -16713,10 +16975,12 @@ function updateProjectiles(){
 				if(!pClassDisabled && hasClass('archmage') && p.effects && p.effects.some(fx => ['burn','freeze','poison','stun','lifesteal','shatter'].includes(fx))){
 					archmageElemMult = 1.2;
 				}
+				// Mark: greatly reduced damage in exchange for powerful slow
+				const markMult=p.effects.includes('mark')?0.25:1;
 				// Summon projectiles: flat scaling only (no class/domain/item stacking)
 				const rawDmg = p.isSummonProj
 					? p.power * 4.375 * elemMult * phaseMult * meteorNerf * spreadMult
-					: p.power*8*homingMult*controlMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*coneMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*archmageElemMult*domSameDmgMult*domVowPlayerPow;
+					: p.power*8*homingMult*controlMult*lobMult*orbitMult*rainMult*barrageMult*dimMult*beamMult*coneMult*releaseMult*elemMult*domainElemMult*phaseMult*meteorDistMult*spreadMult*meteorNerf*itemBoost*dominionMult*rangerDistMult*warriorMeleeMult*archmageElemMult*domSameDmgMult*domVowPlayerPow*markMult;
 				let dotSteal=0;
 				if(p.effects.includes('burn'))dotSteal=0.15;
 				if(p.effects.includes('poison'))dotSteal=0.1;
@@ -17065,6 +17329,8 @@ function updateProjectiles(){
 				const cx=sw.x+sw.w/2,cy=sw.y+sw.h/2;wallNormalX=p.x<cx?-1:1;wallNormalY=p.y<cy?-1:1;break;}}}
 			/* solidify platforms block all non-platform projectiles (phase bypasses) */
 			if(!wallHit&&!p.effects.includes('phaseThrough')){for(const sp of projectiles){if(!sp.isSolidPlatform||sp===p)continue;if(pointInSolid(p.x,p.y,sp)){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}}
+			/* Tree trunk blocks projectiles */
+			if(!wallHit&&IS_SYLVARIS){for(const tp of sandboxPlatforms){if(!tp.isTreeTrunk)continue;if(p.x>=tp.x&&p.x<=tp.x+tp.w&&p.y>=tp.y&&p.y<=tp.y+tp.h){wallHit=true;wallNormalX=p.x<tp.x+tp.w/2?-1:1;wallNormalY=p.y<tp.y+tp.h/2?-1:1;break;}}}
 			if(wallHit){
 				/* RICOCHET: bounce off walls instead of being destroyed (max 5 bounces) */
 				if(p.effects.includes('ricochet')&&(p._bounces||0)<5){
@@ -17102,10 +17368,11 @@ function updateProjectiles(){
 			}
 			// Open-sky ground/ceiling/platform collision
 			if(!solidStopped){
-				if(p.y+p.height>=GROUND_Y){p.y=GROUND_Y-p.height;solidStopped=true;}
+				if(p.y+p.height>=GROUND_Y&&!(IS_SYLVARIS&&p.y>SYLVARIS_CONFIG.groundY)){p.y=GROUND_Y-p.height;solidStopped=true;}
 				const ceilY=IS_RAID?RAID_CONFIG.ceilY:0;
 				if(p.y-p.height<=ceilY){p.y=ceilY+p.height;solidStopped=true;}
 				if(!solidStopped){for(const plat of sandboxPlatforms){
+					if(IS_SYLVARIS&&p.y>SYLVARIS_CONFIG.groundY&&plat.y<=SYLVARIS_CONFIG.groundY)continue;
 					if(p.x+p.width>plat.x&&p.x-p.width<plat.x+plat.w&&p.y+p.height>plat.y&&p.y-p.height<plat.y+plat.h){p.x-=p.vx;p.y-=p.vy;solidStopped=true;break;}
 				}}
 			}
@@ -17566,6 +17833,8 @@ function updateEnemyProjectiles(){
 			if(isSolid(tc,tr3)) epWall=true;
 			/* solidify platforms block enemy projectiles too */
 			if(!epWall){for(const sp of projectiles){if(!sp.isSolidPlatform)continue;if(pointInSolid(p.x,p.y,sp)){epWall=true;_hitSolid=sp;break;}}}
+			/* Tree trunk blocks enemy projectiles */
+			if(!epWall&&IS_SYLVARIS){for(const tp of sandboxPlatforms){if(!tp.isTreeTrunk)continue;if(p.x>=tp.x&&p.x<=tp.x+tp.w&&p.y>=tp.y&&p.y<=tp.y+tp.h){epWall=true;break;}}}
 			if(epWall){
 				/* _destroysSolid: enemy projectile shatters solidify on contact */
 				if(_hitSolid&&p._destroysSolid){
@@ -17964,6 +18233,12 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 					dmgNumbers.push({x:player.x+player.w/2,y:player.y-10,text:'+'+lsAmt,age:0,color:isArchmage?'#cc44ff':'#bb44ff'});
 					if(isArchmage) en._amVisionReduce=Math.round(120*eDur*ultMult); // reduce enemy detect range
 				}
+				break;
+			}
+			case'mark':{
+				en.slowTimer=Math.max(en.slowTimer,Math.round(180*eDur*ultMult));
+				en.flash=10;
+				dmgNumbers.push({x:en.x+en.w/2,y:en.y-25,text:'🎯 SLOWED',age:0,color:'#ff44aa'});
 				break;
 			}
 		}
@@ -20935,6 +21210,22 @@ function showChronoVictory(){
 	document.body.appendChild(overlay);
 }
 
+/* Helper: check if an entity's bounding box overlaps any solid tile or sandbox platform */
+function _solidPushBlocked(ent){
+	// Dungeon and Sylvaris underground: check tilemap
+	if(IS_DUNGEON || (IS_SYLVARIS && ent.y+ent.h>SYLVARIS_CONFIG.groundY) || (IS_STORMISLANDS && ent.y+ent.h>STORMISLANDS_CONFIG.groundY) || (IS_BLACKSANDS && ent.y+ent.h>BLACKSANDS_CONFIG.groundY)){
+		const l=Math.floor(ent.x/TILE),r=Math.floor((ent.x+ent.w-1)/TILE);
+		const t=Math.floor(ent.y/TILE),b=Math.floor((ent.y+ent.h-1)/TILE);
+		for(let rr=t;rr<=b;rr++)for(let cc=l;cc<=r;cc++)if(isSolid(cc,rr))return true;
+		return false;
+	}
+	if(ent.y+ent.h>GROUND_Y)return true;
+	for(const plat of sandboxPlatforms){
+		if(ent.x+ent.w>plat.x&&ent.x<plat.x+plat.w&&ent.y+ent.h>plat.y&&ent.y<plat.y+plat.h)return true;
+	}
+	return false;
+}
+
 function updateEnemies(){
 	for(const en of enemies){
 		if(en.dead){
@@ -20989,6 +21280,8 @@ function updateEnemies(){
 					bestiary[en.type] = (bestiary[en.type]||0) + 1;
 					localStorage.setItem('magicBattle_bestiary', JSON.stringify(bestiary));
 				}catch(e){}
+				// Roll ingredient drops for this enemy
+				rollEnemyDrops(en);
 			}
 			if((IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS) && !isBabyDragonPhase1){
 				sylvarisKillCounts[en.type] = (sylvarisKillCounts[en.type]||0) + 1;
@@ -22208,20 +22501,7 @@ function update(){
 		}
 	}
 
-	/* Helper: check if an entity's bounding box overlaps any solid tile or sandbox platform */
-	function _solidPushBlocked(ent){
-		if(IS_DUNGEON){
-			const l=Math.floor(ent.x/TILE),r=Math.floor((ent.x+ent.w-1)/TILE);
-			const t=Math.floor(ent.y/TILE),b=Math.floor((ent.y+ent.h-1)/TILE);
-			for(let rr=t;rr<=b;rr++)for(let cc=l;cc<=r;cc++)if(isSolid(cc,rr))return true;
-			return false;
-		}
-		if(ent.y+ent.h>GROUND_Y)return true;
-		for(const plat of sandboxPlatforms){
-			if(ent.x+ent.w>plat.x&&ent.x<plat.x+plat.w&&ent.y+ent.h>plat.y&&ent.y<plat.y+plat.h)return true;
-		}
-		return false;
-	}
+
 
 	/* Solidify platform & spell wall collision */
 	for(const p of projectiles){
@@ -22581,7 +22861,19 @@ function update(){
 		// Enemy projectiles can damage minions (skip necro-friendly ones)
 		for(let ei=enemyProjectiles.length-1;ei>=0;ei--){
 			const ep=enemyProjectiles[ei];
-			if(ep.hasHit||ep.aoe||ep.linger||ep.necroFriendly)continue;
+			if(ep.necroFriendly)continue;
+			// AoE/explosion enemy projectiles can also hit summons once each.
+			if(ep.aoe){
+				const aoeR=(ep.aoeTimer/Math.max(1,ep.aoeMax))*ep.aoeRadius;
+				if(!ep._hitMinions) ep._hitMinions=new Set();
+				if(!ep._hitMinions.has(m) && circRect(ep.x,ep.y,aoeR,m.x,m.y,m.w,m.h)){
+					ep._hitMinions.add(m);
+					m.hp-=ep.power;
+					dmgNumbers.push({x:m.x+m.w/2,y:m.y-10,text:'-'+Math.round(ep.power),age:0,color:'#ff7a7a'});
+				}
+				continue;
+			}
+			if(ep.hasHit||ep.linger)continue;
 			const hitR2=Math.max(ep.width,ep.height)*0.5;
 			if(circRect(ep.x,ep.y,hitR2,m.x,m.y,m.w,m.h)){
 				m.hp-=ep.power*2;
@@ -24944,31 +25236,41 @@ function render(){
 			ctx.fillStyle = sunGrad;
 			ctx.beginPath(); ctx.arc(canvas.width * 0.8, 80, 120, 0, Math.PI * 2); ctx.fill();
 		} else {
-			// Forest floor - green canopy darkness
+			// Forest floor - green canopy darkness with dappled light
 			const forestGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
 			forestGrad.addColorStop(0, '#1a2a1a');
-			forestGrad.addColorStop(0.3, '#223322');
+			forestGrad.addColorStop(0.25, '#1e2e1e');
+			forestGrad.addColorStop(0.5, '#223322');
+			forestGrad.addColorStop(0.75, '#1e2e1e');
 			forestGrad.addColorStop(1, '#1a2a1a');
 			ctx.fillStyle = forestGrad;
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			// Canopy light rays
-			ctx.globalAlpha = 0.06;
-			ctx.fillStyle = '#88cc44';
-			for(let i = 0; i < 8; i++){
+			// Canopy light rays (wider, varied)
+			for(let i = 0; i < 10; i++){
 				const rx = ((i * 427 + 80) % 1600) - (camera.x * 0.15) % 1600;
+				const rayW = 30 + (i % 3) * 20;
+				const rayAlpha = 0.04 + (i % 2) * 0.02;
+				ctx.globalAlpha = rayAlpha;
+				ctx.fillStyle = i % 2 === 0 ? '#88cc44' : '#aadd66';
 				ctx.beginPath();
-				ctx.moveTo(rx, 0); ctx.lineTo(rx - 40, canvas.height);
-				ctx.lineTo(rx + 40, canvas.height); ctx.closePath(); ctx.fill();
+				ctx.moveTo(rx - rayW * 0.3, 0); ctx.lineTo(rx - rayW, canvas.height);
+				ctx.lineTo(rx + rayW, canvas.height); ctx.lineTo(rx + rayW * 0.3, 0);
+				ctx.closePath(); ctx.fill();
 			}
 			ctx.globalAlpha = 1;
-			// Distant trees (parallax)
-			ctx.fillStyle = '#1a3a1a';
-			for(let i = 0; i < 15; i++){
+			// Distant trees (parallax — varied shapes)
+			for(let i = 0; i < 18; i++){
 				const tx = ((i * 283 + 40) % 2200) - (camera.x * 0.2) % 2200;
 				const th = 200 + (i * 71) % 150;
-				ctx.beginPath();
-				ctx.moveTo(tx, canvas.height * 0.6); ctx.lineTo(tx + 20, canvas.height * 0.6 - th);
-				ctx.lineTo(tx + 40, canvas.height * 0.6); ctx.closePath(); ctx.fill();
+				ctx.fillStyle = i % 3 === 0 ? '#1a3a1a' : '#163316';
+				ctx.fillRect(tx + 16, canvas.height * 0.6 - th * 0.3, 8, th * 0.3);
+				if(i % 2 === 0){
+					ctx.beginPath();ctx.arc(tx + 20, canvas.height * 0.6 - th * 0.5, th * 0.18, 0, Math.PI * 2);ctx.fill();
+				} else {
+					ctx.beginPath();
+					ctx.moveTo(tx, canvas.height * 0.6 - th * 0.3);ctx.lineTo(tx + 20, canvas.height * 0.6 - th);
+					ctx.lineTo(tx + 40, canvas.height * 0.6 - th * 0.3);ctx.closePath();ctx.fill();
+				}
 			}
 		}
 
@@ -24977,15 +25279,44 @@ function render(){
 		if(isUnderground){
 			// Don't draw surface ground when underground — the tunnel walls/floor/ceiling handle it
 		} else {
-			ctx.fillStyle = '#2a3a2a';
-			ctx.fillRect(0, groundScreenY, canvas.width, canvas.height - groundScreenY + 200);
-			// Grass tufts
-			ctx.fillStyle = '#3a5a3a';
-			ctx.fillRect(0, groundScreenY, canvas.width, 4);
-			ctx.fillStyle = '#4a6a4a';
+			// Main dirt fill below surface
+			ctx.fillStyle = '#2a2818';
+			ctx.fillRect(0, groundScreenY + 10, canvas.width, canvas.height - groundScreenY + 190);
+			// Dirt layer
+			ctx.fillStyle = '#3a3022';
+			ctx.fillRect(0, groundScreenY + 6, canvas.width, 8);
+			// Root tendrils in dirt
+			ctx.strokeStyle = 'rgba(60,40,20,0.15)'; ctx.lineWidth = 1;
+			for(let rx = -((camera.x % 120) | 0); rx < canvas.width + 120; rx += 120){
+				ctx.beginPath(); ctx.moveTo(rx, groundScreenY + 8);
+				ctx.quadraticCurveTo(rx + 30, groundScreenY + 20, rx + 60, groundScreenY + 14);
+				ctx.stroke();
+			}
+			// Bright green surface strip (grass layer)
+			ctx.fillStyle = '#3a8a3a';
+			ctx.fillRect(0, groundScreenY - 2, canvas.width, 10);
+			// Lighter highlight strip at very top
+			ctx.fillStyle = '#4aaa4a';
+			ctx.fillRect(0, groundScreenY - 2, canvas.width, 4);
+			// Dense grass tufts (varied heights)
+			ctx.fillStyle = '#4aaa4a';
+			for(let gx = -((camera.x % 14) | 0); gx < canvas.width + 14; gx += 14){
+				const gh1 = 5 + ((gx + Math.floor(camera.x)) * 7 % 5);
+				const gh2 = 4 + ((gx + Math.floor(camera.x) + 7) * 11 % 6);
+				ctx.fillRect(gx, groundScreenY - gh1, 1.5, gh1 + 2);
+				ctx.fillRect(gx + 6, groundScreenY - gh2, 1.5, gh2 + 2);
+			}
+			// Secondary grass color for depth
+			ctx.fillStyle = '#38cc48';
+			for(let gx = -((camera.x % 22) | 0); gx < canvas.width + 22; gx += 22){
+				const gh3 = 6 + ((gx + Math.floor(camera.x) + 3) * 13 % 4);
+				ctx.fillRect(gx + 3, groundScreenY - gh3, 1, gh3 + 1);
+			}
+			// Tertiary bright green tufts for lushness
+			ctx.fillStyle = '#55dd55';
 			for(let gx = -((camera.x % 30) | 0); gx < canvas.width + 30; gx += 30){
-				ctx.fillRect(gx, groundScreenY - 3, 2, 6);
-				ctx.fillRect(gx + 12, groundScreenY - 5, 2, 8);
+				const gh4 = 3 + ((gx + Math.floor(camera.x) + 11) * 17 % 5);
+				ctx.fillRect(gx + 9, groundScreenY - gh4, 1, gh4);
 			}
 
 			// === CAVE ENTRANCE VISUAL (surface-level markers) ===
@@ -25034,25 +25365,128 @@ function render(){
 				ctx.fillStyle = torch2;
 				ctx.beginPath(); ctx.arc(entrX + 215, entrY - 105, 18, 0, Math.PI * 2); ctx.fill();
 			}
+
+			// === SECOND CAVE ENTRANCE VISUAL (corrupted tunnel at x:18400) ===
+			const entrX2 = 18400 - camera.x;
+			if(entrX2 > -300 && entrX2 < canvas.width + 300){
+				ctx.fillStyle = '#3a2a3a';
+				ctx.fillRect(entrX2 - 25, entrY - 90, 25, 90);
+				ctx.fillRect(entrX2 + 200, entrY - 90, 25, 90);
+				ctx.beginPath();
+				ctx.moveTo(entrX2 - 25, entrY - 90);
+				ctx.quadraticCurveTo(entrX2 + 100, entrY - 140, entrX2 + 225, entrY - 90);
+				ctx.lineTo(entrX2 + 200, entrY - 78);
+				ctx.quadraticCurveTo(entrX2 + 100, entrY - 120, entrX2, entrY - 78);
+				ctx.closePath();
+				ctx.fillStyle = '#4a3a4a'; ctx.fill();
+				ctx.fillStyle = 'rgba(180,60,120,0.5)';
+				ctx.font = 'bold 12px serif'; ctx.textAlign = 'center';
+				ctx.fillText('⚠ CORRUPTED ⚠', entrX2 + 100, entrY - 96);
+				ctx.fillStyle = '#0a0612';
+				ctx.fillRect(entrX2, entrY, 200, 35);
+				const tP2 = 0.5 + Math.sin(Date.now() * 0.004) * 0.3;
+				const tg1 = ctx.createRadialGradient(entrX2 - 12, entrY - 95, 2, entrX2 - 12, entrY - 95, 15);
+				tg1.addColorStop(0, `rgba(180,60,180,${tP2})`); tg1.addColorStop(1, 'transparent');
+				ctx.fillStyle = tg1; ctx.beginPath(); ctx.arc(entrX2 - 12, entrY - 95, 15, 0, Math.PI * 2); ctx.fill();
+				const tg2 = ctx.createRadialGradient(entrX2 + 212, entrY - 95, 2, entrX2 + 212, entrY - 95, 15);
+				tg2.addColorStop(0, `rgba(180,60,180,${tP2})`); tg2.addColorStop(1, 'transparent');
+				ctx.fillStyle = tg2; ctx.beginPath(); ctx.arc(entrX2 + 212, entrY - 95, 15, 0, Math.PI * 2); ctx.fill();
+			}
+		}
+
+		// === BACKGROUND FOREST LAYERS (parallax trees behind platforms) ===
+		if(!isUnderground && !isTreetop){
+		const _gY=groundScreenY, _cx=camera.x, _cw=canvas.width, _t=Date.now()*0.001;
+		// Layer 1: Very distant deep silhouettes
+		ctx.globalAlpha=0.1; ctx.fillStyle='#0a2a0a';
+		for(let i=0;i<30;i++){
+			const tx=((i*397+i*i*13+120)%3200)-(_cx*0.05)%3200;
+			const th=300+((i*83+17)%220);
+			ctx.fillRect(tx+18,_gY-th*0.35,10,th*0.35+2);
+			if(i%3===0){ctx.beginPath();ctx.moveTo(tx,_gY-th*0.35);ctx.lineTo(tx+23,_gY-th);ctx.lineTo(tx+46,_gY-th*0.35);ctx.closePath();ctx.fill();}
+			else{ctx.beginPath();ctx.arc(tx+23,_gY-th*0.52,th*0.22,0,Math.PI*2);ctx.fill();}
+		}
+		// Layer 2: Mid-distance trees
+		ctx.globalAlpha=0.18; ctx.fillStyle='#132e13';
+		for(let i=0;i<22;i++){
+			const tx=((i*523+80)%2800)-(_cx*0.1)%2800;
+			const th=200+((i*67+31)%160);
+			ctx.fillRect(tx+18,_gY-th*0.35,8,th*0.35+2);
+			if(i%2===0){ctx.beginPath();ctx.arc(tx+22,_gY-th*0.52,th*0.2,0,Math.PI*2);ctx.fill();}
+			else{ctx.beginPath();ctx.moveTo(tx+2,_gY-th*0.3);ctx.lineTo(tx+22,_gY-th);ctx.lineTo(tx+42,_gY-th*0.3);ctx.closePath();ctx.fill();}
+		}
+		// Layer 3: Near background trees
+		ctx.globalAlpha=0.28; ctx.fillStyle='#1c3a1c';
+		for(let i=0;i<16;i++){
+			const tx=((i*673+200)%2400)-(_cx*0.2)%2400;
+			const th=140+((i*47+23)%100);
+			ctx.fillRect(tx+14,_gY-th*0.3,7,th*0.3+2);
+			ctx.beginPath();ctx.arc(tx+17,_gY-th*0.45,th*0.18,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		// === WORLD-SPACE TREES (foreground forest) ===
+		for(let i=0;i<55;i++){
+			const s=((i*2654435761)>>>0);
+			const wx=120+(s%11700), sx=wx-_cx;
+			if(sx<-100||sx>_cw+100)continue;
+			const th=70+((s>>>10)%90), tt=(s>>>6)%5;
+			const twC=(tt===3)?'#8a7a6a':'#3a2a1a';
+			ctx.fillStyle=twC;
+			ctx.fillRect(sx-((tt===4)?6:3),_gY-th*0.38,(tt===4)?12:7,th*0.38+3);
+			if(tt===0||tt===4){
+				const cR=(tt===4)?th*0.3:th*0.22;
+				ctx.fillStyle='#2a5a2a';ctx.beginPath();ctx.arc(sx,_gY-th*0.55,cR,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle='#356b35';ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(sx-cR*0.3,_gY-th*0.62,cR*0.45,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+			} else if(tt===1){
+				ctx.fillStyle='#1a4a1a';
+				for(let l=0;l<3;l++){const lw=(25+th*0.18)*(1-l*0.22),ly=_gY-th*0.38-l*th*0.18;ctx.beginPath();ctx.moveTo(sx-lw/2,ly);ctx.lineTo(sx,ly-th*0.22);ctx.lineTo(sx+lw/2,ly);ctx.closePath();ctx.fill();}
+			} else if(tt===2){
+				ctx.fillStyle='#2a5a2a';ctx.beginPath();ctx.arc(sx,_gY-th*0.5,th*0.17,0,Math.PI*2);ctx.fill();
+				ctx.strokeStyle='#3a6a3a';ctx.lineWidth=1;
+				for(let b=0;b<5;b++){const ba=(b/5)*Math.PI*2;ctx.beginPath();ctx.moveTo(sx+Math.cos(ba)*th*0.15,_gY-th*0.5+Math.sin(ba)*th*0.08);ctx.quadraticCurveTo(sx+Math.cos(ba)*th*0.18,_gY-th*0.2,sx+Math.cos(ba)*th*0.1,_gY-th*0.12);ctx.stroke();}
+			} else if(tt===3){
+				ctx.fillStyle='#ccccbb';ctx.fillRect(sx-2.5,_gY-th*0.35,5,th*0.35);
+				ctx.fillStyle='#333';for(let m=0;m<3;m++)ctx.fillRect(sx-1.5,_gY-th*0.08-m*th*0.08,3,2);
+				ctx.fillStyle='#4a7a3a';ctx.beginPath();ctx.arc(sx,_gY-th*0.48,th*0.15,0,Math.PI*2);ctx.fill();
+			}
+		}
 		}
 
 		// Draw platforms
 		for(const plat of sandboxPlatforms){
 			if(plat.y === SYLVARIS_CONFIG.groundY) continue;
+			if(plat.isTreeTrunk) continue; // trunk visual handled by giant tree rendering
 			const px = plat.x - camera.x, py = plat.y - camera.y;
 			if(px + plat.w < -50 || px > canvas.width + 50) continue;
 			if(py + plat.h < -50 || py > canvas.height + 50) continue;
 
 			if(plat.isCaveTunnel){
-				// Cave tunnel floor — rocky with texture
+				// Cave tunnel floor — rocky with detailed texture
 				ctx.fillStyle = '#2a2a3a';
 				ctx.fillRect(px, py, plat.w, plat.h);
 				ctx.fillStyle = '#3a3a4a';
 				ctx.fillRect(px, py, plat.w, 4);
-				// Rock texture on floor
+				// Rock texture on floor (varied sizes)
 				ctx.fillStyle = '#333340';
-				for(let rx = 0; rx < plat.w; rx += 60){
-					ctx.fillRect(px + rx + 10, py + 5, 20, 8);
+				for(let rx = 0; rx < plat.w; rx += 45){
+					const rw=14+((rx*7+plat.x)%12), rh=5+((rx*3+plat.x)%6);
+					ctx.fillRect(px + rx + 8, py + 4, rw, rh);
+				}
+				// Stalagmites rising from floor
+				ctx.fillStyle = '#3a3a4a';
+				for(let sx2 = 30; sx2 < plat.w; sx2 += 80){
+					const sh2 = 8 + ((sx2 * 11 + plat.x) % 14);
+					ctx.beginPath();
+					ctx.moveTo(px + sx2, py);
+					ctx.lineTo(px + sx2 + 5, py - sh2);
+					ctx.lineTo(px + sx2 + 10, py);
+					ctx.closePath(); ctx.fill();
+				}
+				// Moss patches on cave floor
+				ctx.fillStyle = 'rgba(50,90,50,0.2)';
+				for(let mx = 20; mx < plat.w; mx += 70){
+					ctx.beginPath();ctx.ellipse(px+mx, py+3, 12, 3, 0, 0, Math.PI*2);ctx.fill();
 				}
 			} else if(plat.isCaveCeiling){
 				// Cave tunnel ceiling — stalactites hanging down
@@ -25060,24 +25494,44 @@ function render(){
 				ctx.fillRect(px, py, plat.w, plat.h);
 				ctx.fillStyle = '#252535';
 				ctx.fillRect(px, py + plat.h - 3, plat.w, 3);
-				// Stalactites
+				// Stalactites (varied sizes and spacing)
 				ctx.fillStyle = '#2a2a3a';
-				for(let sx = 0; sx < plat.w; sx += 45){
-					const sh = 12 + (sx * 7) % 20;
+				for(let sx = 0; sx < plat.w; sx += 35){
+					const sh = 10 + ((sx * 7 + plat.x) % 22);
+					const sw2 = 8 + ((sx * 3 + plat.x) % 10);
 					ctx.beginPath();
 					ctx.moveTo(px + sx, py + plat.h);
-					ctx.lineTo(px + sx + 8, py + plat.h + sh);
-					ctx.lineTo(px + sx + 16, py + plat.h);
+					ctx.lineTo(px + sx + sw2/2, py + plat.h + sh);
+					ctx.lineTo(px + sx + sw2, py + plat.h);
 					ctx.closePath(); ctx.fill();
 				}
+				// Drip highlights on stalactite tips
+				ctx.fillStyle = 'rgba(100,120,180,0.15)';
+				for(let sx = 0; sx < plat.w; sx += 35){
+					const sh = 10 + ((sx * 7 + plat.x) % 22);
+					ctx.beginPath();ctx.arc(px + sx + 4 + ((sx * 3 + plat.x) % 10)/2, py + plat.h + sh, 2, 0, Math.PI*2);ctx.fill();
+				}
 			} else if(plat.isCaveWall){
-				// Cave tunnel walls — solid stone
+				// Cave tunnel walls — solid stone with detail
 				ctx.fillStyle = '#1a1a28';
 				ctx.fillRect(px, py, plat.w, plat.h);
-				// Moss streaks
-				ctx.fillStyle = 'rgba(60,100,60,0.3)';
-				for(let wy = 0; wy < plat.h; wy += 40){
-					ctx.fillRect(px + 5, py + wy, 10, 20);
+				// Horizontal rock strata lines
+				ctx.strokeStyle = 'rgba(40,40,55,0.5)';ctx.lineWidth = 1;
+				for(let wy = 0; wy < plat.h; wy += 25){
+					ctx.beginPath();ctx.moveTo(px, py + wy + ((plat.x + wy) * 3 % 5));
+					ctx.lineTo(px + plat.w, py + wy + ((plat.x + wy) * 7 % 5));ctx.stroke();
+				}
+				// Moss streaks (varied)
+				ctx.fillStyle = 'rgba(60,100,60,0.25)';
+				for(let wy = 0; wy < plat.h; wy += 35){
+					const mw = 8 + ((wy * 7 + plat.x) % 10);
+					ctx.beginPath();ctx.ellipse(px + 3 + (wy * 3 % 8), py + wy + 8, mw / 2, 8, 0, 0, Math.PI * 2);ctx.fill();
+				}
+				// Cracks in rock
+				ctx.strokeStyle = 'rgba(15,15,25,0.4)';ctx.lineWidth = 0.5;
+				for(let wy = 15; wy < plat.h; wy += 50){
+					ctx.beginPath();ctx.moveTo(px + 2, py + wy);
+					ctx.quadraticCurveTo(px + plat.w * 0.3, py + wy + 8, px + plat.w * 0.5, py + wy - 3);ctx.stroke();
 				}
 			} else if(plat.y > SYLVARIS_CONFIG.groundY){
 				// Underground platforms look rocky
@@ -25085,17 +25539,401 @@ function render(){
 				ctx.fillRect(px, py, plat.w, plat.h);
 				ctx.fillStyle = '#4a4a5a';
 				ctx.fillRect(px, py, plat.w, 3);
+			} else if(plat.isBranch){
+				// Tree branch platform — curved wood with bark, leaves, and details
+				const bCx = px + plat.w / 2, bCy = py + plat.h / 2;
+				// Branch body shape (tapered, thicker at trunk-side)
+				const trunkSide = plat.x < 14000 ? 0 : 1; // 0 = left side of tree, 1 = right
+				ctx.save();
+				// Main branch wood with gradient
+				const brGrad = ctx.createLinearGradient(px, py - 4, px, py + plat.h + 4);
+				brGrad.addColorStop(0, '#4a3520');
+				brGrad.addColorStop(0.3, '#5a4530');
+				brGrad.addColorStop(0.7, '#4a3a25');
+				brGrad.addColorStop(1, '#3a2a18');
+				ctx.fillStyle = brGrad;
+				// Slightly curved branch shape
+				ctx.beginPath();
+				const sag = plat.w * 0.02; // slight sag in middle
+				ctx.moveTo(px, py + (trunkSide === 0 ? 0 : 3));
+				ctx.quadraticCurveTo(bCx, py - sag, px + plat.w, py + (trunkSide === 1 ? 0 : 3));
+				ctx.lineTo(px + plat.w - 5, py + plat.h + 2);
+				ctx.quadraticCurveTo(bCx, py + plat.h + sag + 3, px + 5, py + plat.h + 2);
+				ctx.closePath();
+				ctx.fill();
+				// Bark texture lines
+				ctx.strokeStyle = 'rgba(30,20,10,0.25)'; ctx.lineWidth = 0.8;
+				for(let bk = 0; bk < plat.w; bk += 18){
+					const bkx = px + bk + ((bk * 7 + plat.x) % 8);
+					ctx.beginPath();
+					ctx.moveTo(bkx, py);
+					ctx.lineTo(bkx + 2, py + plat.h);
+					ctx.stroke();
+				}
+				// Horizontal bark rings
+				ctx.strokeStyle = 'rgba(80,60,30,0.2)'; ctx.lineWidth = 1;
+				for(let br = 0; br < plat.w; br += 35){
+					ctx.beginPath();
+					ctx.moveTo(px + br, py + 2);
+					ctx.quadraticCurveTo(px + br + 15, py + plat.h * 0.4, px + br + 30, py + 1);
+					ctx.stroke();
+				}
+				// Moss patches on top
+				ctx.fillStyle = 'rgba(60,120,50,0.35)';
+				for(let ms = 10; ms < plat.w - 10; ms += 30 + ((plat.x + ms) % 20)){
+					const mw2 = 10 + ((ms * 7 + plat.x) % 12);
+					ctx.beginPath(); ctx.ellipse(px + ms, py - 1, mw2/2, 3, 0, 0, Math.PI * 2); ctx.fill();
+				}
+				// Small leaf clusters hanging below
+				ctx.fillStyle = 'rgba(50,110,40,0.4)';
+				for(let lf = 15; lf < plat.w - 15; lf += 40 + ((plat.x + lf) % 25)){
+					for(let li = 0; li < 3; li++){
+						const lx = px + lf + (li - 1) * 6;
+						const ly = py + plat.h + 2 + li * 3;
+						ctx.beginPath();
+						ctx.ellipse(lx, ly, 5, 3, (li - 1) * 0.3, 0, Math.PI * 2);
+						ctx.fill();
+					}
+				}
+				// Tiny mushrooms/lichen spots
+				ctx.fillStyle = 'rgba(180,160,80,0.2)';
+				for(let sp = 20; sp < plat.w; sp += 55){
+					ctx.beginPath(); ctx.arc(px + sp, py + plat.h * 0.6, 2, 0, Math.PI * 2); ctx.fill();
+				}
+				// Branch knots
+				ctx.fillStyle = 'rgba(40,25,10,0.4)';
+				for(let kn = 40; kn < plat.w - 20; kn += 80 + ((plat.x + kn) % 40)){
+					ctx.beginPath(); ctx.ellipse(px + kn, py + plat.h * 0.5, 4, 3, 0.3, 0, Math.PI * 2); ctx.fill();
+				}
+				ctx.restore();
 			} else if(plat.y < treetopThreshold){
 				ctx.fillStyle = '#5a7744';
 				ctx.fillRect(px, py, plat.w, plat.h);
 				ctx.fillStyle = '#6a8855';
 				ctx.fillRect(px, py, plat.w, 3);
 			} else {
+				// Forest platforms — mossy wood with leaf detail
 				ctx.fillStyle = '#3a4a3a';
 				ctx.fillRect(px, py, plat.w, plat.h);
 				ctx.fillStyle = '#4a5a4a';
 				ctx.fillRect(px, py, plat.w, 3);
+				// Moss patches on platform edges
+				ctx.fillStyle = 'rgba(60,100,50,0.25)';
+				for(let mx = 0; mx < plat.w; mx += 50){
+					const mw = 8 + ((mx * 7 + plat.x) % 14);
+					ctx.beginPath();ctx.ellipse(px + mx + mw/2, py + plat.h - 1, mw/2, 3, 0, 0, Math.PI*2);ctx.fill();
+				}
 			}
+		}
+
+		// === FOREGROUND DECORATIONS (bushes, mushrooms, flowers, rocks, logs) ===
+		if(!isUnderground && !isTreetop){
+		const _gY2=SYLVARIS_CONFIG.groundY-camera.y, _cx2=camera.x, _cw2=canvas.width, _t2=Date.now()*0.001;
+
+		// Bushes (dense ground cover)
+		for(let i=0;i<70;i++){
+			const s=((i*1103515245+12345)>>>0);
+			const wx=50+(s%12000), sx=wx-_cx2;
+			if(sx<-35||sx>_cw2+35)continue;
+			const bw=16+(s>>>16)%20, bh=9+(s>>>20)%11;
+			ctx.fillStyle=['#2a5a2a','#3a5a2a','#2a4a3a','#325832'][(s>>>24)%4];
+			ctx.beginPath();ctx.ellipse(sx,_gY2-bh*0.4,bw/2,bh/2,0,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#3a7a3a';ctx.globalAlpha=0.4;ctx.beginPath();ctx.ellipse(sx-bw*0.15,_gY2-bh*0.65,bw*0.2,bh*0.25,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+		}
+
+		// Mushroom clusters (some glowing)
+		for(let i=0;i<32;i++){
+			const s=((i*48271+7)>>>0);
+			const wx=250+(s%11500), sx=wx-_cx2;
+			if(sx<-18||sx>_cw2+18)continue;
+			const glow=(s>>>16)%4===0, mh=6+(s>>>12)%8, cr=3+(s>>>18)%5;
+			ctx.fillStyle='#ccbbaa';ctx.fillRect(sx-1.5,_gY2-mh,3,mh);
+			ctx.fillStyle=glow?'#44ddaa':((s>>>20)%2?'#cc4444':'#aa6622');
+			ctx.beginPath();ctx.ellipse(sx,_gY2-mh,cr,cr*0.55,0,0,Math.PI*2);ctx.fill();
+			if(glow){const p2=0.12+Math.sin(_t2*3+i)*0.07;ctx.globalAlpha=p2;ctx.fillStyle='rgba(68,221,170,0.25)';ctx.beginPath();ctx.arc(sx,_gY2-mh,cr*3.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+			else{ctx.fillStyle='#fff';ctx.globalAlpha=0.3;ctx.beginPath();ctx.arc(sx-cr*0.3,_gY2-mh-cr*0.15,1.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+		}
+
+		// Flowers
+		const _fc=['#ff6688','#ffaa44','#ff44aa','#8866ff','#ffff88','#ffffff','#ff8866','#66ccff'];
+		for(let i=0;i<50;i++){
+			const s=((i*16807+33)>>>0);
+			const wx=150+(s%11600), sx=wx-_cx2;
+			if(sx<-8||sx>_cw2+8)continue;
+			const fh=4+(s>>>8)%7;
+			ctx.strokeStyle='#3a6a3a';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(sx,_gY2);ctx.lineTo(sx+(s%5-2)*0.3,_gY2-fh);ctx.stroke();
+			ctx.fillStyle=_fc[s%_fc.length];ctx.beginPath();ctx.arc(sx,_gY2-fh,2.5,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#ffee44';ctx.beginPath();ctx.arc(sx,_gY2-fh,1,0,Math.PI*2);ctx.fill();
+		}
+
+		// Rocks and stones
+		for(let i=0;i<22;i++){
+			const s=((i*31337+42)>>>0);
+			const wx=80+(s%11800), sx=wx-_cx2;
+			if(sx<-25||sx>_cw2+25)continue;
+			const rw=10+(s>>>8)%16, rh=7+(s>>>12)%9;
+			ctx.fillStyle='#5a5a4a';ctx.beginPath();ctx.ellipse(sx,_gY2-rh*0.25,rw/2,rh/2,0,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#6a6a5a';ctx.globalAlpha=0.3;ctx.beginPath();ctx.ellipse(sx-rw*0.1,_gY2-rh*0.45,rw*0.22,rh*0.18,-0.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+			// Moss on some rocks
+			if((s>>>20)%3===0){ctx.fillStyle='#3a6a3a';ctx.globalAlpha=0.4;ctx.fillRect(sx-rw*0.2,_gY2-rh*0.55,rw*0.3,3);ctx.globalAlpha=1;}
+		}
+
+		// Fallen logs
+		for(let i=0;i<8;i++){
+			const s=((i*7919+101)>>>0);
+			const wx=400+(s%10600), sx=wx-_cx2;
+			if(sx<-55||sx>_cw2+55)continue;
+			const lw=45+(s>>>8)%35, lh=7+(s>>>12)%4;
+			ctx.save();ctx.translate(sx,_gY2-lh*0.4);ctx.rotate(((s>>>16)%20-10)*0.008);
+			ctx.fillStyle='#4a3322';ctx.fillRect(-lw/2,-lh/2,lw,lh);
+			ctx.fillStyle='#5a4332';ctx.beginPath();ctx.arc(-lw/2,0,lh/2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(lw/2,0,lh/2,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#3a6a3a';ctx.globalAlpha=0.35;ctx.fillRect(-lw*0.15,-lh/2-2,lw*0.25,3);ctx.globalAlpha=1;
+			ctx.restore();
+		}
+
+		// Enhanced grass (detailed tufts beyond the basic ones)
+		ctx.fillStyle='#4a7a4a';
+		for(let gx2=-((camera.x%18)|0);gx2<_cw2+18;gx2+=18){
+			const gh=3+((gx2+Math.floor(camera.x))%7);
+			ctx.fillRect(gx2,_gY2-gh,1.5,gh+1);
+			ctx.fillRect(gx2+7,_gY2-gh-2,1.5,gh+3);
+		}
+
+		// Spider webs on some elevated platforms
+		for(const pl of sandboxPlatforms){
+			if(pl.y>=SYLVARIS_CONFIG.groundY||pl.y>SYLVARIS_CONFIG.groundY-100)continue;
+			const px3=pl.x-_cx2, py3=pl.y-camera.y;
+			if(px3+pl.w<-30||px3>_cw2+30)continue;
+			if(((pl.x*31+pl.y*17)>>>0)%5!==0)continue; // only ~20% of platforms
+			ctx.strokeStyle='rgba(200,200,220,0.12)';ctx.lineWidth=0.5;
+			const wcx=px3+pl.w*0.8, wcy=py3+pl.h;
+			for(let s=0;s<5;s++){const sa=(s/5)*Math.PI*0.8-0.4;const wr=15+s*3;ctx.beginPath();ctx.moveTo(wcx,wcy);ctx.lineTo(wcx+Math.cos(sa)*wr,wcy+Math.sin(sa)*wr);ctx.stroke();}
+			for(let r=8;r<22;r+=7){ctx.beginPath();ctx.arc(wcx,wcy,r,-0.4,-0.4+Math.PI*0.8);ctx.stroke();}
+		}
+
+		// Small pond/stream at x:3000-3200
+		const pondX=3100-_cx2;
+		if(pondX>-200&&pondX<_cw2+200){
+			const pw=160, pd=12;
+			ctx.fillStyle='#1a3a5a';ctx.globalAlpha=0.5;
+			ctx.beginPath();ctx.ellipse(pondX,_gY2+2,pw/2,pd,0,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#2a5a7a';ctx.globalAlpha=0.3;
+			ctx.beginPath();ctx.ellipse(pondX-20,_gY2,pw*0.3,pd*0.6,0,0,Math.PI*2);ctx.fill();
+			// Water sparkle
+			const sp=0.2+Math.sin(_t2*2)*0.15;
+			ctx.fillStyle=`rgba(150,220,255,${sp})`;
+			ctx.beginPath();ctx.arc(pondX+15,_gY2-1,2,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.arc(pondX-30,_gY2+1,1.5,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+			// Reeds around pond
+			ctx.strokeStyle='#3a5a3a';ctx.lineWidth=1.5;
+			for(let r=0;r<5;r++){const rx=pondX-60+r*30;ctx.beginPath();ctx.moveTo(rx,_gY2);ctx.quadraticCurveTo(rx+Math.sin(r)*3,_gY2-18,rx+Math.sin(r*1.3)*2,_gY2-25);ctx.stroke();}
+		}
+
+		// Ancient stone circle at x:5500
+		const stoneX=5500-_cx2;
+		if(stoneX>-200&&stoneX<_cw2+200){
+			const stones=[{dx:-50,h:28},{dx:-25,h:22},{dx:0,h:32},{dx:25,h:24},{dx:50,h:26}];
+			for(const st of stones){
+				ctx.fillStyle='#5a5a6a';
+				ctx.beginPath();ctx.moveTo(stoneX+st.dx-6,_gY2);ctx.lineTo(stoneX+st.dx-4,_gY2-st.h);ctx.lineTo(stoneX+st.dx+4,_gY2-st.h);ctx.lineTo(stoneX+st.dx+6,_gY2);ctx.closePath();ctx.fill();
+			}
+			// Mystical glow in center
+			const sgp=0.1+Math.sin(_t2*1.5)*0.06;
+			ctx.globalAlpha=sgp;ctx.fillStyle='rgba(100,200,180,0.3)';ctx.beginPath();ctx.arc(stoneX,_gY2-8,35,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+		}
+
+		// Fairy ring of mushrooms at x:2400
+		const fmX=2400-_cx2;
+		if(fmX>-100&&fmX<_cw2+100){
+			for(let f=0;f<8;f++){
+				const fa=(f/8)*Math.PI*2;
+				const fx=fmX+Math.cos(fa)*35, fy=_gY2;
+				ctx.fillStyle='#ccbbaa';ctx.fillRect(fx-1,fy-5,2,5);
+				ctx.fillStyle='#44ddaa';ctx.beginPath();ctx.ellipse(fx,fy-5,4,2.5,0,0,Math.PI*2);ctx.fill();
+			}
+			const frp=0.08+Math.sin(_t2*2.5)*0.05;
+			ctx.globalAlpha=frp;ctx.fillStyle='rgba(68,221,170,0.2)';ctx.beginPath();ctx.arc(fmX,_gY2-3,40,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+		}
+
+		// Hidden rune stones (mysterious markers)
+		for(const wx of [1800,3600,5400,6800,10500]){
+			const sx=wx-_cx2;
+			if(sx<-20||sx>_cw2+20)continue;
+			ctx.fillStyle='#4a4a5a';ctx.beginPath();ctx.moveTo(sx-7,_gY2);ctx.lineTo(sx-5,_gY2-20);ctx.lineTo(sx+5,_gY2-20);ctx.lineTo(sx+7,_gY2);ctx.closePath();ctx.fill();
+			const rp=0.3+Math.sin(_t2*2+wx*0.01)*0.2;
+			ctx.fillStyle=`rgba(80,200,180,${rp})`;ctx.font='9px serif';ctx.textAlign='center';ctx.fillText('✦',sx,_gY2-9);
+			ctx.globalAlpha=rp*0.12;ctx.fillStyle='rgba(80,200,180,0.3)';ctx.beginPath();ctx.arc(sx,_gY2-10,18,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+		}
+
+		// Glowing tree stumps (hidden detail)
+		for(const wx of [900,2700,4800,6200,9500,11200]){
+			const sx=wx-_cx2;
+			if(sx<-20||sx>_cw2+20)continue;
+			ctx.fillStyle='#3a2a1a';ctx.fillRect(sx-8,_gY2-10,16,10);
+			// Growth rings on top
+			ctx.fillStyle='#4a3a2a';ctx.beginPath();ctx.ellipse(sx,_gY2-10,8,3,0,0,Math.PI*2);ctx.fill();
+			// Faint glow from bioluminescent fungus
+			const gp=0.08+Math.sin(_t2*2.2+wx*0.005)*0.05;
+			ctx.globalAlpha=gp;ctx.fillStyle='rgba(100,220,160,0.3)';ctx.beginPath();ctx.arc(sx,_gY2-8,12,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+		}
+
+		// === HIDDEN SECRETS & EASTER EGGS ===
+
+		// Owl perched in a tree (barely visible, blinks occasionally)
+		{const owlX=4200-_cx2, owlY=_gY2-180;
+		if(owlX>-20&&owlX<_cw2+20){
+			ctx.fillStyle='#2a2220';
+			ctx.beginPath();ctx.arc(owlX,owlY,6,0,Math.PI*2);ctx.fill(); // body
+			ctx.beginPath();ctx.arc(owlX,owlY-7,4,0,Math.PI*2);ctx.fill(); // head
+			// Ear tufts
+			ctx.beginPath();ctx.moveTo(owlX-3,owlY-10);ctx.lineTo(owlX-5,owlY-15);ctx.lineTo(owlX-1,owlY-10);ctx.fill();
+			ctx.beginPath();ctx.moveTo(owlX+3,owlY-10);ctx.lineTo(owlX+5,owlY-15);ctx.lineTo(owlX+1,owlY-10);ctx.fill();
+			// Eyes (blink every ~4 seconds)
+			const blinkPhase=(_t2*1000)%4000;
+			if(blinkPhase>200){
+				ctx.fillStyle='#ffcc00';
+				ctx.beginPath();ctx.arc(owlX-2,owlY-7,1.2,0,Math.PI*2);ctx.fill();
+				ctx.beginPath();ctx.arc(owlX+2,owlY-7,1.2,0,Math.PI*2);ctx.fill();
+				ctx.fillStyle='#111';
+				ctx.beginPath();ctx.arc(owlX-2,owlY-7,0.5,0,Math.PI*2);ctx.fill();
+				ctx.beginPath();ctx.arc(owlX+2,owlY-7,0.5,0,Math.PI*2);ctx.fill();
+			}
+		}}
+
+		// Squirrel on a platform (tiny, runs back and forth)
+		{const sqBase=1600, sqRange=40;
+		const sqX=sqBase+Math.sin(_t2*1.8)*sqRange-_cx2, sqY=_gY2-250;
+		if(sqX>-10&&sqX<_cw2+10){
+			ctx.fillStyle='#8a5a2a';
+			ctx.beginPath();ctx.ellipse(sqX,sqY,4,3,0,0,Math.PI*2);ctx.fill(); // body
+			ctx.beginPath();ctx.arc(sqX+(Math.sin(_t2*1.8)>0?-4:4),sqY-2,2,0,Math.PI*2);ctx.fill(); // head
+			// Tail
+			ctx.strokeStyle='#7a4a1a';ctx.lineWidth=1.5;
+			ctx.beginPath();ctx.moveTo(sqX+(Math.sin(_t2*1.8)>0?4:-4),sqY);
+			ctx.quadraticCurveTo(sqX+(Math.sin(_t2*1.8)>0?8:-8),sqY-8,sqX+(Math.sin(_t2*1.8)>0?5:-5),sqY-10);ctx.stroke();
+		}}
+
+		// Ancient carved face on a large tree (hidden at x:8800, above ground)
+		{const faceX=8800-_cx2, faceY=_gY2-130;
+		if(faceX>-30&&faceX<_cw2+30){
+			ctx.globalAlpha=0.12;ctx.fillStyle='#4a5a3a';
+			// Old face carved into bark
+			ctx.beginPath();ctx.ellipse(faceX,faceY,14,18,0,0,Math.PI*2);ctx.fill();
+			// Eye sockets
+			ctx.fillStyle='#1a2a1a';
+			ctx.beginPath();ctx.ellipse(faceX-5,faceY-4,3,2,0,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.ellipse(faceX+5,faceY-4,3,2,0,0,Math.PI*2);ctx.fill();
+			// Mouth (slightly open, surprised expression)
+			ctx.beginPath();ctx.ellipse(faceX,faceY+6,4,3,0,0,Math.PI*2);ctx.fill();
+			// Faint pulsing glow when close to player
+			const dist2Face=Math.abs((8800)-(player.x));
+			if(dist2Face<200){
+				const fGlow=0.03+Math.sin(_t2*3)*0.015;
+				ctx.globalAlpha=fGlow;ctx.fillStyle='rgba(120,220,160,0.3)';
+				ctx.beginPath();ctx.arc(faceX,faceY,25,0,Math.PI*2);ctx.fill();
+			}
+			ctx.globalAlpha=1;
+		}}
+
+		// Hidden birds nest on high platform (with eggs)
+		{const nestX=3200-_cx2, nestY=_gY2-400;
+		if(nestX>-15&&nestX<_cw2+15){
+			ctx.fillStyle='#5a4a2a';
+			ctx.beginPath();ctx.ellipse(nestX,nestY,12,5,0,0,Math.PI*2);ctx.fill();
+			// Twigs
+			ctx.strokeStyle='#6a5a3a';ctx.lineWidth=0.8;
+			for(let t=0;t<5;t++){
+				ctx.beginPath();ctx.moveTo(nestX-10+t*5,nestY);ctx.lineTo(nestX-12+t*6,nestY-2+t%2);ctx.stroke();
+			}
+			// Tiny blue eggs
+			ctx.fillStyle='#88bbdd';
+			ctx.beginPath();ctx.ellipse(nestX-3,nestY-3,2,2.5,0.2,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.ellipse(nestX+2,nestY-3,2,2.5,-0.1,0,Math.PI*2);ctx.fill();
+		}}
+
+		// Frog sitting by the pond (at x:3100)
+		{const frogX=3100-_cx2, frogY=_gY2-6;
+		if(frogX>-10&&frogX<_cw2+10){
+			ctx.fillStyle='#3a7a3a';
+			ctx.beginPath();ctx.ellipse(frogX,frogY,5,3.5,0,0,Math.PI*2);ctx.fill(); // body
+			ctx.beginPath();ctx.arc(frogX-3,frogY-3,2,0,Math.PI*2);ctx.fill(); // head bump
+			// Eyes
+			ctx.fillStyle='#aaff44';
+			ctx.beginPath();ctx.arc(frogX-4,frogY-4,1.5,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.arc(frogX-1,frogY-4,1.5,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#111';
+			ctx.beginPath();ctx.arc(frogX-4,frogY-4,0.5,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.arc(frogX-1,frogY-4,0.5,0,Math.PI*2);ctx.fill();
+			// Occasional croak (expand throat every 5s)
+			const croakPhase=(_t2*1000)%5000;
+			if(croakPhase<300){
+				ctx.globalAlpha=0.3;ctx.fillStyle='#5a9a5a';
+				ctx.beginPath();ctx.ellipse(frogX+2,frogY+1,2+croakPhase/150,1.5+croakPhase/200,0,0,Math.PI*2);ctx.fill();
+				ctx.globalAlpha=1;
+			}
+		}}
+
+		// Moth circling a glowing mushroom (near fairy ring)
+		{const mothX=2400+Math.cos(_t2*2.5)*18-_cx2, mothY=_gY2-20+Math.sin(_t2*2.5)*12;
+		if(mothX>-10&&mothX<_cw2+10){
+			ctx.globalAlpha=0.5;ctx.fillStyle='#ccbbaa';
+			const wingPhase2=Math.sin(_t2*10);
+			ctx.save();ctx.translate(mothX,mothY);
+			ctx.beginPath();ctx.ellipse(-1.5,0,1.5*Math.abs(wingPhase2),2.5,0,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.ellipse(1.5,0,1.5*Math.abs(wingPhase2),2.5,0,0,Math.PI*2);ctx.fill();
+			ctx.restore();ctx.globalAlpha=1;
+		}}
+
+		// Ancient abandoned camp (x:6500) — campfire ring with dead fire, old bedroll
+		{const campX=6500-_cx2, campY=_gY2;
+		if(campX>-60&&campX<_cw2+60){
+			// Stone ring
+			ctx.fillStyle='#555';
+			for(let si=0;si<8;si++){
+				const sa=si/8*Math.PI*2;
+				ctx.beginPath();ctx.arc(campX+Math.cos(sa)*14,campY-3+Math.sin(sa)*5,3,0,Math.PI*2);ctx.fill();
+			}
+			// Charred logs
+			ctx.fillStyle='#1a1a1a';
+			ctx.save();ctx.translate(campX,campY-4);ctx.rotate(0.3);ctx.fillRect(-8,-1.5,16,3);ctx.restore();
+			ctx.save();ctx.translate(campX,campY-4);ctx.rotate(-0.4);ctx.fillRect(-7,-1.5,14,3);ctx.restore();
+			// Ash
+			ctx.fillStyle='rgba(80,80,80,0.3)';ctx.beginPath();ctx.ellipse(campX,campY-3,10,4,0,0,Math.PI*2);ctx.fill();
+			// Old bedroll nearby
+			ctx.fillStyle='#4a3a2a';ctx.save();ctx.translate(campX+30,campY-3);ctx.rotate(0.1);ctx.fillRect(-10,-3,20,6);ctx.restore();
+			ctx.fillStyle='#3a5a3a';ctx.beginPath();ctx.ellipse(campX+30+10,campY-3,3,4,0,0,Math.PI*2);ctx.fill();
+			// Faint smoke wisps from long-dead fire
+			ctx.globalAlpha=0.04;ctx.fillStyle='#888';
+			const smokeY2=campY-10-(_t2*8)%30;
+			ctx.beginPath();ctx.arc(campX+Math.sin(_t2)*3,smokeY2,5,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}}
+
+		// Hidden treasure chest (barely visible under a bush at x:10200)
+		{const chestX=10200-_cx2, chestY=_gY2-4;
+		if(chestX>-15&&chestX<_cw2+15){
+			ctx.globalAlpha=0.18; // very subtle, hidden
+			ctx.fillStyle='#8a6a2a';ctx.fillRect(chestX-6,chestY-8,12,8);
+			ctx.fillStyle='#aa8a3a';ctx.fillRect(chestX-6,chestY-8,12,2);
+			ctx.fillStyle='#cc9a22';ctx.fillRect(chestX-1,chestY-7,2,5); // lock
+			ctx.globalAlpha=1;
+		}}
+
+		// Spider in web (on elevated platform near x:5800)
+		{const spX=5800-_cx2, spY=_gY2-320;
+		if(spX>-10&&spX<_cw2+10){
+			ctx.fillStyle='#2a2a2a';
+			ctx.beginPath();ctx.ellipse(spX,spY,3,4,0,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.arc(spX,spY-5,2,0,Math.PI*2);ctx.fill();
+			// Legs
+			ctx.strokeStyle='#333';ctx.lineWidth=0.6;
+			for(let lg=0;lg<4;lg++){
+				const la=0.3+lg*0.4;
+				ctx.beginPath();ctx.moveTo(spX-3,spY-1+lg*1.5);ctx.lineTo(spX-8,spY-4+lg*2);ctx.stroke();
+				ctx.beginPath();ctx.moveTo(spX+3,spY-1+lg*1.5);ctx.lineTo(spX+8,spY-4+lg*2);ctx.stroke();
+			}
+		}}
 		}
 
 		// Draw giant tree trunk (visual backdrop in forest zone)
@@ -25104,37 +25942,614 @@ function render(){
 			const trunkTop = SYLVARIS_CONFIG.groundY - 3500 - camera.y;
 			const trunkBottom = SYLVARIS_CONFIG.groundY - camera.y;
 			if(trunkX > -600 && trunkX < canvas.width + 600){
-				// Main trunk
-				ctx.fillStyle = '#3a2a1a';
+				// Main trunk with gradient
+				const trunkGrad = ctx.createLinearGradient(trunkX - 120, 0, trunkX + 120, 0);
+				trunkGrad.addColorStop(0, '#2a1a0a');
+				trunkGrad.addColorStop(0.15, '#33220f');
+				trunkGrad.addColorStop(0.3, '#3a2a1a');
+				trunkGrad.addColorStop(0.7, '#3a2a1a');
+				trunkGrad.addColorStop(0.85, '#33220f');
+				trunkGrad.addColorStop(1, '#2a1a0a');
+				ctx.fillStyle = trunkGrad;
 				ctx.fillRect(trunkX - 120, trunkTop, 240, trunkBottom - trunkTop);
-				// Bark texture
-				ctx.strokeStyle = 'rgba(80,60,30,0.3)';
-				ctx.lineWidth = 1;
-				for(let by = trunkTop; by < trunkBottom; by += 40){
+
+				// Tree opening (passageway at y:400-600, matches trunk collision gap)
+				const openTop = 400 - camera.y;
+				const openBot = 600 - camera.y;
+				if(openBot > 0 && openTop < canvas.height){
+					// Dark interior
+					ctx.fillStyle = '#0a0805';
+					ctx.fillRect(trunkX - 105, openTop, 210, openBot - openTop);
+					// Interior depth gradient
+					const intGrad = ctx.createRadialGradient(trunkX, (openTop + openBot) / 2, 10, trunkX, (openTop + openBot) / 2, 120);
+					intGrad.addColorStop(0, 'rgba(20,15,5,0.8)');
+					intGrad.addColorStop(1, 'rgba(5,3,1,0.95)');
+					ctx.fillStyle = intGrad;
+					ctx.fillRect(trunkX - 105, openTop, 210, openBot - openTop);
+					// Arch frame at top of opening
+					ctx.fillStyle = '#3a2a1a';
 					ctx.beginPath();
-					ctx.moveTo(trunkX - 100 + Math.sin(by * 0.01) * 20, by);
-					ctx.lineTo(trunkX + 100 + Math.sin(by * 0.01 + 1) * 20, by);
+					ctx.moveTo(trunkX - 120, openTop + 15);
+					ctx.quadraticCurveTo(trunkX, openTop - 20, trunkX + 120, openTop + 15);
+					ctx.lineTo(trunkX + 120, openTop + 5);
+					ctx.quadraticCurveTo(trunkX, openTop - 10, trunkX - 120, openTop + 5);
+					ctx.closePath(); ctx.fill();
+					// Wood grain around opening edges
+					ctx.strokeStyle = 'rgba(80,60,30,0.4)'; ctx.lineWidth = 1;
+					ctx.beginPath(); ctx.moveTo(trunkX - 115, openTop + 8);
+					ctx.quadraticCurveTo(trunkX, openTop - 15, trunkX + 115, openTop + 8); ctx.stroke();
+					// Bottom lip of opening
+					ctx.fillStyle = '#2a1a0a';
+					ctx.fillRect(trunkX - 115, openBot - 4, 230, 8);
+					ctx.fillStyle = '#3a2a15';
+					ctx.fillRect(trunkX - 110, openBot - 3, 220, 4);
+					// Faint light from the other side
+					const glowPulse = 0.08 + Math.sin(Date.now() * 0.001) * 0.03;
+					ctx.globalAlpha = glowPulse;
+					ctx.fillStyle = '#aaffaa';
+					ctx.fillRect(trunkX - 80, openTop + 20, 160, openBot - openTop - 35);
+					ctx.globalAlpha = 1;
+				}
+
+				// Bark texture (deeper grooves)
+				ctx.strokeStyle = 'rgba(80,60,30,0.3)';
+				ctx.lineWidth = 1.5;
+				for(let by = trunkTop; by < trunkBottom; by += 30){
+					// Skip bark over the opening
+					if(by > openTop - 5 && by < openBot + 5) continue;
+					ctx.beginPath();
+					ctx.moveTo(trunkX - 110 + Math.sin(by * 0.01) * 20, by);
+					ctx.quadraticCurveTo(trunkX + Math.sin(by * 0.02 + 2) * 30, by + 15,
+						trunkX + 110 + Math.sin(by * 0.01 + 1) * 20, by);
 					ctx.stroke();
 				}
-				// Roots at base
+				// Vertical bark crevices
+				ctx.strokeStyle = 'rgba(50,35,15,0.15)';ctx.lineWidth = 2;
+				for(let bx = -80; bx <= 80; bx += 35){
+					ctx.beginPath();
+					for(let by = trunkTop; by < trunkBottom; by += 50){
+						if(by > openTop && by < openBot) continue;
+						const vx = trunkX + bx + Math.sin(by * 0.008 + bx) * 8;
+						if(by === trunkTop || (by > openBot && by < openBot + 60)) ctx.moveTo(vx, by);
+						else ctx.lineTo(vx, by);
+					}
+					ctx.stroke();
+				}
+				// Moss patches growing on trunk
+				ctx.fillStyle = 'rgba(50,100,50,0.25)';
+				for(let mi = 0; mi < 12; mi++){
+					const my = trunkTop + 200 + mi * 280;
+					if(my > openTop - 20 && my < openBot + 20) continue;
+					const mx = trunkX + (mi % 2 === 0 ? -95 : 65);
+					const mw3 = 25 + (mi * 7 % 15);
+					ctx.beginPath();ctx.ellipse(mx, my, mw3, 12 + mi % 4, mi % 2 === 0 ? 0.2 : -0.2, 0, Math.PI * 2);ctx.fill();
+				}
+				// Lichen spots (small yellow-green patches)
+				ctx.fillStyle = 'rgba(120,140,60,0.2)';
+				for(let li2 = 0; li2 < 15; li2++){
+					const ly2 = trunkTop + 100 + li2 * 220 + (li2 * 31 % 50);
+					if(ly2 > openTop - 10 && ly2 < openBot + 10) continue;
+					const lx2 = trunkX + (-80 + (li2 * 37 % 160));
+					ctx.beginPath(); ctx.ellipse(lx2, ly2, 6 + li2 % 4, 4 + li2 % 3, li2 * 0.5, 0, Math.PI * 2); ctx.fill();
+				}
+				// Knothole (dark mysterious opening - lower on trunk)
+				const knotY = trunkTop + (trunkBottom - trunkTop) * 0.6;
+				ctx.fillStyle = '#0a0a05';
+				ctx.beginPath();ctx.ellipse(trunkX + 50, knotY, 18, 25, 0.2, 0, Math.PI * 2);ctx.fill();
+				ctx.strokeStyle = '#3a2a1a';ctx.lineWidth = 3;
+				ctx.beginPath();ctx.ellipse(trunkX + 50, knotY, 18, 25, 0.2, 0, Math.PI * 2);ctx.stroke();
+				// Faint pair of eyes inside knothole
+				const eyeBlink2 = (Date.now() * 0.001 * 1000) % 6000;
+				if(eyeBlink2 > 400){
+					ctx.globalAlpha = 0.15;ctx.fillStyle = '#ffaa00';
+					ctx.beginPath();ctx.arc(trunkX + 46, knotY - 3, 2, 0, Math.PI * 2);ctx.fill();
+					ctx.beginPath();ctx.arc(trunkX + 54, knotY - 3, 2, 0, Math.PI * 2);ctx.fill();
+					ctx.globalAlpha = 1;
+				}
+				// Second smaller knothole higher up
+				const knotY2 = trunkTop + (trunkBottom - trunkTop) * 0.25;
+				if(knotY2 < openTop - 40 || knotY2 > openBot + 40){
+					ctx.fillStyle = '#0a0a05';
+					ctx.beginPath();ctx.ellipse(trunkX - 40, knotY2, 10, 14, -0.15, 0, Math.PI * 2);ctx.fill();
+					ctx.strokeStyle = '#3a2a1a';ctx.lineWidth = 2;
+					ctx.beginPath();ctx.ellipse(trunkX - 40, knotY2, 10, 14, -0.15, 0, Math.PI * 2);ctx.stroke();
+				}
+				// Glowing sap drips
+				ctx.fillStyle = 'rgba(180,160,60,0.25)';
+				for(let si = 0; si < 6; si++){
+					const sy2 = trunkTop + 400 + si * 500;
+					if(sy2 > openTop - 10 && sy2 < openBot + 30) continue;
+					const sx2 = trunkX + (si % 2 === 0 ? -60 : 40) + (si * 11 % 30);
+					const dripLen = 15 + si * 6;
+					ctx.beginPath();ctx.moveTo(sx2, sy2);ctx.lineTo(sx2 - 1, sy2 + dripLen);ctx.lineTo(sx2 + 2, sy2 + dripLen);ctx.closePath();ctx.fill();
+					ctx.beginPath();ctx.arc(sx2 + 0.5, sy2 + dripLen + 2, 2, 0, Math.PI * 2);ctx.fill();
+				}
+				// Woodpecker holes (small row on one side)
+				ctx.fillStyle = '#1a1005';
+				for(let wi = 0; wi < 5; wi++){
+					ctx.beginPath();ctx.arc(trunkX - 70, trunkTop + 1000 + wi * 35 + Math.sin(wi) * 5, 3, 0, Math.PI * 2);ctx.fill();
+				}
+				// Climbing ivy vines on trunk
+				ctx.strokeStyle = 'rgba(40,90,30,0.3)'; ctx.lineWidth = 1.5;
+				for(let iv = 0; iv < 3; iv++){
+					const ivBaseX = trunkX + (-80 + iv * 70);
+					ctx.beginPath();
+					for(let ivY = trunkBottom - 100; ivY > trunkTop + 200; ivY -= 30){
+						if(ivY > openTop - 5 && ivY < openBot + 5) { ctx.moveTo(ivBaseX + Math.sin(ivY * 0.015 + iv) * 15, ivY - 30); continue; }
+						const ivX = ivBaseX + Math.sin(ivY * 0.015 + iv) * 15;
+						if(ivY === trunkBottom - 100) ctx.moveTo(ivX, ivY);
+						else ctx.lineTo(ivX, ivY);
+					}
+					ctx.stroke();
+					// Small leaves along ivy
+					ctx.fillStyle = 'rgba(50,110,40,0.25)';
+					for(let ivY = trunkBottom - 100; ivY > trunkTop + 300; ivY -= 60){
+						if(ivY > openTop - 5 && ivY < openBot + 5) continue;
+						const ivX = ivBaseX + Math.sin(ivY * 0.015 + iv) * 15;
+						ctx.beginPath(); ctx.ellipse(ivX + 4, ivY, 4, 2.5, 0.5, 0, Math.PI * 2); ctx.fill();
+					}
+				}
+				// Roots at base (more detailed, spreading wider)
 				ctx.fillStyle = '#2a1a0a';
-				for(let ri = -3; ri <= 3; ri++){
-					const rx = trunkX + ri * 80;
+				for(let ri = -4; ri <= 4; ri++){
+					const rx = trunkX + ri * 65;
+					const rw = 12 + Math.abs(ri) * 3;
 					ctx.beginPath();
 					ctx.moveTo(rx, trunkBottom);
-					ctx.quadraticCurveTo(rx + ri * 40, trunkBottom + 60, rx + ri * 100, trunkBottom + 30);
-					ctx.lineTo(rx + ri * 100, trunkBottom + 40);
-					ctx.quadraticCurveTo(rx + ri * 40, trunkBottom + 70, rx, trunkBottom + 10);
+					ctx.quadraticCurveTo(rx + ri * 35, trunkBottom + 50 + Math.abs(ri) * 8, rx + ri * 90, trunkBottom + 25);
+					ctx.lineTo(rx + ri * 90, trunkBottom + 35);
+					ctx.quadraticCurveTo(rx + ri * 35, trunkBottom + 60 + Math.abs(ri) * 8, rx, trunkBottom + 8);
 					ctx.closePath(); ctx.fill();
 				}
-				// Canopy at top
+				// Root moss
+				ctx.fillStyle = 'rgba(40,90,40,0.2)';
+				for(let rm = -3; rm <= 3; rm++){
+					const rmx = trunkX + rm * 65 + rm * 30;
+					ctx.beginPath(); ctx.ellipse(rmx, trunkBottom + 20, 15, 5, rm * 0.1, 0, Math.PI * 2); ctx.fill();
+				}
+				// Canopy at top (multi-layered)
+				ctx.globalAlpha = 0.5;
+				ctx.fillStyle = '#1a4a1a';
+				ctx.beginPath();ctx.ellipse(trunkX, trunkTop - 80, 550, 280, 0, 0, Math.PI * 2);ctx.fill();
 				ctx.fillStyle = '#2a5a2a';
 				ctx.globalAlpha = 0.7;
-				ctx.beginPath();
-				ctx.ellipse(trunkX, trunkTop - 100, 500, 250, 0, 0, Math.PI * 2);
-				ctx.fill();
+				ctx.beginPath();ctx.ellipse(trunkX, trunkTop - 100, 500, 250, 0, 0, Math.PI * 2);ctx.fill();
+				ctx.fillStyle = '#3a6a3a';
+				ctx.globalAlpha = 0.6;
+				ctx.beginPath();ctx.ellipse(trunkX - 100, trunkTop - 60, 200, 150, -0.2, 0, Math.PI * 2);ctx.fill();
+				ctx.beginPath();ctx.ellipse(trunkX + 120, trunkTop - 50, 180, 130, 0.3, 0, Math.PI * 2);ctx.fill();
+				// Leaf cluster highlights
+				ctx.fillStyle = 'rgba(70,130,60,0.3)';
+				for(let li = 0; li < 12; li++){
+					const la = li / 12 * Math.PI * 2;
+					const lr = 200 + (li * 37 % 100);
+					ctx.beginPath();ctx.arc(trunkX + Math.cos(la) * lr, trunkTop - 100 + Math.sin(la) * (lr * 0.4), 40 + li % 3 * 15, 0, Math.PI * 2);ctx.fill();
+				}
+				// Individual leaf details in canopy
+				ctx.globalAlpha = 0.25;
+				ctx.fillStyle = '#4a8a4a';
+				for(let ld = 0; ld < 30; ld++){
+					const la2 = ld / 30 * Math.PI * 2 + 0.5;
+					const lr2 = 120 + (ld * 43 % 200);
+					const lx3 = trunkX + Math.cos(la2) * lr2;
+					const ly3 = trunkTop - 100 + Math.sin(la2) * (lr2 * 0.35);
+					ctx.beginPath(); ctx.ellipse(lx3, ly3, 6, 3, la2, 0, Math.PI * 2); ctx.fill();
+				}
+				ctx.globalAlpha = 1;
+				// Hanging branches from canopy edges
+				ctx.strokeStyle = '#2a3a1a';ctx.lineWidth = 2;
+				for(let bi = 0; bi < 6; bi++){
+					const ba = (bi / 6 - 0.5) * Math.PI + Math.PI / 2;
+					const bsx = trunkX + Math.cos(ba) * 420;
+					const bsy = trunkTop - 100 + Math.sin(ba) * 200;
+					ctx.beginPath();ctx.moveTo(bsx, bsy);
+					ctx.quadraticCurveTo(bsx + (bi - 3) * 20, bsy + 60, bsx + (bi - 3) * 10, bsy + 80);ctx.stroke();
+					ctx.fillStyle = '#3a6a3a';ctx.globalAlpha = 0.5;
+					ctx.beginPath();ctx.ellipse(bsx + (bi - 3) * 10, bsy + 80, 15, 8, 0, 0, Math.PI * 2);ctx.fill();
+				}
 				ctx.globalAlpha = 1;
 			}
+		}
+
+		// === GIANT FOREST DECORATIONS (make the player feel lost in an enormous forest) ===
+		if(!isUnderground){
+			const _grdY = SYLVARIS_CONFIG.groundY - camera.y;
+			const _t = Date.now() * 0.001;
+			// --- Background giant trees (behind everything, large and towering) ---
+			const bgTreePositions = [800,1800,3200,4500,5600,6300,8200,9500,10800,11600,12400,15200,16500,17300,18800,19500];
+			for(const tx of bgTreePositions){
+				const sx = tx - camera.x;
+				if(sx < -500 || sx > canvas.width + 500) continue;
+				const tH = 600 + ((tx * 71) % 400); // 600-1000px tall
+				const tW = 80 + ((tx * 37) % 60);  // 80-140px wide trunk
+				const treeTop = _grdY - tH;
+				const canR = 160 + ((tx * 53) % 120); // canopy radius 160-280
+				// Deep trunk (darker, background)
+				const tGrad = ctx.createLinearGradient(sx - tW/2, 0, sx + tW/2, 0);
+				tGrad.addColorStop(0, '#1a120a');
+				tGrad.addColorStop(0.3, '#2a1d12');
+				tGrad.addColorStop(0.7, '#2a1d12');
+				tGrad.addColorStop(1, '#1a120a');
+				ctx.fillStyle = tGrad;
+				ctx.fillRect(sx - tW/2, treeTop + canR * 0.4, tW, _grdY - treeTop - canR * 0.4);
+				// Bark lines
+				ctx.strokeStyle = 'rgba(60,45,20,0.15)'; ctx.lineWidth = 1;
+				for(let by = treeTop + canR * 0.5; by < _grdY; by += 40){
+					ctx.beginPath();
+					ctx.moveTo(sx - tW/2 + 5, by);
+					ctx.quadraticCurveTo(sx + Math.sin(by * 0.01) * 10, by + 20, sx + tW/2 - 5, by);
+					ctx.stroke();
+				}
+				// Massive canopy (layered, dark)
+				ctx.globalAlpha = 0.35;
+				ctx.fillStyle = '#0d2a0d';
+				ctx.beginPath(); ctx.ellipse(sx, treeTop + canR * 0.3, canR * 1.2, canR * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+				ctx.fillStyle = '#1a3a1a';
+				ctx.globalAlpha = 0.45;
+				ctx.beginPath(); ctx.ellipse(sx - canR * 0.2, treeTop + canR * 0.35, canR * 0.7, canR * 0.6, -0.15, 0, Math.PI * 2); ctx.fill();
+				ctx.beginPath(); ctx.ellipse(sx + canR * 0.25, treeTop + canR * 0.4, canR * 0.65, canR * 0.55, 0.2, 0, Math.PI * 2); ctx.fill();
+				ctx.globalAlpha = 1;
+				// Exposed roots
+				ctx.fillStyle = '#1a120a';
+				for(let ri = -2; ri <= 2; ri++){
+					if(ri === 0) continue;
+					ctx.beginPath();
+					ctx.moveTo(sx + ri * tW * 0.3, _grdY);
+					ctx.quadraticCurveTo(sx + ri * tW * 0.6, _grdY + 15, sx + ri * tW * 0.9, _grdY + 5);
+					ctx.lineTo(sx + ri * tW * 0.9, _grdY + 12);
+					ctx.quadraticCurveTo(sx + ri * tW * 0.6, _grdY + 25, sx + ri * tW * 0.3, _grdY + 6);
+					ctx.closePath(); ctx.fill();
+				}
+			}
+			// --- Giant ferns (200-350px tall, scattered along the ground) ---
+			const fernPositions = [400,1100,1500,2000,2500,3000,3600,4100,4800,5200,5900,6600,7600,8600,9200,9800,10300,11200,11900,12800,13200,15600,16100,17000,17700,18100,19000,19800];
+			for(const fx of fernPositions){
+				const fsx = fx - camera.x;
+				if(fsx < -200 || fsx > canvas.width + 200) continue;
+				const fH = 200 + ((fx * 43) % 150); // 200-350px tall
+				const fBase = _grdY;
+				const fronds = 5 + ((fx * 17) % 4); // 5-8 fronds
+				// Thick central stalk
+				ctx.strokeStyle = '#2a5a20'; ctx.lineWidth = 4;
+				ctx.beginPath(); ctx.moveTo(fsx, fBase); ctx.lineTo(fsx + Math.sin(fx * 0.1) * 8, fBase - fH * 0.5); ctx.stroke();
+				// Curving fronds
+				for(let fi = 0; fi < fronds; fi++){
+					const side = fi % 2 === 0 ? -1 : 1;
+					const frac = 0.15 + (fi / fronds) * 0.7;
+					const startY = fBase - fH * frac;
+					const endX = fsx + side * (80 + ((fx + fi * 31) % 60));
+					const endY = startY + fH * 0.15;
+					const sway = Math.sin(_t * 0.8 + fx * 0.01 + fi) * 5;
+					// Main frond stem
+					ctx.strokeStyle = '#2a6a25'; ctx.lineWidth = 2.5;
+					ctx.beginPath(); ctx.moveTo(fsx, startY);
+					ctx.quadraticCurveTo(fsx + side * 40 + sway, startY - 20, endX + sway, endY); ctx.stroke();
+					// Leaflets along frond
+					ctx.fillStyle = (fi + Math.floor(fx)) % 3 === 0 ? '#3a8a35' : '#2a7a28';
+					const leafCount = 6 + ((fx + fi) % 3);
+					for(let li = 0; li < leafCount; li++){
+						const lt = (li + 1) / (leafCount + 1);
+						const lx = fsx + (endX + sway - fsx) * lt;
+						const ly = startY + (endY - startY) * lt + Math.sin(lt * 3) * 5;
+						ctx.globalAlpha = 0.5;
+						ctx.beginPath(); ctx.ellipse(lx, ly, 10 + li * 1.5, 4, side * (0.3 + lt * 0.4), 0, Math.PI * 2); ctx.fill();
+					}
+				}
+				ctx.globalAlpha = 1;
+			}
+			// --- Massive boulders (mossy, partially buried) ---
+			const boulderPositions = [600,2300,3800,5100,7400,8800,10500,13600,16300,18500];
+			for(const bx of boulderPositions){
+				const bsx = bx - camera.x;
+				if(bsx < -150 || bsx > canvas.width + 150) continue;
+				const bW = 80 + ((bx * 29) % 80); // 80-160px wide
+				const bH = 50 + ((bx * 41) % 50); // 50-100px tall
+				// Stone body
+				const bGrad = ctx.createRadialGradient(bsx, _grdY - bH * 0.4, 5, bsx, _grdY - bH * 0.3, bW * 0.6);
+				bGrad.addColorStop(0, '#6a6a6a');
+				bGrad.addColorStop(0.6, '#4a4a4a');
+				bGrad.addColorStop(1, '#3a3a3a');
+				ctx.fillStyle = bGrad;
+				ctx.beginPath();
+				ctx.ellipse(bsx, _grdY - bH * 0.3, bW * 0.55, bH * 0.6, ((bx * 13) % 30 - 15) * 0.01, 0, Math.PI * 2);
+				ctx.fill();
+				// Top moss
+				ctx.fillStyle = 'rgba(50,100,40,0.35)';
+				ctx.beginPath();
+				ctx.ellipse(bsx, _grdY - bH * 0.55, bW * 0.4, bH * 0.2, 0, Math.PI, Math.PI * 2);
+				ctx.fill();
+				// Cracks
+				ctx.strokeStyle = 'rgba(30,30,30,0.2)'; ctx.lineWidth = 1;
+				ctx.beginPath(); ctx.moveTo(bsx - bW * 0.15, _grdY - bH * 0.35);
+				ctx.lineTo(bsx + bW * 0.1, _grdY - bH * 0.5); ctx.stroke();
+			}
+			// --- Tall mushroom clusters (oversized, forest-floor) ---
+			const mushroomPositions = [700,1350,2700,3500,4300,5500,6100,7800,9000,10100,11400,12100,15900,17500,19200];
+			for(const mx of mushroomPositions){
+				const msx = mx - camera.x;
+				if(msx < -100 || msx > canvas.width + 100) continue;
+				const count = 2 + ((mx * 11) % 3); // 2-4 mushrooms per cluster
+				for(let mi = 0; mi < count; mi++){
+					const mOff = (mi - count / 2) * 30;
+					const mH = 60 + ((mx + mi * 23) % 80); // 60-140px tall stem
+					const capR = 25 + ((mx + mi * 37) % 30); // 25-55px cap radius
+					const lean = Math.sin(mx * 0.05 + mi) * 10;
+					const stemX = msx + mOff;
+					// Stem
+					ctx.fillStyle = '#c8b898';
+					ctx.beginPath();
+					ctx.moveTo(stemX - 5, _grdY);
+					ctx.quadraticCurveTo(stemX + lean * 0.3 - 4, _grdY - mH * 0.5, stemX + lean - 3, _grdY - mH);
+					ctx.lineTo(stemX + lean + 3, _grdY - mH);
+					ctx.quadraticCurveTo(stemX + lean * 0.3 + 4, _grdY - mH * 0.5, stemX + 5, _grdY);
+					ctx.closePath(); ctx.fill();
+					// Cap
+					const capColor = ((mx + mi) % 3 === 0) ? '#cc4444' : ((mx + mi) % 3 === 1) ? '#bb7733' : '#aa55aa';
+					ctx.fillStyle = capColor;
+					ctx.beginPath();
+					ctx.ellipse(stemX + lean, _grdY - mH, capR, capR * 0.5, 0, Math.PI, Math.PI * 2);
+					ctx.fill();
+					// Cap underside (gills)
+					ctx.fillStyle = 'rgba(200,180,140,0.3)';
+					ctx.beginPath();
+					ctx.ellipse(stemX + lean, _grdY - mH + 2, capR * 0.85, capR * 0.15, 0, 0, Math.PI);
+					ctx.fill();
+					// Spots on cap
+					ctx.fillStyle = 'rgba(255,255,255,0.3)';
+					for(let si = 0; si < 3; si++){
+						const sa = (si / 3) * Math.PI + 0.3;
+						ctx.beginPath(); ctx.arc(stemX + lean + Math.cos(sa) * capR * 0.5, _grdY - mH - Math.sin(sa) * capR * 0.25, 3 + si % 2, 0, Math.PI * 2); ctx.fill();
+					}
+				}
+			}
+			// --- Thick undergrowth / bush clusters ---
+			const bushPositions = [300,900,1600,2150,2800,3400,4000,4600,5300,6000,6800,7500,8400,9300,9900,10600,11300,12000,12600,15400,16000,16800,17600,18300,19100,19600];
+			for(const ux of bushPositions){
+				const usx = ux - camera.x;
+				if(usx < -120 || usx > canvas.width + 120) continue;
+				const bW2 = 80 + ((ux * 31) % 80); // 80-160px wide
+				const bH2 = 40 + ((ux * 47) % 50); // 40-90px tall
+				ctx.fillStyle = '#1a4a1a';
+				ctx.globalAlpha = 0.5;
+				ctx.beginPath(); ctx.ellipse(usx, _grdY - bH2 * 0.3, bW2 * 0.55, bH2 * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+				ctx.fillStyle = '#2a5a2a';
+				ctx.globalAlpha = 0.6;
+				ctx.beginPath(); ctx.ellipse(usx - bW2 * 0.15, _grdY - bH2 * 0.4, bW2 * 0.35, bH2 * 0.45, -0.1, 0, Math.PI * 2); ctx.fill();
+				ctx.beginPath(); ctx.ellipse(usx + bW2 * 0.2, _grdY - bH2 * 0.35, bW2 * 0.3, bH2 * 0.5, 0.15, 0, Math.PI * 2); ctx.fill();
+				ctx.globalAlpha = 1;
+			}
+			// --- Tall grass patches (wavy, 60-120px tall) ---
+			for(let gx = Math.floor((camera.x - 50) / 120) * 120; gx < camera.x + canvas.width + 50; gx += 120){
+				const gsx = gx - camera.x;
+				const grassH = 60 + ((gx * 23 + 77) % 60);
+				const blades = 5 + ((gx * 7) % 4);
+				for(let gi = 0; gi < blades; gi++){
+					const bx2 = gsx + (gi - blades / 2) * 12;
+					const sway = Math.sin(_t * 1.2 + gx * 0.01 + gi * 0.8) * 6;
+					const h2 = grassH * (0.6 + ((gi * 17 + gx) % 40) / 100);
+					ctx.strokeStyle = ((gx + gi) % 3 === 0) ? '#3a7a3a' : '#2a6a2a';
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(bx2, _grdY);
+					ctx.quadraticCurveTo(bx2 + sway * 0.4, _grdY - h2 * 0.6, bx2 + sway, _grdY - h2);
+					ctx.stroke();
+				}
+			}
+		}
+
+		// === ATMOSPHERIC EFFECTS & HANGING VINES ===
+		{const _cx3=camera.x, _cy3=camera.y, _cw3=canvas.width, _ch3=canvas.height, _t3=Date.now()*0.001;
+		const _gY3=SYLVARIS_CONFIG.groundY-_cy3;
+
+		if(!isUnderground && !isTreetop){
+		// Hanging vines from elevated platforms
+		ctx.strokeStyle='#2a5a2a';ctx.lineWidth=1.5;
+		for(const pl of sandboxPlatforms){
+			if(pl.y>=SYLVARIS_CONFIG.groundY||pl.y>SYLVARIS_CONFIG.groundY-150)continue;
+			const px4=pl.x-_cx3,py4=pl.y-_cy3;
+			if(px4+pl.w<-30||px4>_cw3+30)continue;
+			const vc=Math.floor(pl.w/45);
+			for(let v=0;v<vc;v++){
+				const vx=px4+20+v*45,vl=14+((pl.x+v*17)*31%22);
+				const sway=Math.sin(_t3*1.2+(pl.x+v)*0.03)*2;
+				ctx.strokeStyle='#2a5a2a';ctx.lineWidth=1.5;
+				ctx.beginPath();ctx.moveTo(vx,py4+pl.h);ctx.quadraticCurveTo(vx+sway,py4+pl.h+vl*0.6,vx+sway*0.7,py4+pl.h+vl);ctx.stroke();
+				ctx.fillStyle='#3a7a3a';ctx.beginPath();ctx.ellipse(vx+sway*0.7,py4+pl.h+vl,3,1.5,0.3,0,Math.PI*2);ctx.fill();
+			}
+		}
+
+		// Fireflies
+		for(let i=0;i<25;i++){
+			const s=((i*48271+999)>>>0);
+			const bwx=100+(s%12000), bwy=SYLVARIS_CONFIG.groundY-30-((s>>>8)%180);
+			const wx=bwx+Math.sin(_t3*0.3+i*1.7)*25, wy=bwy+Math.cos(_t3*0.4+i*2.1)*12;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-8||sx>_cw3+8||sy<0||sy>_ch3)continue;
+			const br=0.3+Math.sin(_t3*2+i*3.14)*0.3;
+			if(br<0.15)continue;
+			ctx.globalAlpha=br;ctx.fillStyle='rgba(180,255,100,0.12)';ctx.beginPath();ctx.arc(sx,sy,6,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#ccff88';ctx.beginPath();ctx.arc(sx,sy,1.2,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		// Floating pollen/seeds
+		for(let i=0;i<15;i++){
+			const s=((i*6151+47)>>>0);
+			const bx=((s%2000)+_t3*8+i*200)%2000-(_cx3*0.4)%2000;
+			const by=100+(s>>>8)%(_ch3-200)+Math.sin(_t3*0.5+i*1.3)*20;
+			ctx.globalAlpha=0.2+Math.sin(_t3+i)*0.1;
+			ctx.fillStyle='#ddddaa';ctx.beginPath();ctx.arc(bx,by,1.2,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		// Ground fog wisps
+		ctx.globalAlpha=0.04;ctx.fillStyle='#88cc88';
+		for(let i=0;i<10;i++){
+			const fx=((i*547+Math.floor(_t3*10))%2000)-(_cx3*0.3)%2000;
+			ctx.beginPath();ctx.ellipse(fx,_gY3-12+Math.sin(_t3+i)*4,85+(i%3)*22,10,0,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		// Falling leaves (gentle drifting)
+		for(let i=0;i<12;i++){
+			const phase=_t3*0.4+i*5.1;
+			const lx=(((i*773+Math.floor(_t3*15))%1800))-(_cx3*0.5)%1800;
+			const ly=((phase*30)%(_ch3+100))-50;
+			const lsway=Math.sin(phase*2)*8;
+			ctx.globalAlpha=0.25;
+			ctx.fillStyle=i%3===0?'#5a8a3a':i%3===1?'#7a6a2a':'#4a7a4a';
+			ctx.save();ctx.translate(lx+lsway,ly);ctx.rotate(Math.sin(phase*1.5)*0.5);
+			ctx.beginPath();ctx.ellipse(0,0,3,1.5,0,0,Math.PI*2);ctx.fill();
+			ctx.restore();
+		}
+		ctx.globalAlpha=1;
+
+		} else if(isUnderground){
+		// === CAVE DECORATIONS ===
+
+		// Glowing crystals (main cave system)
+		for(let i=0;i<40;i++){
+			const s=((i*31337+77)>>>0);
+			const wx=6900+(s%4800), wy=3060+(s>>>8)%900;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-12||sx>_cw3+12||sy<0||sy>_ch3)continue;
+			const csz=3+(s>>>12)%6, ct=(s>>>16)%3;
+			const cc=['#44aaff','#aa44ff','#44ffaa'][ct];
+			const p2=0.5+Math.sin(_t3*2+i*1.3)*0.25;
+			ctx.globalAlpha=p2;ctx.fillStyle=cc;
+			ctx.save();ctx.translate(sx,sy);ctx.rotate((s%628)/100);
+			ctx.beginPath();ctx.moveTo(0,-csz);ctx.lineTo(csz*0.3,0);ctx.lineTo(0,csz*0.3);ctx.lineTo(-csz*0.3,0);ctx.closePath();ctx.fill();
+			ctx.restore();
+			ctx.globalAlpha=p2*0.1;ctx.fillStyle=cc;ctx.beginPath();ctx.arc(sx,sy,csz*3,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Corrupted tunnel crystals (purple/red tones)
+		for(let i=0;i<30;i++){
+			const s=((i*48271+333)>>>0);
+			const wx=12800+(s%6200), wy=3100+(s>>>8)%1100;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-12||sx>_cw3+12||sy<0||sy>_ch3)continue;
+			const csz=3+(s>>>12)%5, ct=(s>>>16)%3;
+			const cc=['#aa2266','#662244','#cc3355'][ct];
+			const p2=0.4+Math.sin(_t3*1.5+i*1.7)*0.2;
+			ctx.globalAlpha=p2;ctx.fillStyle=cc;
+			ctx.save();ctx.translate(sx,sy);ctx.rotate((s%628)/100);
+			ctx.beginPath();ctx.moveTo(0,-csz);ctx.lineTo(csz*0.35,csz*0.15);ctx.lineTo(0,csz*0.4);ctx.lineTo(-csz*0.35,csz*0.15);ctx.closePath();ctx.fill();
+			ctx.restore();
+			ctx.globalAlpha=p2*0.08;ctx.fillStyle=cc;ctx.beginPath();ctx.arc(sx,sy,csz*3,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Cave mushrooms (bioluminescent)
+		for(let i=0;i<22;i++){
+			const s=((i*16807+13)>>>0);
+			const wx=7000+(s%4500), wy=3300+(s>>>8)%100;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-12||sx>_cw3+12||sy<0||sy>_ch3)continue;
+			const mh=4+(s>>>12)%6, cr=3+(s>>>16)%3;
+			const mc=(s>>>20)%2===0?'#44ddaa':'#88aaff';
+			ctx.fillStyle='#887766';ctx.fillRect(sx-1,sy-mh,2,mh);
+			ctx.fillStyle=mc;ctx.beginPath();ctx.ellipse(sx,sy-mh,cr,cr*0.45,0,0,Math.PI*2);ctx.fill();
+			const p2=0.12+Math.sin(_t3*3+i*2)*0.07;
+			ctx.globalAlpha=p2;ctx.fillStyle=mc;ctx.beginPath();ctx.arc(sx,sy-mh,cr*3,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Corrupted cave mushrooms (darker, pulsing red)
+		for(let i=0;i<15;i++){
+			const s=((i*6151+91)>>>0);
+			const wx=14000+(s%5000), wy=3300+(s>>>8)%800;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-12||sx>_cw3+12||sy<0||sy>_ch3)continue;
+			const mh=4+(s>>>12)%5, cr=2+(s>>>16)%3;
+			ctx.fillStyle='#554433';ctx.fillRect(sx-1,sy-mh,2,mh);
+			ctx.fillStyle='#cc3366';ctx.beginPath();ctx.ellipse(sx,sy-mh,cr,cr*0.45,0,0,Math.PI*2);ctx.fill();
+			const p2=0.1+Math.sin(_t3*2+i*1.8)*0.06;
+			ctx.globalAlpha=p2;ctx.fillStyle='rgba(200,50,100,0.2)';ctx.beginPath();ctx.arc(sx,sy-mh,cr*3,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Water drip particles (animated)
+		for(let i=0;i<14;i++){
+			const s=((i*6151+47)>>>0);
+			const wx=7100+(s%4400);
+			const dripCycle=((_t3*40+i*200)%120);
+			const wy=3060+dripCycle*2.2;
+			const sx=wx-_cx3, sy=wy-_cy3;
+			if(sx<-3||sx>_cw3+3||sy<0||sy>_ch3)continue;
+			const fade=dripCycle<100?0.35:0.35*(1-(dripCycle-100)/20);
+			ctx.globalAlpha=fade;ctx.fillStyle='#6688cc';ctx.beginPath();ctx.arc(sx,sy,1.5,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Mushroom Grotto landmark glow (x:7880-8400, y:3020-3440)
+		const mgX=8140-_cx3, mgY=3230-_cy3;
+		if(mgX>-400&&mgX<_cw3+400&&mgY>-200&&mgY<_ch3+200){
+			ctx.globalAlpha=0.06+Math.sin(_t3*1.5)*0.02;
+			ctx.fillStyle='rgba(68,221,170,0.15)';ctx.beginPath();ctx.arc(mgX,mgY,120,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Crystal Chamber landmark glow (x:8080-8600, y:3380-3780)
+		const ccX=8340-_cx3, ccY=3580-_cy3;
+		if(ccX>-400&&ccX<_cw3+400&&ccY>-200&&ccY<_ch3+200){
+			ctx.globalAlpha=0.05+Math.sin(_t3*1.2+2)*0.02;
+			const ccGlow=ctx.createRadialGradient(ccX,ccY,0,ccX,ccY,100);
+			ccGlow.addColorStop(0,'rgba(120,80,255,0.12)');ccGlow.addColorStop(1,'transparent');
+			ctx.fillStyle=ccGlow;ctx.beginPath();ctx.arc(ccX,ccY,100,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+		}
+
+		// Cave ambient fog (subtle)
+		ctx.globalAlpha=0.03;ctx.fillStyle='#6a6a8a';
+		for(let i=0;i<8;i++){
+			const fx=((i*641+Math.floor(_t3*6))%1800)-(_cx3*0.2)%1800;
+			const fy=(3250-_cy3)+((i*131)%200);
+			ctx.beginPath();ctx.ellipse(fx,fy,100+(i%3)*30,20,0,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		} else if(isTreetop){
+		// === TREETOP DECORATIONS ===
+
+		// Butterflies
+		for(let i=0;i<8;i++){
+			const bx=((i*477+Math.floor(_t3*20))%1200)-(_cx3*0.3)%1200;
+			const by=200+(i*97)%300+Math.sin(_t3*1.5+i*2)*30;
+			const wingPhase=Math.sin(_t3*6+i*3);
+			ctx.globalAlpha=0.5;
+			ctx.fillStyle=i%3===0?'#ff88aa':i%3===1?'#88aaff':'#ffcc44';
+			ctx.save();ctx.translate(bx,by);
+			ctx.beginPath();ctx.ellipse(-3,0,3*Math.abs(wingPhase),4,0,0,Math.PI*2);ctx.fill();
+			ctx.beginPath();ctx.ellipse(3,0,3*Math.abs(wingPhase),4,0,0,Math.PI*2);ctx.fill();
+			ctx.fillStyle='#333';ctx.fillRect(-0.5,-2,1,4);
+			ctx.restore();
+			ctx.globalAlpha=1;
+		}
+
+		// Cloud wisps (additional to existing clouds)
+		ctx.globalAlpha=0.08;ctx.fillStyle='#ffffff';
+		for(let i=0;i<6;i++){
+			const cx2=((i*831+Math.floor(_t3*5))%1600)-(_cx3*0.05)%1600;
+			const cy2=50+(i*127)%250;
+			ctx.beginPath();ctx.ellipse(cx2,cy2,120+(i%2)*40,15,0,0,Math.PI*2);ctx.fill();
+		}
+		ctx.globalAlpha=1;
+
+		// Leaves caught in updraft
+		for(let i=0;i<10;i++){
+			const phase2=_t3*0.6+i*4.3;
+			const lx=((i*313+Math.floor(_t3*12))%1400)-(_cx3*0.35)%1400;
+			const ly=_ch3-((phase2*25)%(_ch3+80))+40;
+			ctx.globalAlpha=0.3;
+			ctx.fillStyle=i%2===0?'#5a8a3a':'#7a9a4a';
+			ctx.save();ctx.translate(lx,ly);ctx.rotate(phase2*1.8);
+			ctx.beginPath();ctx.ellipse(0,0,3,1.5,0,0,Math.PI*2);ctx.fill();
+			ctx.restore();
+			ctx.globalAlpha=1;
+		}
+		}
 		}
 
 		// Draw NPCs
@@ -27053,7 +28468,8 @@ function render(){
 					// Solid tile (wall)
 					const hash = (r * 73 + c * 137) % 20;
 					const inTemple = c >= templeCol;
-					ctx.fillStyle = inTemple ? (hash < 14 ? '#1a3040' : '#1a3848') : (hash < 14 ? wc1 : wc2);
+					const isSylvarisGround = IS_SYLVARIS && r === sylvarisGroundRow;
+					ctx.fillStyle = inTemple ? (hash < 14 ? '#1a3040' : '#1a3848') : isSylvarisGround ? (hash < 14 ? '#2a5020' : '#335828') : (hash < 14 ? wc1 : wc2);
 					ctx.fillRect(sx,sy,TILE,TILE);
 
 					// Edge highlights
@@ -27580,7 +28996,7 @@ function render(){
 				const r2=p.shape==='orb'?p.width*1.3:p.width*0.7;
 				// Archmage: draw elemental missile variants
 				if(hasClass('archmage') && p.effects && p.shape==='missile'){
-					const _ae=p.effects[0]; // first effect determines visual
+					const _ae=p.effects.find(fx=>['burn','freeze','poison','stun','lifesteal','shatter'].includes(fx)); // first elemental effect determines visual
 					if(_ae==='burn'){
 						// Flame teardrop
 						const tAng=Math.atan2(p.vy,p.vx);
@@ -31896,7 +33312,70 @@ function renderDecorations(){
 /* =============================================================
    GAME LOOP
    ============================================================= */
-function loop(){update();updateHealthHUD();render();requestAnimationFrame(loop);}
+let _debugTimer=0;
+function updateDebugPanel(){
+	if(!document.getElementById('debugPanel').classList.contains('open'))return;
+	_debugTimer++;if(_debugTimer%10!==0)return; // update every 10 frames
+	const p=player;
+	const tileCol=Math.floor(p.x/TILE),tileRow=Math.floor(p.y/TILE);
+	const footRow=Math.floor((p.y+p.h-1)/TILE);
+	const isUnderground=IS_SYLVARIS&&p.y+p.h>SYLVARIS_CONFIG.groundY;
+	const groundRow=IS_SYLVARIS?Math.floor(SYLVARIS_CONFIG.groundY/TILE):-1;
+
+	let txt='=== PLAYER ===\n';
+	txt+=`pos: (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  size: ${p.w}x${p.h}\n`;
+	txt+=`vel: (${p.vx.toFixed(2)}, ${p.vy.toFixed(2)})  onGround: ${p.onGround}\n`;
+	txt+=`tile: col=${tileCol} row=${tileRow}  footRow=${footRow}\n`;
+	txt+=`underground: ${isUnderground}  groundY: ${IS_SYLVARIS?SYLVARIS_CONFIG.groundY:'N/A'}\n`;
+	if(IS_SYLVARIS){
+		txt+=`groundRow: ${groundRow}  dist-to-groundY: ${(SYLVARIS_CONFIG.groundY-(p.y+p.h)).toFixed(1)}\n`;
+		// Check tiles around player head (ceiling)
+		const headRow=Math.floor(p.y/TILE);
+		const pcCol=Math.floor((p.x+p.w/2)/TILE);
+		txt+=`headTile: solid(${pcCol},${headRow})=${typeof isSolid==='function'?isSolid(pcCol,headRow):'?'}`;
+		txt+=`  aboveHead: solid(${pcCol},${headRow-1})=${typeof isSolid==='function'?isSolid(pcCol,headRow-1):'?'}\n`;
+		// Check tile at ground row
+		txt+=`groundTile: solid(${pcCol},${groundRow})=${typeof isSolid==='function'?isSolid(pcCol,groundRow):'?'}\n`;
+		// Check if over a ground platform
+		let overPlat=false;
+		for(const pl of sandboxPlatforms){
+			if(pl.y===SYLVARIS_CONFIG.groundY&&(p.x+p.w/2)>=pl.x&&(p.x+p.w/2)<=pl.x+pl.w){overPlat=true;break;}
+		}
+		txt+=`overGroundPlatform: ${overPlat}\n`;
+	}
+
+	// Solidify projectiles
+	const solids=projectiles.filter(pr=>pr.isSolidPlatform);
+	txt+=`\n=== SOLIDIFY (${solids.length}) ===\n`;
+	for(const s of solids){
+		const sb=getSolidBox(s);
+		txt+=`pos:(${s.x.toFixed(1)},${s.y.toFixed(1)}) vel:(${s.vx.toFixed(1)},${s.vy.toFixed(1)}) mom:${(s.momentum||0).toFixed(1)} shape:${s.shape}\n`;
+		txt+=`  box:(${sb.x.toFixed(0)},${sb.y.toFixed(0)},${sb.w.toFixed(0)},${sb.h.toFixed(0)})`;
+		const sc=Math.floor(s.x/TILE),sr=Math.floor(s.y/TILE);
+		txt+=`  tile:(${sc},${sr}) solid:${typeof isSolid==='function'?isSolid(sc,sr):'?'}\n`;
+	}
+
+	// Nearby enemies
+	const nearEn=enemies.filter(e=>!e.dead&&Math.abs(e.x-p.x)<600&&Math.abs(e.y-p.y)<400);
+	txt+=`\n=== NEARBY ENEMIES (${nearEn.length}) ===\n`;
+	for(const e of nearEn.slice(0,5)){
+		txt+=`${e.typeDef?e.typeDef.name:'?'} pos:(${e.x.toFixed(0)},${e.y.toFixed(0)}) vel:(${e.vx.toFixed(1)},${e.vy.toFixed(1)}) flies:${e.typeDef?e.typeDef.flies:false}\n`;
+		// Check if _solidPushBlocked would fire
+		if(typeof _solidPushBlocked==='function'){
+			txt+=`  pushBlocked: ${_solidPushBlocked(e)}\n`;
+		}
+	}
+
+	// Enemy projectiles nearby
+	const nearEP=enemyProjectiles.filter(ep=>!ep.hasHit&&Math.abs(ep.x-p.x)<400&&Math.abs(ep.y-p.y)<300);
+	txt+=`\n=== ENEMY PROJS NEAR (${nearEP.length}) ===\n`;
+	for(const ep of nearEP.slice(0,5)){
+		txt+=`pos:(${ep.x.toFixed(0)},${ep.y.toFixed(0)}) vel:(${ep.vx.toFixed(1)},${ep.vy.toFixed(1)})\n`;
+	}
+
+	document.getElementById('debugContent').textContent=txt;
+}
+function loop(){update();updateDebugPanel();updateHealthHUD();render();requestAnimationFrame(loop);}
 loop();
 </script>
 </body>
