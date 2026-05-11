@@ -305,9 +305,10 @@ A spell is an array of **phases**. When you cast:
 
 | Trigger | When it fires | Use case |
 |---|---|---|
-| **onHit** | The moment the projectile damages an enemy | Impact explosions, chain reactions, on-contact transformations |
-| **onExpire** | When the projectile's lifetime runs out | Delayed detonations, timed mines, projectile-to-AoE conversions |
-| **afterDelay** | At 60% of the projectile's total duration | Mid-flight morphs, split shots, delayed phase forks |
+| **onHit** | The instant the projectile damages an enemy | Impact explosions, chain reactions, on-contact transformations |
+| **afterHitDelay** | At the hit position after a customizable delay | Time-bomb combos, delayed detonation at impact point, mine-style traps where the explosion lingers at where you landed the hit |
+| **afterDelay** | When the projectile's total duration expires (it ran out of lifetime) | Mid-flight morphs, persistent projectile converts to AoE, fallback blast if no enemy was hit |
+| **onExpire** | When the projectile's lifetime ends after it has already hit | Cleanup second hit — fires at the enemy's position after a kill, or used to sequence follow-up phases after the initial hit fades |
 
 **Example 3-phase spell:**
 - Phase 0: Homing orb (seeks enemy) → `onHit`
@@ -905,43 +906,172 @@ The key to vows is **specialization**. Lock away things you don't use to superch
 
 ### Mage Classes
 
-Classes provide permanent passive bonuses and define your playstyle. Selected once via the class NPC.
+Classes provide permanent passive bonuses that affect every spell you cast, your movement, survivability, and how certain mechanics interact. You choose a class via the class NPC and can change it at any time. Classes affect all spell slots simultaneously, not just specific spells.
 
-#### None (Default)
-- No bonuses, no penalties. A blank slate.
-
-#### Warrior
-- **Movement speed:** 7.5 (vs 7.0 base) — fastest class.
-- **Magic Defence:** +10 flat bonus (+60 max HP).
-- **Spell range:** -40% duration/range on all spells.
-- **Melee damage bonus:** Spells that hit within 200px deal **+50% damage**. Hits within 350px deal **+20%**. Beyond 350px, no bonus.
-- **Sword attack:** Gains a physical melee slash mechanic.
-- **Playstyle:** Get close. Your spells hit harder at point-blank range but fizzle at distance. Use slash shape, groundSurge, and underfoot behavior to maximize melee presence. The +10 defence and extra speed keep you alive up close.
-
-#### Ranger
-- **Spell range/duration:** +60% on all spells — projectiles fly 60% farther and last 60% longer.
-- **Max HP:** -15% penalty.
-- **Distance damage bonus:** Up to **+80% damage** based on how far the projectile has traveled (max at 1000px distance, scaling linearly).
-- **Playstyle:** Stay far away. Your spells get stronger the farther they fly. Meteor + lob + ranger = maximum distance damage stacking. The HP penalty means you need to avoid getting hit.
-
-#### Healer
-- **Healing effectiveness:** +40% on all healing effects (`healSelf`, `damageHeal`).
-- **Damage dealt:** -20% penalty on all offensive spells.
-- **Playstyle:** Support-oriented. Build dedicated healing spells (allyOrb + selfCast + healSelf) and sustain through any fight. Your damage is lower, but you're nearly unkillable with good heal rotations. Shield effect is not boosted — only HP healing.
-
-#### Dominion Master
-- **Domain size:** +30% larger domain expansion field.
-- **Domain projectile damage:** +40% on all projectiles spawned by your domain.
-- **No penalties.**
-- **Playstyle:** Domain-centric. Everything you do is about getting your ultimate charged and expanding. The larger domain catches more enemies, and +40% damage on 35 waves of homing projectiles is devastating. Build your non-domain spells for fast mana accumulation.
-
-#### Necromancer
-- **Domain summon:** In a domain expansion with summon shape, spawns **3 powerful bestiary enemies** as allies. Summon power = `phase power × 2.5`.
-- **Summon selection:** In the spell editor, can browse your defeated-enemies bestiary to pick which enemy to summon.
-- **Ultimate cost:** Doubled (20k+ mana instead of 10k+).
-- **Playstyle:** Collect powerful enemies in your bestiary, then summon them as allies via domain expansion. The doubled cost means you need longer to charge, but having 3 powerful allies fighting for you for 60 seconds is game-changing.
+There are **7 classes** (plus the classless default). Some bonuses are purely numerical, while others add entirely new mechanics — read each carefully before committing.
 
 ---
+
+#### None / Unspecialized ⚪
+No bonuses, no penalties, no restrictions. A blank slate for players who want pure freedom to mix any shapes, behaviors, and effects without any trade-offs. Ideal during early experimentation.
+
+---
+
+#### Warrior ⚔️
+Close-range combat specialist. The Warrior class transforms Magic Battle into a high-aggression melee-centric style. Every stat bonus pushes you toward getting inside an enemy's guard, landing point-blank spells, and dominating with physical combos.
+
+**Passive Bonuses:**
+- **Movement speed:** Highest of all classes — closes distance faster than anyone.
+- **Defence:** Flat defence bonus, making melee range survivable despite the constant proximity to danger.
+- **Spell range reduced:** All spell durations and max travel distances are cut. Your spells don't perform well at long range by design — this is intentional pressure to fight up close.
+- **Melee damage bonus:** Spells that hit within **200px** deal **+50% damage**. Hits within **350px** deal **+20%**. Beyond 350px, no bonus (and reduced range means most spells won't reach farther anyway).
+
+**Active Mechanics:**
+- **Spell Blade (F key):** Press F to swing a Spell Blade that deals melee damage AND reflects nearby enemy projectiles back at them. Invaluable for both offense and defense.
+- **Blade Combo:** Successive close-range hits build a melee combo, granting bonus melee damage per stack.
+- **Backstep Anchors (Lightstep Blade item only):** When using the Lightstep Blade staff, melee attacks plant a warp anchor at the attack point. Press **B** to teleport back to your most recent anchor — a high-skill repositioning tool.
+
+**Best Shape + Behavior + Effect Combinations:**
+
+| Category | Option | Synergy |
+|---|---|---|
+| **Behavior** | Underfoot 👣 | **BEST** — spawns directly at your feet, always in melee range, always full +50% |
+| **Behavior** | Orbit 🔄 | **Great** — circles your position at melee distance, full damage bonus the entire time |
+| **Behavior** | Straight 💫 | **Good** — fire point-blank at an adjacent enemy for the melee range bonus |
+| **Behavior** | Rain 🌧️ | **AVOID** — rain falls from above after long travel; it lands past the 350px threshold with no bonus |
+| **Shape** | Chain ⛓️ | Chain stun is a melee setup tool — stun an enemy, then press F for Spell Blade while they're locked |
+| **Effect** | Pull 🧲 | **BEST** — drags enemies directly into your melee zone, making the range bonus reliable without you running to them |
+| **Effect** | Knockback 💨 | **AVOID** — sends enemies away from you, directly contradicting the Warrior's need for closeness |
+
+**Playstyle:** Get in, stay in. Max melee is 200px — roughly the distance of one enemy sprite. Pair Pull with an entry spell and Underfoot/Orbit as your main damage dealers. The Spell Blade (F) makes your defensive pressure constant — tanks incoming fire while building counter-damage. Run the Lightstep Blade staff for the Backstep warp if you want a full melee-assassin experience.
+
+---
+
+#### Ranger 🏹
+Swift and precise. Ranger is the opposite philosophy to Warrior — every stat pushes projectiles as far as possible, and damage scales steeply with travel distance.
+
+**Passive Bonuses:**
+- **Spell range and duration +60%:** Projectiles fly farther and last longer before expiring.
+- **Distance damage scaling:** All spells deal increasing damage the farther they travel (up to **+80% damage** at 1000px, scaling linearly).
+- **Max HP reduced:** Slight HP penalty as the trade-off for the potent distance bonus — getting hit is expensive.
+
+**Best Shape + Behavior Combinations:**
+
+| Category | Option | Synergy |
+|---|---|---|
+| **Shape** | Meteor ☄️ | **BEST** — Meteor has its own distance scaling (up to +200%). Ranger's bonus stacks on top for extreme multipliers |
+| **Behavior** | Straight 💫 | **BEST** — fire at max range toward a distant enemy for full Ranger distance bonus |
+| **Behavior** | Rain 🌧️ | **Good** — rain projectiles fall from high above the screen, accumulating distance the whole vertical drop |
+| **Behavior** | Orbit 🔄 | **Moderate** — orbit circles close then launches outward; only gains distance bonus from the launch phase |
+| **Behavior** | Homing 🏠 | **AVOID** — homing locks onto nearby enemies, minimizing travel and negating most Ranger bonus |
+
+**Playstyle:** Keep enemies at maximum range. Lob + Meteor is the iconic Ranger combo — both add distance bonus independently and multiplicatively. The +60% range means you can keep enemies at ranges they struggle to close before you kill them.
+
+---
+
+#### Healer 💚
+Masters of restoration. Healer amplifies all recovery mechanics on the player and reduces incoming damage, making you nearly unkillable in extended fights.
+
+**Passive Bonuses:**
+- **Incoming damage reduced:** Takes less damage from all sources.
+- **HealSelf effect amplified:** The `healSelf` effect heals for significantly more per hit.
+- **Lifesteal rate increased:** Base 20% lifesteal rises further (stacks on top of Archmage's 30% and Vow Vamp bonuses).
+
+**Best Shape + Behavior + Effect Combinations:**
+
+| Category | Option | Synergy |
+|---|---|---|
+| **Shape** | Ally Orb 💚 | **BEST** — Ally Orb's healing projectiles are directly boosted by Healer amplification; use with Damage Heal for massive burst healing |
+| **Behavior** | Beam ⚡ | **Great** — beam hits multiple times per second; each tick triggers the amplified HealSelf for constant HP recovery |
+| **Effect** | HealSelf 💚 | Core effect — Healer amplifies this above all other classes |
+| **Effect** | Lifesteal 🩸 | Passive sustain kept high on any damage-dealing spell |
+| **Effect** | Damage Heal 💗 | Store damage with combat spells, convert to healing via Ally Orb; Healer boosts the 50% conversion rate further |
+
+**Playstyle:** Run a dedicated heal spell (Ally Orb + selfCast/underfoot + healSelf) alongside your offensive spells. The reduced incoming damage and amplified healing create a virtuous loop — you shrug off hits and restore whatever gets through. Lifesteal on high-count spells covers the in-between.
+
+---
+
+#### Dominion Master 👁️
+Controllers of the battlefield. Dominion Master is entirely defined by Domain Expansion — every bonus exists to make your ultimate bigger and more destructive.
+
+**Passive Bonuses:**
+- **Domain zone size +30%:** The domain field is 30% wider and taller than normal (stacks multiplicatively with the Wall shape's +50% bonus).
+- **Domain sub-phase damage +40%:** Every projectile the domain fires from Phase 1+ deals 40% more damage.
+- **No penalties.**
+
+**Best Behavior and Combinations:**
+
+| Category | Option | Synergy |
+|---|---|---|
+| **Behavior** | Domain ⚡ | The only class that meaningfully upgrades the domain itself — a Dominion domain at +30% size covers the entire screen |
+| **Shape (P0)** | Same 🔄 | `Same` domain gives a +30% player damage buff; Dominion's +40% sub-phase bonus stacks on top — +70% total on all spells while active |
+| **Shape (P0)** | Wall 🧱 | Wall's ×1.5 size multiplier × Dominion's ×1.3 = ×1.95 size (nearly double standard domain) |
+
+**Playstyle:** Charge your ultimate through fast-cooldown normal spells, then expand. The domain covers an enormous area, and +40% on 35 waves of homing projectiles is devastating sustained DPS. Pair with Vow Domain boosts (range, power, duration, mana regen) for a fully specialized domain build.
+
+---
+
+#### Necromancer 💀
+Masters of death magic. The Necromancer's summon mechanic is completely transformed — instead of generic minions, you raise defeated enemies from your Bestiary as undead servants.
+
+**Passive Bonuses / Changed Mechanics:**
+- **Summon shape raises Bestiary entries:** The Summon shape no longer creates generic AI minions. It raises actual enemies you've previously defeated as undead allies, inheriting their full stats scaled to your power.
+- **Costs full current mana:** Each necro-summon consumes your entire current mana pool at cast time.
+- **Max 3 necro-summons active simultaneously:** Raising a 4th will overwrite the weakest existing summon.
+- **Bestiary requirement:** An enemy must have been defeated at least once before it can be raised.
+- **Ultimate cost doubled:** Domain ultimates cost ×2 mana (20k+ instead of 10k+).
+
+**Summon Domain interaction:**
+When using Domain Expansion with a Summon shape, the domain raises **3 strong defeated enemies from the Bestiary** over the domain's duration (first at 2 seconds, then roughly every 18 seconds thereafter). Summon power at `phase power × 2.5`.
+
+**Playstyle:** Farm hard, powerful enemies in the Bestiary. Build summon spells designed to raise specific opponents (e.g., dungeon boss types). The doubled ultimate cost is steep, but fighting alongside 3 boss-tier allies for 60 seconds changes fights entirely.
+
+---
+
+#### Archmage 🔮
+Elemental spell master. Archmage gives the most mechanically rich bonuses — a blanket +5 Magic Control, a base +20% damage boost to all elemental spells, and a unique **secondary effect** for every single elemental type.
+
+**Passive Bonuses:**
+- **+5 Magic Control:** Unlocks higher-tier shapes, behaviors, and effects earlier than any other class. As Archmage you reach high-value effects before other classes pass those control thresholds.
+- **+20% damage on elemental spells:** Applies to any spell with Burn, Freeze, Poison, Stun, Lifesteal, or Shatter equipped.
+- **Elemental secondary effects:** Each elemental effect gains an extra behavior on top of its normal function (see below).
+- **Summoned minion behaviors:** Minions summoned via the Summon shape inherit the spell's elemental effect type — burn minions apply burn DoT, ice minions slow, etc.
+
+**Archmage Elemental Secondary Effects:**
+
+| Effect | Standard Behavior | Archmage Bonus |
+|---|---|---|
+| **Burn 🔥** | Fire DoT over 5 ticks | Burning enemies receive a **heal-block** — they cannot regenerate HP or receive healing while the burn DoT is active |
+| **Freeze ❄️** | Slows movement to 50% speed | Frozen/slowed enemies have their attacks **locked entirely** — they cannot fire projectiles or trigger contact-attack behaviors while frozen |
+| **Poison ☠️** | Poison DoT over 6 ticks | Each successive tick **escalates by +15%** — early ticks are light, but sustained poison becomes exponentially deadlier over its full duration |
+| **Stun ⚡** | Prevents all actions briefly | Stun highlights the enemy with a visual burst; the stun source projectile gets a brief speed boost. (Note: stun duration caps are kept intentionally short to prevent permanent lock.) |
+| **Lifesteal 🩸** | Heals 20% of damage dealt | Lifesteal rate increases from **20% → 30%**. Additionally, every enemy whose life you steal is **blinded**, reducing their detection range |
+| **Shatter 💎** | 12 shards on hit, 16-shard burst on kill | Each shard that hits an enemy **cascades into 3 additional micro-shards**, creating a chain reaction of crystal fragments that can devastate tightly grouped enemies |
+
+**Playstyle:** Build around a single elemental effect and push it to its extreme. A Burn Archmage applies permanent heal-block making bosses unable to recover. A Shatter Archmage turns every group fight into an exponential crystal explosion. The +5 Magic Control makes this class the easiest to build high-complexity spell combos on — effects that normally require 5–6 control are accessible early.
+
+---
+
+#### Dual Class System
+
+You can unlock a **second mage class** by assigning a **Vow Enhancement of type "Dual Class"** (costs **15 Vow Points**) in any vow slot. Both your primary and secondary class bonuses activate simultaneously for every spell cast.
+
+**Setup:** Open any Vow slot → choose a sacrifice → select "Dual Class" as the Enhancement type → pick your secondary class. The vow point cost is deducted from the points the sacrifice generates — ensure you have 15 points remaining after the sacrifice.
+
+**Limit:** Only **one Dual Class enhancement** is allowed across all vow slots at a time.
+
+**Powerful Dual Class Combinations:**
+
+| Combination | Why it works |
+|---|---|
+| **Archmage + Ranger** | Elemental +20% damage AND distance scaling stack multiplicatively. Long-range elemental casts deal maximum possible damage |
+| **Necromancer + Archmage** | Necro-summons raised from Bestiary AND those minions gain full Archmage elemental behaviors matching the summon spell's effect |
+| **Warrior + Ranger** | Maximum damage at both extremes — melee +50% within 200px AND Ranger distance bonus at range. Extreme risk/reward with a huge dead zone in between |
+| **Dominion + Archmage** | +30%/+40% domain bonuses with elemental +20% on sub-phases. Massive domain DPS especially in element-matched domains |
+| **Healer + Archmage** | Archmage pushes lifesteal to 30% on top of Healer's own amplification, plus burn's heal-block makes aggressive play self-sustaining |
+
+---
+
 
 ### Item Grant Quick Map
 
@@ -2495,6 +2625,92 @@ Each prompt below generates a **horizontal sprite sheet** with 4 rows: Idle, Wal
 > Row 4 – Hurt/Defeat animation: djinn recoiling, tornado base destabilizing, sand body losing cohesion, armbands cracking and falling, lightning going wild then fading, form dispersing into a sand cloud.
 >
 > Style: clean digital pixel-art sprite sheet, desert fantasy style, consistent proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+### Zenith, the Final Convergence (Boss — 4 Sprite Sheets)
+
+Zenith is a cosmic convergence entity with 4 sprite sheets split across two forms. Form 1 covers the base fight; Form 2 covers the enraged phase (below 40% HP). Each sheet has one row per Will, with a distinct color theme per behavior.
+
+#### Sheet 1: Form 1 — Idle & Float (`zenith-form1-idle-sheet.png`)
+
+**File target:** `images/enemies/zenith-form1-idle-sheet.png` (1024×1024)
+
+**Prompt:**
+> Clean 2D pixel-art sprite sheet, video game raid boss.
+> 7 rows × 6 columns (42 frames), perfectly aligned grid, transparent background.
+>
+> Character: Zenith, the Final Convergence — a floating five-pointed star entity, 100×100px. Sharp angular points radiate from a glowing convergence core with two white eyes at center. Orbiting halos ring the middle. Void-black gaps between points. Point tips glow per-Will color. Symmetrical, cosmic silhouette.
+>
+> Row 1 (Arc — #aaddff): Halos rotating gently, tips soft blue, energy lines calm.
+> Row 2 (Wait — #cc88ff): Star pulsing inward, purple vortex distortion between points.
+> Row 3 (Drop — #88ccff): Ice-blue energy condensing at tips, faint rain-streak aura.
+> Row 4 (Drift — #ff88ee): Energy spiraling from tips, magenta homing pulse at core.
+> Row 5 (Weave — #ffdd44): Halos in zigzag arcs, golden energy crackling at point tips.
+> Row 6 (Creep — #eeffee): Body rigid, pale-green charging along one extended point.
+> Row 7 (Apex — #ffffff): Halos angled upward, white-blue energy building at top point.
+>
+> Style: pixel-art sprite sheet, cosmic void boss, consistent proportions, centered silhouette, evenly spaced frames, no cropping, no overlap.
+
+#### Sheet 2: Form 1 — Attacks (`zenith-form1-attack-sheet.png`)
+
+**File target:** `images/enemies/zenith-form1-attack-sheet.png` (1024×1024)
+
+**Prompt:**
+> Clean 2D pixel-art sprite sheet, video game raid boss attacking.
+> 7 rows × 8 columns (56 frames), perfectly aligned grid, transparent background.
+>
+> Character: Zenith — five-pointed star entity, glowing core, orbiting halos, two centered eyes. Each row uses the Will's color at the active firing point.
+>
+> Row 1 (Arc — #aaddff): Point charges and extends, blue orb fires in high arc, halo recoil, tip retracts.
+> Row 2 (Wait — #cc88ff): Star compresses, vortex field bursts outward from core, zone stabilizes.
+> Row 3 (Drop — #88ccff): Top points raise, ice-blue slashes fall in sequence, tips lower.
+> Row 4 (Drift — #ff88ee): Point extends, magenta homing orb spins at tip, fires spiraling toward target.
+> Row 5 (Weave — #ffdd44): Side point sweeps, gold blade charges, fires jagged zigzag shot, returns.
+> Row 6 (Creep — #eeffee): Point locks rigid, pale-green spike charges, fires straight-shot, resets.
+> Row 7 (Apex — #ffffff): Top points raise, wide white orb forms, wide lob fires, descent trail, rest.
+>
+> Style: pixel-art sprite sheet, cosmic void boss, consistent proportions, centered silhouette, evenly spaced frames, no cropping, no overlap.
+
+#### Sheet 3: Form 2 — Idle & Float (`zenith-form2-idle-sheet.png`)
+
+**File target:** `images/enemies/zenith-form2-idle-sheet.png` (1024×1024)
+
+**Prompt:**
+> Clean 2D pixel-art sprite sheet, video game raid boss enraged second form.
+> 7 rows × 6 columns (42 frames), perfectly aligned grid, transparent background.
+>
+> Character: Zenith Form 2 — same five-pointed star but destabilizing: points cracked and jagged, halos broken and erratic, eyes blazing white-red, violent fracture patterns between points. Slightly larger silhouette, more saturated colors than Form 1.
+>
+> Row 1 (Arc — #66bbff): Cracked tips tilting, electric arcs crackling between halo fragments.
+> Row 2 (Wait — #aa44ff): Halos collapsed inward, vortex distortion warping around core, dark energy imploding.
+> Row 3 (Drop — #aaeeff): Cracked tips flinging ice shards upward, violent rain-streaks extending.
+> Row 4 (Drift — #ff44cc): Magenta-red tendrils from core, homing spirals more aggressive.
+> Row 5 (Weave — #ffaa00): Points in sharp erratic arcs, gold-orange sparks trailing halo edges.
+> Row 6 (Creep — #aaff88): Body forward-tilted, sickly-green burning along every fracture line.
+> Row 7 (Apex — #ffeecc): Top points near-vertical, blazing wide orb energy at crown.
+>
+> Style: pixel-art sprite sheet, corrupted cosmic void boss, consistent proportions, centered silhouette, evenly spaced frames, no cropping, no overlap.
+
+#### Sheet 4: Form 2 — Attacks (`zenith-form2-attack-sheet.png`)
+
+**File target:** `images/enemies/zenith-form2-attack-sheet.png` (1024×1024)
+
+**Prompt:**
+> Clean 2D pixel-art sprite sheet, video game raid boss enraged form attacking.
+> 7 rows × 8 columns (56 frames), perfectly aligned grid, transparent background.
+>
+> Character: Zenith Form 2 — cracked jagged star, blazing white-red eyes, fractured erratic halos. All attacks more explosive than Form 1.
+>
+> Row 1 (Arc F2 — #66bbff): Point sweeps and cracks, electric arc orb fires with shock-ring recoil and afterimage, snaps back.
+> Row 2 (Wait F2 — #aa44ff): Star fully compresses, massive vortex explodes outward violently, shockwave ring dissipates.
+> Row 3 (Drop F2 — #aaeeff): Points arch back, large ice-white slash clusters materialize, rapid dense fall, snaps upright.
+> Row 4 (Drift F2 — #ff44cc): Two points extend, large spinning hot-pink orb fires aggressively tracking, recoil.
+> Row 5 (Weave F2 — #ffaa00): Point sweeps with sparks, blade fires in erratic burst with afterimages and impact aura.
+> Row 6 (Creep F2 — #aaff88): Star leans near-horizontal, green energy locks, vicious spike fires with visible recoil.
+> Row 7 (Apex F2 — #ffeecc): Top points slam upward, massive blazing orb fires with full thrust, dramatic hold.
+>
+> Style: pixel-art sprite sheet, corrupted cosmic void boss attack, consistent proportions, centered silhouette, evenly spaced frames, no cropping, no overlap.
 
 ---
 

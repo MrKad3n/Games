@@ -382,6 +382,25 @@ input,select{font-family:inherit}
 .st-chapter.all-done .st-chapter-head{border-color:rgba(40,167,69,0.3);background:rgba(40,167,69,0.06)}
 .st-chapter.all-done .st-ch-title{color:#28a745}
 .st-chapter.all-done .st-arrow{color:#28a745}
+
+/* ============================================================
+   BESTIARY POPUP
+   ============================================================ */
+#bestiaryPopupOverlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:900;display:none;align-items:center;justify-content:center}
+#bestiaryPopupCard{width:min(96vw,820px);height:min(90vh,520px);background:#12101e;border:1px solid rgba(255,255,255,.15);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.9)}
+#bpHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0}
+#bpBody{flex:1;display:flex;overflow:hidden;min-height:0}
+#bpLeft{width:290px;min-width:250px;padding:14px 16px;border-right:1px solid rgba(255,255,255,.07);overflow-y:auto;display:flex;flex-direction:column;gap:11px;flex-shrink:0}
+#bpRight{flex:1;position:relative;overflow:hidden;background:#000}
+#bpCanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+.bp-section-lbl{font-size:10px;color:var(--accent2);font-weight:bold;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.bp-stat-row{display:flex;flex-direction:column;gap:2px}
+.bp-stat-row .bp-stat-header{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px}
+.bp-bar-bg{width:100%;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.bp-bar-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.bp-drop-item{display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:5px;font-size:12px}
+.bestiary-row-clickable{cursor:pointer;transition:background .15s,border-color .15s}
+.bestiary-row-clickable:hover{background:rgba(255,255,255,.08) !important;border-color:rgba(255,255,255,.16) !important}
 </style>
 </head>
 <body>
@@ -583,7 +602,6 @@ const SHAPES = {
 	allyOrb:  { label:'Ally Orb',  icon:'💚', controlReq:1,  manaCost:6,  desc:'Orb that hits you / allies instead of enemies', dmgNote:'heals' },
 	summon:   { label:'Summon',   icon:'👾', controlReq:8,  manaCost:20, desc:'Summons minions — increase range/health/speed for mana. Fires next spell phase.', dmgNote:'indirect' },
 	meteor:   { label:'Meteor',   icon:'☄️', controlReq:6,  manaCost:16, desc:'Blazing comet: +distance dmg, AoE explosion on impact/expire (50% splash)', dmgNote:'-25% dmg' },
-	vortex:   { label:'Vortex',   icon:'🌀', controlReq:7,  manaCost:18, desc:'Slow-moving void that pulls enemies in and deals DoT (30%)', dmgNote:'30% DoT' },
 	slash:    { label:'Slash',    icon:'🌙', controlReq:2,  manaCost:7,  desc:'Curved crescent arc projectile', dmgNote:'' },
 	explosion:{ label:'Explosion',icon:'💣', controlReq:5,  manaCost:14, desc:'Detonates on hit, expire, wall, enemy projectile, or dispel contact — AoE damage. Width/Height scale explosion radius; projectile visual is fixed size. Self-damages player at 30% if close.', dmgNote:'AoE ×14' },
 	same:     { label:'Same',     icon:'🔄', controlReq:0,  manaCost:0,  desc:'Re-uses the previous phase shape — allows different behavior on same projectile', dmgNote:'' },
@@ -713,7 +731,7 @@ const SHAPE_RANK_REQ = {
 	blade:1, spike:1, polygon:1,
 	beam:2, cone:2, wall:2,
 	ring:3, nova:3, meteor:3,
-	chain:4, vortex:4, summon:4, explosion:4,
+	chain:4, summon:4, explosion:4,
 };
 const BEHAVIOR_RANK_REQ = {
 	straight:0, stationary:0, selfCast:0,
@@ -1499,13 +1517,19 @@ function calcSpellManaCost(spell){
 		const isAreaBeh = ph.behavior === 'rain' || ph.behavior === 'barrage';
 		const effectiveCount = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : ph.count;
 		const countMult = 1 + (effectiveCount - 1) * (isAreaBeh ? 0.1 : 0.4);
-		const powerCost = ph.power * 50 * countMult;
-		cost += powerCost;
+		cost += ph.power * 50 * countMult;
 		cost += (effectiveCount - 1) * (isAreaBeh ? 1 : 4);
-		cost += (ph.width - 1) * 2;
-		cost += (ph.height - 1) * 2;
+		// size, speed, duration scaling (matches dungeon.html calcSpellCost)
+		cost += (ph.width  - 1) * 6 + Math.max(0, ph.width  - 2) * 4;
+		cost += (ph.height - 1) * 6 + Math.max(0, ph.height - 2) * 4;
+		cost += Math.max(0, (ph.speed    || 1) - 1) * 18;
+		cost += Math.max(0, (ph.duration || 1) - 1) * 22;
 		// chain stun costs significant mana
-		if (ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
+		if(ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
+		// ground radius upcharge
+		if(ph.behavior === 'ground' && ph.groundRadius > 200) cost += Math.floor((ph.groundRadius - 200) / 50) * 3;
+		// summon stat costs
+		if(ph.shape === 'summon') cost += (ph.summonRange||0)*4 + (ph.summonHealth||0)*3 + (ph.summonSpeed||0)*3;
 		for(const fx of ph.effects) cost += (EFFECTS[fx]?.manaCost||0);
 		// effect intensity scaling: higher power/duration = much more mana
 		// burn/poison only scale with duration (not power)
@@ -1517,12 +1541,29 @@ function calcSpellManaCost(spell){
 			const ed = (ph.effectDuration || 1);
 			cost += (ep * ep * 12) + (ed * ed * 8);
 		}
-		// phase fork: significant upfront mana cost
+		// solidify costs extra for non-outward behaviors
+		if(ph.effects.includes('solidify')){
+			const _solNonOutward = new Set(['stationary','underfoot','selfCast','aroundSelf','ground']);
+			cost += _solNonOutward.has(ph.behavior) ? 10 : 100;
+		}
+		// stacked rain
+		if(ph.behavior === 'rain' && ph.stackedRain) cost += 50;
+		// phase fork: significant upfront mana cost (beam costs 2.5× more)
 		if(ph.effects.includes('phaseFork')){
-			cost += (ph.phaseForkRepeats || 1) * 35;
+			const _bfm = ph.shape === 'beam' ? 2.5 : 1;
+			cost += (ph.phaseForkRepeats || 1) * 35 * _bfm;
 		}
 	}
-	cost *= (0.5 + spell.phases.length * 0.25);
+	cost *= (0.6 + spell.phases.length * 0.25);
+	// Cross-phase scaling: total projectiles (multiplicative) × highest power → exponential cost
+	// Single-shot spells: negligible. 1000 total proj × high power = very expensive.
+	const _totalProj = spell.phases.reduce((prod, ph) => {
+		const ec = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount||4) : (ph.count||1);
+		const forkMult = (ph.effects||[]).includes('phaseFork') ? (1 + (ph.phaseForkRepeats||1)) : 1;
+		return prod * ec * forkMult;
+	}, 1);
+	const _maxPow = Math.max(...spell.phases.map(ph => ph.power || 1));
+	cost += _totalProj * _totalProj * _maxPow * 0.02;
 	return Math.round(cost);
 }
 
@@ -3035,7 +3076,132 @@ const BESTIARY_ENTRIES = [
 	{ id:'voidArbiter',    name:'The Void Arbiter',    icon:'🌀', hp:50000, zone:'The Void',       boss:true },
 	// Special / Secret
 	{ id:'infernalKitten', name:'Infernal Kitten',     icon:'🔥', hp:80000, zone:'???',            boss:true },
+	// The Convergence
+	{ id:'zenith', name:'Zenith, The Final Convergence', icon:'✦', hp:120000, zone:'The Convergence', boss:true },
 ];
+
+/* ============================================================
+   BESTIARY EXTENDED DATA — stats, drops, descriptions
+   ============================================================ */
+const BESTIARY_DATA = {
+	// Fire Dungeon
+	imp:             { atk:3, def:2, spd:5, desc:'Small mischievous fire demons that leap at adventurers with surprising aggression. Often found in swarms near volcanic fissures.', drops:[{icon:'🔥',name:'Ember Shard',chance:'60%'},{icon:'✨',name:'Arcane Dust',chance:'40%'}] },
+	flameSerpent:    { atk:4, def:2, spd:6, desc:'Scaled creatures infused with living flame. Their venom burns long after the bite and they can curl into fireballs when threatened.', drops:[{icon:'🐍',name:'Serpent Scale',chance:'55%'},{icon:'🔥',name:'Ember Shard',chance:'45%'},{icon:'☠️',name:'Venom Gland',chance:'25%'}] },
+	emberMage:       { atk:5, def:2, spd:3, desc:'Renegade mages who traded their sanity for fire power. They float above the ground and launch volleys of fire bolts at any who approach.', drops:[{icon:'🔥',name:'Ember Shard',chance:'65%'},{icon:'✨',name:'Arcane Dust',chance:'50%'}] },
+	magmaGolem:      { atk:6, def:7, spd:2, desc:'Animated constructs of solid lava rock. Nearly immune to physical force, they are slow but devastating on contact — their touch instantly sears.', drops:[{icon:'🌋',name:'Molten Core',chance:'35%'},{icon:'🔥',name:'Ember Shard',chance:'70%'},{icon:'🧱',name:'Stone Chip',chance:'55%'}] },
+	fireSprite:      { atk:2, def:1, spd:8, desc:'Tiny flame elementals that dart about with frightening speed. Individually they deal little damage, but groups of them can overwhelm the unprepared.', drops:[{icon:'🔥',name:'Ember Shard',chance:'50%'},{icon:'🔶',name:'Lava Essence',chance:'30%'}] },
+	fireDragon:      { atk:9, def:8, spd:5, desc:'An ancient fire dragon sealed within the dungeon\'s deepest chamber. Its scales are impervious, its breath incinerates stone, and its roar shakes the very walls around it.', drops:[{icon:'🐉',name:'Dragon Scale',chance:'100%'},{icon:'🦷',name:'Inferno Fang',chance:'80%'},{icon:'🌋',name:'Molten Core',chance:'100%'},{icon:'🔥',name:'Ember Shard',chance:'100%'}] },
+	// Ice Dungeon
+	frostWraith:     { atk:3, def:2, spd:5, desc:'The restless spirits of those who froze to death in the ice caverns. They phase through walls and drain warmth from anyone living nearby.', drops:[{icon:'👻',name:'Spirit Wisp',chance:'55%'},{icon:'🧊',name:'Ice Crystal',chance:'40%'}] },
+	iceArcher:       { atk:4, def:2, spd:4, desc:'Cursed huntresses encased in enchanted ice armor. Their arrows trail frost and pin targets in place momentarily on impact.', drops:[{icon:'🧊',name:'Ice Crystal',chance:'60%'},{icon:'❄️',name:'Permafrost',chance:'30%'}] },
+	snowBeast:       { atk:5, def:5, spd:3, desc:'Massive ursine beasts adapted to the sub-zero depths. Their thick fur and iron constitution make them surprisingly resilient to most spells.', drops:[{icon:'🐾',name:'Beast Hide',chance:'65%'},{icon:'❄️',name:'Permafrost',chance:'40%'},{icon:'🧊',name:'Ice Crystal',chance:'35%'}] },
+	cryoMage:        { atk:5, def:2, spd:3, desc:'Ice mages who pushed their art past the point of safety, their hands permanently fused with frozen magic. They unleash glacial beams that slow movement.', drops:[{icon:'🧊',name:'Ice Crystal',chance:'65%'},{icon:'✨',name:'Arcane Dust',chance:'50%'}] },
+	glacierSentinel: { atk:6, def:7, spd:2, desc:'Towering guardians carved from living glacier. Created millennia ago to bar passage to the inner sanctum, their purpose remains absolute even as the world changes.', drops:[{icon:'❄️',name:'Permafrost',chance:'70%'},{icon:'💎',name:'Frost Core',chance:'40%'},{icon:'🧊',name:'Ice Crystal',chance:'60%'}] },
+	frostColossus:   { atk:9, def:8, spd:3, desc:'A colossus of eternal ice older than the dungeon itself. It exhales blizzards, summons ice spikes from the floor, and can freeze entire sections of the arena solid.', drops:[{icon:'💎',name:'Frost Core',chance:'100%'},{icon:'🔷',name:'Glacial Shard',chance:'80%'},{icon:'🌟',name:'Starlight Dew',chance:'60%'},{icon:'❄️',name:'Permafrost',chance:'100%'}] },
+	// Earth Dungeon
+	rockGolem:       { atk:5, def:6, spd:2, desc:'Lumbering stone giants animated by earth magic. They rain boulders from above and can temporarily root themselves to become nearly immovable defensive walls.', drops:[{icon:'🧱',name:'Stone Chip',chance:'65%'},{icon:'🪨',name:'Terra Core',chance:'30%'}] },
+	vineCrawler:     { atk:3, def:3, spd:5, desc:'Serpentine plant creatures propelled by rapidly extending vine limbs. They burrow through soft earth and erupt beneath unsuspecting adventurers.', drops:[{icon:'🌾',name:'Thorned Vine',chance:'60%'},{icon:'🪹',name:'Root Heartwood',chance:'25%'}] },
+	caveSpider:      { atk:3, def:2, spd:7, desc:'Giant spiders that coat the cave ceilings in webs. Fast movers that drop onto victims from above, their venom causes a persistent burning sensation.', drops:[{icon:'🧵',name:'Raw Silk',chance:'65%'},{icon:'☠️',name:'Venom Gland',chance:'45%'}] },
+	crystalMage:     { atk:5, def:3, spd:3, desc:'Earth mages who have crystallized part of their body for power. They fire razor crystal shards and can phase through solid rock walls at will.', drops:[{icon:'💠',name:'Crystal Fragment',chance:'60%'},{icon:'✨',name:'Arcane Dust',chance:'50%'},{icon:'🟠',name:'Ancient Amber',chance:'30%'}] },
+	mudElemental:    { atk:4, def:5, spd:2, desc:'Primordial sludge given sentience by underground earth magic. They absorb physical impacts, pull victims into themselves, and reform after apparent destruction.', drops:[{icon:'🟠',name:'Ancient Amber',chance:'55%'},{icon:'🌿',name:'Mana Herb',chance:'35%'}] },
+	earthColossus:   { atk:9, def:9, spd:2, desc:'The mountain given form and fury. The Earth Colossus commands geological forces, splitting the arena with earthquakes and calling down avalanches on its enemies.', drops:[{icon:'🪨',name:'Terra Core',chance:'100%'},{icon:'⛰️',name:'Titan Shard',chance:'80%'},{icon:'🌑',name:'Void Shard',chance:'50%'},{icon:'🟠',name:'Ancient Amber',chance:'100%'}] },
+	// Iron Forge
+	ironSentinel:    { atk:6, def:7, spd:3, desc:'Autonomous iron constructs assigned to patrol the forge. Their hammers strike with hydraulic force and their plating deflects most magical attacks easily.', drops:[{icon:'🔩',name:'Iron Plate',chance:'70%'},{icon:'⚙️',name:'Forge Core',chance:'25%'}] },
+	forgeDrone:      { atk:4, def:4, spd:5, desc:'Small mechanical drones that swarm intruders. Individually manageable, a horde of forge drones can overwhelm even seasoned mages with sheer endless attrition.', drops:[{icon:'🔩',name:'Iron Plate',chance:'55%'},{icon:'⬛',name:'Forge Coal',chance:'50%'}] },
+	slagBrute:       { atk:7, def:6, spd:3, desc:'Iron automata fused with slag from overloaded forges. They absorb heat and release it explosively when struck, making physical combat especially dangerous.', drops:[{icon:'🔧',name:'Colossus Gear',chance:'30%'},{icon:'🔩',name:'Iron Plate',chance:'65%'},{icon:'⬛',name:'Forge Coal',chance:'55%'}] },
+	ironColossus:    { atk:9, def:10, spd:2, desc:'The Iron Forge\'s ultimate defense — a towering mechanical titan with a furnace heart. It fires superheated rivets, swings artillery-weight fists, and locks the battlefield with magnetic fields.', drops:[{icon:'🔧',name:'Colossus Gear',chance:'100%'},{icon:'⚙️',name:'Forge Core',chance:'100%'},{icon:'🌑',name:'Void Shard',chance:'60%'},{icon:'🔩',name:'Iron Plate',chance:'100%'}] },
+	// Sylvaris Wildes
+	thornWolf:       { atk:4, def:3, spd:6, desc:'Wolves whose fur has fused with the enchanted bark of the wild forest. They hunt in pairs and their thorns shed on contact, lodging in wounds and causing lingering damage.', drops:[{icon:'🐾',name:'Beast Hide',chance:'60%'},{icon:'🌾',name:'Thorned Vine',chance:'50%'},{icon:'🦴',name:'Fang Fragment',chance:'40%'}] },
+	sporeFungus:     { atk:3, def:4, spd:2, desc:'Giant sentient fungi that release toxic spore clouds when threatened. The spores cause hallucinations and mana disruption in affected casters.', drops:[{icon:'🍄',name:'Luminous Spore',chance:'70%'},{icon:'🌿',name:'Mana Herb',chance:'40%'}] },
+	mossWraith:      { atk:3, def:2, spd:5, desc:'Forest spirits bound to decayed moss and fungi. They are more mischievous than malicious and use illusions before resorting to their necrotic touch.', drops:[{icon:'👻',name:'Spirit Wisp',chance:'55%'},{icon:'💨',name:'Wind Essence',chance:'35%'}] },
+	willowWisp:      { atk:2, def:1, spd:8, desc:'Luminous forest spirits that lure wanderers deeper into the wilderness. Their light pulses with hypnotic rhythm, and their touch disrupts magical channeling.', drops:[{icon:'✨',name:'Arcane Dust',chance:'60%'},{icon:'💨',name:'Wind Essence',chance:'45%'}] },
+	glowBeetle:      { atk:2, def:3, spd:4, desc:'Bioluminescent beetles that use their light to disorient prey before swarming. Their shells are surprisingly tough and can be harvested for crafting.', drops:[{icon:'✨',name:'Arcane Dust',chance:'50%'},{icon:'🧵',name:'Raw Silk',chance:'35%'}] },
+	stalactiteBat:   { atk:3, def:2, spd:7, desc:'Cave-dwelling bats with stalactite-like growths fused to their wings. They drop from the ceiling in silence before slashing with razor-edged stone protrusions.', drops:[{icon:'🦇',name:'Wing Membrane',chance:'65%'},{icon:'🧱',name:'Stone Chip',chance:'40%'}] },
+	skyVine:         { atk:3, def:3, spd:4, desc:'Animated treetop vines with deceptive reach. They snatch victims from the canopy floor, drawing them upward before releasing them to a long fall.', drops:[{icon:'🌾',name:'Thorned Vine',chance:'70%'},{icon:'🪹',name:'Root Heartwood',chance:'30%'}] },
+	windSylph:       { atk:4, def:2, spd:8, desc:'Ethereal wind spirits that express themselves through violent gusts. They are nearly impossible to pin down and can redirect projectiles mid-flight.', drops:[{icon:'💨',name:'Wind Essence',chance:'70%'},{icon:'✨',name:'Arcane Dust',chance:'45%'}] },
+	elderTreant:     { atk:7, def:8, spd:1, desc:'One of the oldest living beings in the Wildes — a tree that woke with anger. The Elder Treant commands vines across the entire arena and can root itself to unleash devastating branch sweeps.', drops:[{icon:'💚',name:'Treant Heartstone',chance:'100%'},{icon:'🪵',name:'Enchanted Bark',chance:'100%'},{icon:'🪹',name:'Root Heartwood',chance:'80%'}] },
+	stormRaptor:     { atk:8, def:5, spd:7, desc:'A massive thunder-bird that nests in the highest canopy. It calls lightning from clear skies, dives with talons charged to tens of thousands of volts, and screams with sound that stuns.', drops:[{icon:'🦅',name:'Raptor Crest',chance:'100%'},{icon:'⚡',name:'Electric Plume',chance:'100%'},{icon:'💨',name:'Wind Essence',chance:'80%'}] },
+	// Corrupted Roots
+	deepRootHorror:  { atk:8, def:7, spd:2, desc:'Something ancient that lived beneath the Wildes\' roots, corrupted by contact with void energy. It has too many arms, too many eyes, and a hunger that predates the dungeon itself.', drops:[{icon:'🐙',name:'Horror Tendril',chance:'100%'},{icon:'🖤',name:'Shadow Essence',chance:'80%'},{icon:'🌑',name:'Void Shard',chance:'60%'}] },
+	darkVineCrawler: { atk:5, def:3, spd:5, desc:'Vine crawlers warped by corruption seeping up from below. Their thorns now carry a necrotic poison that slowly converts victims to corruption too.', drops:[{icon:'🌾',name:'Thorned Vine',chance:'60%'},{icon:'🫧',name:'Dark Residue',chance:'50%'}] },
+	darkThornWolf:   { atk:5, def:4, spd:6, desc:'Thorn wolves whose forest magic twisted into something darker. Their howl disrupts magical concentration and their corrupted bark-skin resists elemental damage.', drops:[{icon:'🐾',name:'Beast Hide',chance:'55%'},{icon:'🫧',name:'Dark Residue',chance:'50%'},{icon:'🦴',name:'Fang Fragment',chance:'40%'}] },
+	darkMossWraith:  { atk:5, def:3, spd:5, desc:'Moss wraiths consumed by void corruption, now spreading it wherever they drift. They can phase between solid objects and inflict mana decay on spell-users.', drops:[{icon:'🖤',name:'Shadow Essence',chance:'55%'},{icon:'👻',name:'Spirit Wisp',chance:'50%'}] },
+	// Dragon Graveyard
+	boneWraith:      { atk:4, def:2, spd:5, desc:'Spirits of dragons who died unfulfilled, now bound to the graveyard\'s remains. They phase through dragonbone hulks and emit a wail that briefly paralyzes the living.', drops:[{icon:'💀',name:'Bone Dust',chance:'65%'},{icon:'👻',name:'Spirit Wisp',chance:'40%'}] },
+	babyDragon:      { atk:7, def:6, spd:5, desc:'A young frost dragon recently hatched from ancient remains in the graveyard. Despite its youth it breathes devastating ice cones and will not yield while protecting its nest.', drops:[{icon:'🐲',name:'Hatchling Fang',chance:'100%'},{icon:'💎',name:'Frost Core',chance:'80%'},{icon:'🧊',name:'Ice Crystal',chance:'100%'}] },
+	// Storm Islands
+	flameSalamander: { atk:4, def:3, spd:5, desc:'Fire lizards native to the volcanic islands. Their body heat burns on touch, and the markings on their flanks flash as a warning before they spit clusters of fireballs.', drops:[{icon:'🦎',name:'Salamander Tail',chance:'60%'},{icon:'🔥',name:'Ember Shard',chance:'55%'},{icon:'🔶',name:'Lava Essence',chance:'35%'}] },
+	magmaImp:        { atk:5, def:3, spd:6, desc:'Mischievous volcanic demons whose cracked obsidian skin glows with inner heat. They leap unpredictably and hurl magma bolts that splatter on impact, coating the area in burning lava.', drops:[{icon:'🩸',name:'Magma Droplet',chance:'65%'},{icon:'🔶',name:'Lava Essence',chance:'45%'},{icon:'🔥',name:'Ember Shard',chance:'50%'}] },
+	fireColossus:    { atk:10, def:9, spd:2, desc:'Pyraxis — the living mountain. An ancient volcanic titan sealed beneath the Storm Islands. Its eruption from the earth triggers catastrophic environmental changes and every step causes lava geysers.', drops:[{icon:'☄️',name:'Pyraxis Ember',chance:'100%'},{icon:'🌋',name:'Molten Core',chance:'100%'},{icon:'🦷',name:'Inferno Fang',chance:'80%'},{icon:'🔥',name:'Ember Shard',chance:'100%'}] },
+	// Sea Temple
+	abyssalGuardian: { atk:6, def:7, spd:3, desc:'Ancient fish-warriors encased in barnacle-armored plate. Assigned to defend the temple\'s outer halls, they have stood sentinel for so long their armor has fused permanently to their bodies.', drops:[{icon:'🖋️',name:'Abyssal Ink',chance:'50%'},{icon:'🧱',name:'Stone Chip',chance:'45%'},{icon:'🪸',name:'Coral Shard',chance:'35%'}] },
+	coralSentinel:   { atk:5, def:6, spd:3, desc:'Living coral constructs animated by deep-sea magic. They regenerate their coral plating during battle and fire volleys of calcified spines with enough force to penetrate metal.', drops:[{icon:'🪸',name:'Coral Shard',chance:'70%'},{icon:'🖋️',name:'Abyssal Ink',chance:'35%'}] },
+	depthSerpent:    { atk:5, def:4, spd:7, desc:'Fast and lethal sea serpents that stalk the temple\'s flooded lower chambers. Their venom glows green and causes cascading elemental weakness in its victim.', drops:[{icon:'🐍',name:'Serpent Scale',chance:'65%'},{icon:'☠️',name:'Venom Gland',chance:'55%'},{icon:'🖋️',name:'Abyssal Ink',chance:'30%'}] },
+	// Desert Pyramid
+	sandWraith:      { atk:6, def:4, spd:5, desc:'Half-living entities bound to the desert sands. They emerge from dunes to drag the living underground, and their form is near-impossible to injure while phased into the sand.', drops:[{icon:'🏜️',name:'Sand Pearl',chance:'55%'},{icon:'👻',name:'Spirit Wisp',chance:'45%'}] },
+	tombGuardian:    { atk:7, def:7, spd:2, desc:'Stone guardians carved from the pyramid\'s own walls and given unlife to serve forever. Their hieroglyphic inscriptions deflect curse-type spells.', drops:[{icon:'🧱',name:'Stone Chip',chance:'60%'},{icon:'🩹',name:'Mummy Wrap',chance:'40%'}] },
+	desertSerpent:   { atk:6, def:5, spd:6, desc:'Giant ceremonial serpents bred by the pyramid\'s original inhabitants. They now hunt freely, and their crystallized scales serve as both armor and weapon.', drops:[{icon:'🐍',name:'Serpent Scale',chance:'70%'},{icon:'🏜️',name:'Sand Pearl',chance:'40%'}] },
+	mummyWarrior:    { atk:7, def:6, spd:3, desc:'Ancient soldiers preserved by burial rituals still performing their eternal post. The wrappings that bind them are enchanted and conduct powerful curse energy.', drops:[{icon:'🩹',name:'Mummy Wrap',chance:'65%'},{icon:'💀',name:'Bone Dust',chance:'50%'}] },
+	scarabSwarm:     { atk:4, def:3, spd:6, desc:'A vast swarm of enchanted scarab beetles acting as a single mind. They eat through enchanted armor, overwhelm magical barriers, and use their shells to deflect spells.', drops:[{icon:'🪲',name:'Scarab Shell',chance:'75%'},{icon:'🏜️',name:'Sand Pearl',chance:'35%'}] },
+	sandstormDjinn:  { atk:7, def:5, spd:6, desc:'A powerful wind spirit bound through ancient ritual to serve the pyramid\'s inner sanctum. It controls desert weather at will and can call full sandstorms that shroud the arena entirely.', drops:[{icon:'🌀',name:'Djinn Essence',chance:'65%'},{icon:'💨',name:'Wind Essence',chance:'55%'},{icon:'🏜️',name:'Sand Pearl',chance:'45%'}] },
+	// Floating Cathedral
+	seraphel:        { atk:9, def:8, spd:7, desc:'Seraphel, the Severed Light — a divine being whose connection to the heavens was cut. Unmoored from purpose and consumed by grief, she wages war on all who enter her sanctuary across two phases and multiple dimensional planes.', drops:[{icon:'🪽',name:'Seraphel Feather',chance:'100%'},{icon:'🌟',name:'Starlight Dew',chance:'100%'},{icon:'🐉',name:'Dragon Scale',chance:'80%'},{icon:'✨',name:'Arcane Dust',chance:'100%'}] },
+	// The Void
+	voidArbiter:     { atk:9, def:8, spd:5, desc:'The Void Arbiter — an ancient entity that predates recorded history and enforces the rules of nothingness. It consumes light, absorbs magical energy, and judges all existing things as fundamentally trespassing on the void.', drops:[{icon:'🔮',name:'Arbiter Eye',chance:'100%'},{icon:'🌑',name:'Void Shard',chance:'100%'},{icon:'🖤',name:'Shadow Essence',chance:'100%'},{icon:'💜',name:'Void Heart',chance:'80%'}] },
+	// Secret
+	infernalKitten:  { atk:10, def:6, spd:10, desc:'A legendary secret boss discovered only by those who solve the dungeon\'s hidden riddles. Nobody knows where it came from. Its power is absurd for its size and it seems to find the whole fight amusing.', drops:[{icon:'🌟',name:'Starlight Dew',chance:'100%'},{icon:'🐉',name:'Dragon Scale',chance:'100%'},{icon:'🌑',name:'Void Shard',chance:'100%'},{icon:'✨',name:'Arcane Dust',chance:'100%'}] },
+	// The Convergence
+	zenith:          { atk:10, def:9, spd:6, desc:'Zenith, The Final Convergence — the ultimate manifestation of magical energy made conscious. Zenith has mastered all seven schools of arcane will. In Phase 2 it fragments the arena into floating platforms and adapts to every spell used against it, becoming immune over time.', drops:[{icon:'🌟',name:'Starlight Dew',chance:'100%'},{icon:'💜',name:'Void Heart',chance:'80%'},{icon:'🔮',name:'Arbiter Eye',chance:'70%'},{icon:'⏳',name:'Chrono Shard',chance:'60%'}] },
+};
+
+// Sprite file name overrides for bestiary popup canvas
+const BESTIARY_FILE_OVERRIDE = {
+	cryoMage:'cyro-mage', deepRootHorror:'deep-root-horror', stalactiteBat:'stalactite-bat',
+	glowBeetle:'glow-beetle', boneWraith:'bone-wraith', babyDragon:'baby-dragon',
+	darkVineCrawler:'dark-vine-crawler', darkThornWolf:'dark-thorn-wolf', darkMossWraith:'dark-moss-wraith',
+	flameSalamander:'flame-salamander', magmaImp:'magma-imp', abyssalGuardian:'abyssal-guardian',
+	coralSentinel:'coral-sentinel', depthSerpent:'depth-serpent', sandWraith:'sand-wraith',
+	tombGuardian:'tomb-guardian', desertSerpent:'desert-serpent', mummyWarrior:'mummy-warrior',
+	scarabSwarm:'scarab-swarm', sandstormDjinn:'sandstorm-djinn',
+	voidArbiter:'void-arbiter', infernalKitten:'infernal-kitten',
+};
+// Sprite sheet overrides: cols, rows, walkRow (row index for walk animation), scale multiplier
+const BESTIARY_SPRITE_INFO = {
+	fireDragon:     { cols:4, rows:4, scale:1.1 },
+	frostColossus:  { cols:4, rows:4, scale:1.1 },
+	earthColossus:  { cols:4, rows:4, scale:1.1 },
+	ironColossus:   { cols:4, rows:4, scale:1.1 },
+	babyDragon:     { cols:4, rows:4, scale:1.0 },
+	elderTreant:    { cols:4, rows:4, scale:1.1 },
+	stormRaptor:    { cols:4, rows:4, scale:1.1 },
+	deepRootHorror: { cols:4, rows:4, scale:1.0 },
+	fireColossus:   { file:'fire-colossus.png', cols:4, rows:4, scale:1.1 },
+	crystalMage:    { cols:7, rows:4 },
+	skyVine:        { cols:8, rows:4 },
+	windSylph:      { cols:8, rows:4 },
+	darkMossWraith: { cols:8, rows:4 },
+	seraphel:       { file:'seraphel-sheet-1.png', cols:10, rows:6, walkRow:3, scale:1.2 },
+	voidArbiter:    { cols:4, rows:4, scale:1.0 },
+	infernalKitten: { cols:2, rows:1, walkRow:0, scale:1.0 },
+	zenith:         { file:'zenith-sheet-1.png', cols:10, rows:7, walkRow:0, scale:1.3 },
+};
+// Zone-specific canvas themes for the animated preview
+const BESTIARY_ZONE_THEMES = {
+	'Fire Dungeon':       { sky1:'#1a0a05', sky2:'#2a1008', floor:'#5a2a12', edge:'#7a4422', accent:'#ff6622', wallL:'#3d1a0a', wallR:'#3d1a0a' },
+	'Ice Dungeon':        { sky1:'#0a0e1a', sky2:'#0e1525', floor:'#2a3a5a', edge:'#4a6a8a', accent:'#44aaff', wallL:'#1a2a44', wallR:'#1a2a44' },
+	'Earth Dungeon':      { sky1:'#0e0e08', sky2:'#181408', floor:'#3a3420', edge:'#4a5a34', accent:'#88aa44', wallL:'#2a2414', wallR:'#2a2414' },
+	'Iron Forge':         { sky1:'#0e0808', sky2:'#1a1010', floor:'#3a2828', edge:'#5a4040', accent:'#bbbbbb', wallL:'#2a1a1a', wallR:'#2a1a1a' },
+	'Sylvaris Wildes':    { sky1:'#0a1a0a', sky2:'#0a120a', floor:'#1a3a1a', edge:'#2a5a2a', accent:'#44cc44', wallL:'#0a2a0a', wallR:'#0a2a0a' },
+	'Corrupted Roots':    { sky1:'#0a0a12', sky2:'#0a0a1a', floor:'#333340', edge:'#4a4a5a', accent:'#884488', wallL:'#1a1a2a', wallR:'#1a1a2a' },
+	'Dragon Graveyard':   { sky1:'#14100a', sky2:'#1a1408', floor:'#2a2420', edge:'#3a3428', accent:'#aa8833', wallL:'#201a10', wallR:'#201a10' },
+	'Storm Islands':      { sky1:'#1a0a00', sky2:'#2a1400', floor:'#2a1008', edge:'#4a2010', accent:'#ff4400', wallL:'#3a1a00', wallR:'#3a1a00' },
+	'Sea Temple':         { sky1:'#020a14', sky2:'#04141e', floor:'#0a2040', edge:'#1a3a60', accent:'#0088aa', wallL:'#041428', wallR:'#041428' },
+	'Desert Pyramid':     { sky1:'#1a1405', sky2:'#2a1e08', floor:'#4a3a18', edge:'#6a5a28', accent:'#ddaa44', wallL:'#2a2010', wallR:'#2a2010' },
+	'Floating Cathedral': { sky1:'#0a0a1a', sky2:'#14143a', floor:'#2a2a5a', edge:'#4a4a8a', accent:'#aaaaff', wallL:'#1a1a40', wallR:'#1a1a40' },
+	'The Void':           { sky1:'#040004', sky2:'#080008', floor:'#1a1030', edge:'#3a2050', accent:'#8844cc', wallL:'#0a0018', wallR:'#0a0018' },
+	'The Convergence':    { sky1:'#03020a', sky2:'#080618', floor:'#1a1530', edge:'#2a2550', accent:'#8866ff', wallL:'#06051a', wallR:'#06051a' },
+	'???':                { sky1:'#080808', sky2:'#0a0a0a', floor:'#1a1a1a', edge:'#2a2a2a', accent:'#ff4444', wallL:'#111', wallR:'#111' },
+};
 
 function loadBestiary(){
 	try{
@@ -3046,6 +3212,216 @@ function loadBestiary(){
 }
 function saveBestiary(data){
 	localStorage.setItem('magicBattle_bestiary', JSON.stringify(data));
+}
+
+/* ============================================================
+   BESTIARY POPUP — open / close / canvas animation
+   ============================================================ */
+let _bafId = null;   // requestAnimationFrame handle
+let _bafFrame = 0;   // total frame counter (used as time seed)
+let _bafAnimF = 0;   // sprite animation frame index
+let _bafPx    = 0;   // monster x position on canvas
+let _bafDir   = 1;   // 1=walking right, -1=walking left
+let _bafImg   = null;// loaded Image object for sprite sheet
+let _bafEntry = null;// current bestiary entry
+
+function openBestiaryPopup(entry){
+	closeBestiaryPopup(); // cancel any previous animation
+	_bafEntry = entry;
+	const data  = BESTIARY_DATA[entry.id] || {};
+	const info  = BESTIARY_SPRITE_INFO[entry.id] || {};
+
+	// --- Populate header ---
+	document.getElementById('bpIcon').textContent = entry.icon;
+	const nameEl = document.getElementById('bpName');
+	nameEl.textContent = entry.name + (entry.boss ? ' ⭐' : '');
+	nameEl.style.color = entry.boss ? 'var(--rarity-legendary)' : '#fff';
+	document.getElementById('bpZone').textContent = '📍 ' + entry.zone;
+	document.getElementById('bpHPChip').textContent = '❤️ ' + entry.hp.toLocaleString() + ' HP';
+
+	// --- Stats bars ---
+	const atk = data.atk || 5, def = data.def || 5, spd = data.spd || 5;
+	document.getElementById('bpAtkVal').textContent = atk + ' / 10';
+	document.getElementById('bpDefVal').textContent = def + ' / 10';
+	document.getElementById('bpSpdVal').textContent = spd + ' / 10';
+	document.getElementById('bpAtk').style.width = (atk * 10) + '%';
+	document.getElementById('bpDef').style.width = (def * 10) + '%';
+	document.getElementById('bpSpd').style.width = (spd * 10) + '%';
+
+	// --- Drops ---
+	const dropsWrap = document.getElementById('bpDrops');
+	dropsWrap.innerHTML = '';
+	for(const drop of data.drops || []){
+		const d = document.createElement('div');
+		d.className = 'bp-drop-item';
+		d.innerHTML = `<span style="font-size:14px">${drop.icon}</span>`
+			+ `<span style="flex:1;color:#e8eaff">${drop.name}</span>`
+			+ `<span style="color:var(--gold);font-size:11px">${drop.chance}</span>`;
+		dropsWrap.appendChild(d);
+	}
+	if(!data.drops || !data.drops.length){
+		dropsWrap.innerHTML = '<div style="font-size:12px;color:#666;font-style:italic">Nothing specific recorded.</div>';
+	}
+
+	// --- Description ---
+	document.getElementById('bpDesc').textContent = data.desc || 'A mysterious creature lurking in the dungeon depths.';
+
+	// --- Zone label ---
+	document.getElementById('bpZoneLabel').textContent = entry.zone;
+
+	// --- Show overlay ---
+	document.getElementById('bestiaryPopupOverlay').style.display = 'flex';
+
+	// --- Determine sprite sheet file ---
+	const fileBase = info.file
+		? info.file
+		: (BESTIARY_FILE_OVERRIDE[entry.id] || entry.id.replace(/([A-Z])/g, '-$1').toLowerCase()) + '-sheet.png';
+
+	_bafImg = new Image();
+	_bafImg._failed = false;
+	_bafImg.onerror = () => { _bafImg._failed = true; };
+	_bafImg.src = 'images/enemies/' + fileBase;
+
+	_bafFrame = 0; _bafAnimF = 0; _bafPx = 60; _bafDir = 1;
+
+	// Defer canvas sizing until the overlay is rendered (need offsetWidth > 0)
+	setTimeout(() => {
+		const canvas = document.getElementById('bpCanvas');
+		const bpRight = document.getElementById('bpRight');
+		if(!canvas || !bpRight) return;
+		canvas.width  = bpRight.offsetWidth  || 480;
+		canvas.height = bpRight.offsetHeight || 400;
+		function animLoop(){
+			_bafId = requestAnimationFrame(animLoop);
+			_drawBestiaryCanvas(entry, info);
+		}
+		animLoop();
+	}, 0);
+}
+
+function closeBestiaryPopup(){
+	if(_bafId){ cancelAnimationFrame(_bafId); _bafId = null; }
+	document.getElementById('bestiaryPopupOverlay').style.display = 'none';
+}
+
+function _drawBestiaryCanvas(entry, info){
+	const canvas = document.getElementById('bpCanvas');
+	if(!canvas) return;
+	const ctx = canvas.getContext('2d');
+	const W = canvas.width, H = canvas.height;
+	const theme = BESTIARY_ZONE_THEMES[entry.zone] || BESTIARY_ZONE_THEMES['???'];
+	const FLOOR_H = 50;
+	const floorY  = H - FLOOR_H;
+
+	// === SKY BACKGROUND ===
+	const grad = ctx.createLinearGradient(0, 0, 0, floorY);
+	grad.addColorStop(0, theme.sky1);
+	grad.addColorStop(1, theme.sky2);
+	ctx.fillStyle = grad;
+	ctx.fillRect(0, 0, W, floorY);
+
+	// Zone-specific background decoration
+	_drawZoneDecor(ctx, W, H, floorY, theme, _bafFrame);
+
+	// === FLOOR ===
+	ctx.fillStyle = theme.floor;
+	ctx.fillRect(0, floorY, W, FLOOR_H);
+	// floor edge highlight
+	ctx.fillStyle = theme.edge;
+	ctx.fillRect(0, floorY, W, 3);
+	// subtle floor gradient overlay
+	const fGrad = ctx.createLinearGradient(0, floorY, 0, H);
+	fGrad.addColorStop(0, 'rgba(0,0,0,0)');
+	fGrad.addColorStop(1, 'rgba(0,0,0,0.35)');
+	ctx.fillStyle = fGrad;
+	ctx.fillRect(0, floorY, W, FLOOR_H);
+
+	// === SPRITE ===
+	_bafFrame++;
+	const SPRITE_FPS = 8;
+	if(_bafFrame % SPRITE_FPS === 0) _bafAnimF++;
+
+	const cols    = info.cols    !== undefined ? info.cols    : 6;
+	const rows    = info.rows    !== undefined ? info.rows    : 4;
+	const walkRow = info.walkRow !== undefined ? info.walkRow : 1;
+	const scaleM  = info.scale   !== undefined ? info.scale   : 1.0;
+
+	if(_bafImg && !_bafImg._failed && _bafImg.naturalWidth > 0){
+		const fW = _bafImg.naturalWidth  / cols;
+		const fH = _bafImg.naturalHeight / rows;
+		// Auto-size: target height = 35% of canvas for normals, 50% for bosses
+		const targetH = entry.boss ? H * 0.50 : H * 0.36;
+		const autoScale = targetH / fH;
+		const sc = autoScale * scaleM;
+		const dW = fW * sc, dH = fH * sc;
+		const col = _bafAnimF % cols;
+		const drawY = floorY - dH + 2;
+
+		// Walk back and forth
+		const speed = entry.boss ? 0.9 : 1.3;
+		_bafPx += speed * _bafDir;
+		if(_bafPx > W - dW - 20) _bafDir = -1;
+		if(_bafPx < 20)           _bafDir = 1;
+
+		ctx.save();
+		if(_bafDir === -1){
+			// Flip horizontally
+			ctx.translate(_bafPx + dW, drawY);
+			ctx.scale(-1, 1);
+			ctx.drawImage(_bafImg, col * fW, walkRow * fH, fW, fH, 0, 0, dW, dH);
+		} else {
+			ctx.drawImage(_bafImg, col * fW, walkRow * fH, fW, fH, _bafPx, drawY, dW, dH);
+		}
+		ctx.restore();
+
+		// Drop shadow under sprite
+		ctx.save();
+		ctx.globalAlpha = 0.25;
+		ctx.fillStyle = '#000';
+		ctx.beginPath();
+		ctx.ellipse(_bafPx + dW * 0.5, floorY + 4, dW * 0.38, 7, 0, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.restore();
+	} else if(_bafImg && _bafImg._failed){
+		// Fallback: draw emoji icon when sheet not found
+		ctx.save();
+		ctx.font = `${Math.min(W, H) * 0.28}px Arial`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'bottom';
+		ctx.fillText(entry.icon, W * 0.5, floorY);
+		ctx.restore();
+	}
+}
+
+function _drawZoneDecor(ctx, W, H, floorY, theme, frame){
+	// Floating ambient particles
+	ctx.save();
+	const t = frame * 0.018;
+	for(let i = 0; i < 7; i++){
+		const px = ((W * (i * 0.15 + 0.06) + Math.sin(t + i * 1.4) * 22) % W + W) % W;
+		const py = floorY * 0.12 + Math.sin(t * 0.7 + i * 2.2) * (floorY * 0.15) + (i * (floorY * 0.11));
+		const r  = 1.5 + Math.sin(t * 1.3 + i) * 0.8;
+		ctx.globalAlpha = 0.25 + Math.sin(t * 1.1 + i * 0.7) * 0.15;
+		ctx.beginPath();
+		ctx.arc(px, py, Math.max(0.5, r), 0, Math.PI * 2);
+		ctx.fillStyle = theme.accent;
+		ctx.fill();
+	}
+	// Subtle vertical "wall" hints at the sides
+	const wallW = 28;
+	const wallGradL = ctx.createLinearGradient(0, 0, wallW, 0);
+	wallGradL.addColorStop(0, theme.wallL);
+	wallGradL.addColorStop(1, 'rgba(0,0,0,0)');
+	ctx.globalAlpha = 0.7;
+	ctx.fillStyle = wallGradL;
+	ctx.fillRect(0, 0, wallW, H);
+	const wallGradR = ctx.createLinearGradient(W - wallW, 0, W, 0);
+	wallGradR.addColorStop(0, 'rgba(0,0,0,0)');
+	wallGradR.addColorStop(1, theme.wallR);
+	ctx.fillStyle = wallGradR;
+	ctx.fillRect(W - wallW, 0, wallW, H);
+	ctx.globalAlpha = 1;
+	ctx.restore();
 }
 
 function renderBestiary(){
@@ -3077,11 +3453,14 @@ function renderBestiary(){
 			const row = document.createElement('div');
 			row.style.cssText = `padding:8px 12px;border-radius:8px;border:1px solid ${unlocked ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'};background:${unlocked ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.2)'};display:flex;align-items:center;gap:10px;`;
 			if(unlocked){
+				row.className = 'bestiary-row-clickable';
 				const kills = discovered[entry.id] || 0;
 				row.innerHTML = `<span style="font-size:11px;color:var(--muted);min-width:24px">#${num}</span>`
 					+ `<span style="font-size:18px">${entry.icon}</span>`
 					+ `<div style="flex:1"><div style="font-size:13px;font-weight:bold;color:${entry.boss ? 'var(--rarity-legendary)' : '#fff'}">${entry.name}${entry.boss ? ' ⭐' : ''}</div>`
-					+ `<div style="font-size:11px;color:var(--muted)">HP: ${entry.hp.toLocaleString()} · Defeated: ${kills}x</div></div>`;
+					+ `<div style="font-size:11px;color:var(--muted)">HP: ${entry.hp.toLocaleString()} · Defeated: ${kills}x</div></div>`
+					+ `<span style="font-size:11px;color:var(--accent2);padding:3px 8px;border:1px solid rgba(108,92,231,0.3);border-radius:4px;background:rgba(108,92,231,0.08)">View ›</span>`;
+				row.onclick = () => openBestiaryPopup(entry);
 			} else {
 				row.innerHTML = `<span style="font-size:11px;color:#444;min-width:24px">#${num}</span>`
 					+ `<span style="font-size:18px;filter:brightness(0.2)">❓</span>`
@@ -4657,7 +5036,7 @@ function renderBuilder(){
 
 		// count
 		html += `<div class="prow"><label>Projectile Count</label>
-			<input type="number" min="1" max="6" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
+			<input type="number" min="1" max="${isUlt?50:10}" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
 
 		// spread (if count > 1)
 		if(ph.count > 1){
@@ -4690,9 +5069,11 @@ function renderBuilder(){
 		// rain-specific settings
 		if(ph.behavior === 'rain'){
 			if(!ph.rainHeight) ph.rainHeight = 150;
+			if(ph.stackedRain === undefined) ph.stackedRain = false;
 			html += `<div class="prow" style="border-top:1px solid var(--border);padding-top:6px"><label style="color:var(--accent2)">Rain Settings</label></div>`;
 			html += `<div class="prow"><label>Rain Height: ${ph.rainHeight}</label>
 				<input type="range" min="50" max="800" step="10" value="${ph.rainHeight}" data-idx="${idx}" data-prop="rainHeight"/></div>`;
+			html += `<div class="prow"><label style="cursor:pointer"><input type="checkbox" ${ph.stackedRain?'checked':''} data-idx="${idx}" data-prop="stackedRain" style="margin-right:5px"/>Stacked Rain — all fall from one spot <span style="color:var(--gold)">(+50 mana)</span></label></div>`;
 		}
 
 		// barrage-specific settings
@@ -4994,7 +5375,8 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('input[type=number][data-prop]').forEach(el => {
 		el.addEventListener('change', () => {
-			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(6,+el.value));
+			const _cMax = builderSpell.isUltimate ? 50 : 10;
+			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(_cMax,+el.value));
 			renderBuilder();
 		});
 	});
@@ -5681,5 +6063,65 @@ if(window.self !== window.top){
 }
 renderAll();
 </script>
+<!-- ============================================================
+     BESTIARY POPUP OVERLAY
+     ============================================================ -->
+<div id="bestiaryPopupOverlay" onclick="closeBestiaryPopup()">
+	<div id="bestiaryPopupCard" onclick="event.stopPropagation()">
+		<!-- Header -->
+		<div id="bpHeader">
+			<div style="display:flex;align-items:center;gap:12px">
+				<span id="bpIcon" style="font-size:30px;line-height:1"></span>
+				<div>
+					<div id="bpName" style="font-size:17px;font-weight:bold"></div>
+					<div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+						<span id="bpZone" style="font-size:11px;color:var(--muted)"></span>
+						<span id="bpHPChip" style="font-size:11px;padding:2px 7px;background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.3);border-radius:4px;color:#ff6666"></span>
+					</div>
+				</div>
+			</div>
+			<button onclick="closeBestiaryPopup()" style="background:none;border:none;color:#e74c3c;font-size:22px;cursor:pointer;opacity:.65;transition:opacity .2s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.65">✕</button>
+		</div>
+		<!-- Body -->
+		<div id="bpBody">
+			<!-- LEFT: stats, drops, description -->
+			<div id="bpLeft">
+				<!-- Statistics -->
+				<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:7px;padding:10px 12px">
+					<div class="bp-section-lbl">Statistics</div>
+					<div style="display:flex;flex-direction:column;gap:8px">
+						<div class="bp-stat-row">
+							<div class="bp-stat-header"><span style="color:var(--muted)">⚔️ Attack</span><span id="bpAtkVal" style="color:#ff8866;font-weight:bold"></span></div>
+							<div class="bp-bar-bg"><div id="bpAtk" class="bp-bar-fill" style="background:linear-gradient(90deg,#ff6622,#ff2200)"></div></div>
+						</div>
+						<div class="bp-stat-row">
+							<div class="bp-stat-header"><span style="color:var(--muted)">🛡️ Defense</span><span id="bpDefVal" style="color:#66aaff;font-weight:bold"></span></div>
+							<div class="bp-bar-bg"><div id="bpDef" class="bp-bar-fill" style="background:linear-gradient(90deg,#3399ff,#1166dd)"></div></div>
+						</div>
+						<div class="bp-stat-row">
+							<div class="bp-stat-header"><span style="color:var(--muted)">💨 Speed</span><span id="bpSpdVal" style="color:#66dd88;font-weight:bold"></span></div>
+							<div class="bp-bar-bg"><div id="bpSpd" class="bp-bar-fill" style="background:linear-gradient(90deg,#22cc66,#009944)"></div></div>
+						</div>
+					</div>
+				</div>
+				<!-- Drops -->
+				<div>
+					<div class="bp-section-lbl">📦 Drops</div>
+					<div id="bpDrops" style="display:flex;flex-direction:column;gap:4px"></div>
+				</div>
+				<!-- Description -->
+				<div>
+					<div class="bp-section-lbl">📖 About</div>
+					<div id="bpDesc" style="font-size:12px;color:#c0c0d8;line-height:1.6"></div>
+				</div>
+			</div>
+			<!-- RIGHT: animated canvas -->
+			<div id="bpRight">
+				<canvas id="bpCanvas"></canvas>
+				<div id="bpZoneLabel" style="position:absolute;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,.3);pointer-events:none"></div>
+			</div>
+		</div>
+	</div>
+</div>
 </body>
 </html>
