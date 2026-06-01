@@ -653,8 +653,7 @@ const EFFECTS = {
 	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:3, desc:'Pushes target away', category:'movement', dmgNote:'' },
 	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you', category:'movement', dmgNote:'' },
 	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump', category:'movement', dmgNote:'' },
-	horizontalLaunch:{ label:'H. Launch',icon:'💨', controlReq:2, manaCost:5, desc:'Launches target horizontally', category:'movement', dmgNote:'' },
-	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target (max ~0.3s, resistance stacks up quickly)', category:'elemental', dmgNote:'' },
+stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target (max ~0.3s, resistance stacks up quickly)', category:'elemental', dmgNote:'' },
 	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit', category:'support', dmgNote:'' },
 	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
 	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:6, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
@@ -671,12 +670,13 @@ const EFFECTS = {
 	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Reduces enemy detection range temporarily', category:'cc', dmgNote:'' },
 	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'Spawns 12 crystal shards on every hit (5-frame cooldown). On enemy death, triggers a full 16-shard burst. Archmage: each shard cascades into 3 micro-shards.', category:'elemental', dmgNote:'on-hit shards + kill burst' },
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
-	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:10,desc:'Creates a pull zone around impact for 2s', category:'movement', dmgNote:'' },
+	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:50,desc:'Creates a powerful pull zone — range and strength scale with spell power. Affects enemies and solidified objects. Closer to centre = much stronger pull.', category:'movement', dmgNote:'' },
 	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
 	rotate:       { label:'Rotate',      icon:'🔃', controlReq:1, manaCost:4, desc:'Spins the projectile around its own center as it travels', category:'utility', dmgNote:'' },
 	solidify:     { label:'Solidify',    icon:'🟩', controlReq:4, manaCost:10, desc:'Turns projectile into a solid platform — blocks projectiles, walkable. Moving solidified objects push enemies with momentum. 10 mana (stationary) / 100 mana (moving). Phase bypasses.', category:'utility', dmgNote:'momentum dmg' },
 	awayFromPlayer:{ label:'Away From Player', icon:'↗️', controlReq:2, manaCost:4, desc:'Projectiles shoot away from the player instead of toward the cursor', category:'utility', dmgNote:'' },
 	solidObjectBreak:{ label:'Solid Object Break', icon:'💥', controlReq:1, manaCost:100, desc:'Destroys all solidify projectiles when cast. Costs 100 mana but breaks any number of solid objects at once.', category:'utility', dmgNote:'' },
+	sticky:{ label:'Sticky', icon:'🕸', controlReq:4, manaCost:12, desc:'On solidify: enemies, player, and other solidify that touch it stick to the surface. On normal projectile: applies sticky debuff to enemy (slows them and causes contact-chain to other enemies). On player contact with sticky solidify: grants wall/ceiling walking for 8s.', category:'utility', dmgNote:'' },
 };
 
 /* Effect category rules: 'exclusive' means only one per phase */
@@ -744,7 +744,7 @@ const BEHAVIOR_RANK_REQ = {
 const EFFECT_RANK_REQ = {
 	knockback:0, randomDelay:0, evenDelay:0, resetProjectiles:0,
 	burn:1, freeze:1, forceJump:1, solidify:1,
-	poison:2, pull:2, horizontalLaunch:2, timedRelease:2, damageStore:2,
+	poison:2, pull:2, timedRelease:2, damageStore:2,
 	stun:3, healSelf:3, shield:3, phaseFork:3, damageRelease:3, damageHeal:3,
 	lifesteal:4, blind:4, shatter:4, mark:4, dispel:4,
 	phaseThrough:5, gravityWell:5, ricochet:5,
@@ -1541,10 +1541,11 @@ function calcSpellManaCost(spell){
 			const ed = (ph.effectDuration || 1);
 			cost += (ep * ep * 12) + (ed * ed * 8);
 		}
-		// solidify costs extra for non-outward behaviors
+		// solidify costs extra for non-outward behaviors; beam solidify costs heavily more
 		if(ph.effects.includes('solidify')){
 			const _solNonOutward = new Set(['stationary','underfoot','selfCast','aroundSelf','ground']);
 			cost += _solNonOutward.has(ph.behavior) ? 10 : 100;
+			if(ph.shape === 'beam') cost += 180;
 		}
 		// stacked rain
 		if(ph.behavior === 'rain' && ph.stackedRain) cost += 50;
@@ -1553,8 +1554,20 @@ function calcSpellManaCost(spell){
 			const _bfm = ph.shape === 'beam' ? 2.5 : 1;
 			cost += (ph.phaseForkRepeats || 1) * 35 * _bfm;
 		}
+		// gravity well: extra cost based on power and size (range = size * power)
+		if(ph.effects.includes('gravityWell'))
+			cost += (ph.power||1)*14 + Math.max(0,(ph.width||1)-1)*10 + Math.max(0,(ph.height||1)-1)*10;
 	}
 	cost *= (0.6 + spell.phases.length * 0.25);
+	// Additional phase cost scales with first-phase projectile count
+	if(spell.phases.length > 1){
+		const _fp0 = spell.phases[0];
+		const _fp0c = _fp0.behavior==='aroundSelf' ? (_fp0.aroundSelfCount||4) : (_fp0.count||1);
+		const _fp0fork = (_fp0.effects||[]).includes('phaseFork') ? (1+(_fp0.phaseForkRepeats||1)) : 1;
+		const _fp0tot = _fp0c * _fp0fork;
+		const _phCountCost = _fp0tot * Math.pow(Math.max(1,_fp0tot)/10, 0.65) * 0.15;
+		cost += (spell.phases.length - 1) * _phCountCost;
+	}
 	// Cross-phase scaling: total projectiles (multiplicative) × highest power → exponential cost
 	// Single-shot spells: negligible. 1000 total proj × high power = very expensive.
 	const _totalProj = spell.phases.reduce((prod, ph) => {
@@ -1931,8 +1944,7 @@ const DICT_EFFECT_DETAILS = {
 	knockback: { phaseNote:'Pushes target away from the projectile impact point.', extraNote:'' },
 	pull:      { phaseNote:'Pulls target toward you (opposite of knockback).', extraNote:'' },
 	forceJump: { phaseNote:'Forces the target to jump upward.', extraNote:'' },
-	horizontalLaunch:{ phaseNote:'Launches target horizontally. Strength multiplier: ×0.75.', extraNote:'Reduced from ×1.5 to ×0.75' },
-	stun:      { phaseNote:'Briefly stuns the target (prevents movement and attacks). Max ~0.3 seconds — cannot permanently stun an enemy. Enemies build stun resistance with each hit (−25% duration per stack, min 10%). Resistance gradually decays every ~2 seconds when the enemy is not being stunned. Domain element: matching grants +50% damage.', extraNote:'Max: ~0.3s | Resistance: −25% per stun, min 10% | Decay: −1 stack every 2s of no stun' },
+stun:      { phaseNote:'Briefly stuns the target (prevents movement and attacks). Max ~0.3 seconds — cannot permanently stun an enemy. Enemies build stun resistance with each hit (−25% duration per stack, min 10%). Resistance gradually decays every ~2 seconds when the enemy is not being stunned. Domain element: matching grants +50% damage.', extraNote:'Max: ~0.3s | Resistance: −25% per stun, min 10% | Decay: −1 stack every 2s of no stun' },
 	healSelf:  { phaseNote:'Heals you on each hit.', extraNote:'' },
 	shield:    { phaseNote:'Provides a temporary defence boost on hit.', extraNote:'' },
 	lifesteal: { phaseNote:'Heals you for 20% of damage dealt. Domain element: matching grants +50% damage.', extraNote:'Heal: 20% of damage dealt' },
@@ -3085,11 +3097,11 @@ const BESTIARY_ENTRIES = [
    ============================================================ */
 const BESTIARY_DATA = {
 	// Fire Dungeon
-	imp:             { atk:3, def:2, spd:5, desc:'Small mischievous fire demons that leap at adventurers with surprising aggression. Often found in swarms near volcanic fissures.', drops:[{icon:'🔥',name:'Ember Shard',chance:'60%'},{icon:'✨',name:'Arcane Dust',chance:'40%'}] },
-	flameSerpent:    { atk:4, def:2, spd:6, desc:'Scaled creatures infused with living flame. Their venom burns long after the bite and they can curl into fireballs when threatened.', drops:[{icon:'🐍',name:'Serpent Scale',chance:'55%'},{icon:'🔥',name:'Ember Shard',chance:'45%'},{icon:'☠️',name:'Venom Gland',chance:'25%'}] },
-	emberMage:       { atk:5, def:2, spd:3, desc:'Renegade mages who traded their sanity for fire power. They float above the ground and launch volleys of fire bolts at any who approach.', drops:[{icon:'🔥',name:'Ember Shard',chance:'65%'},{icon:'✨',name:'Arcane Dust',chance:'50%'}] },
-	magmaGolem:      { atk:6, def:7, spd:2, desc:'Animated constructs of solid lava rock. Nearly immune to physical force, they are slow but devastating on contact — their touch instantly sears.', drops:[{icon:'🌋',name:'Molten Core',chance:'35%'},{icon:'🔥',name:'Ember Shard',chance:'70%'},{icon:'🧱',name:'Stone Chip',chance:'55%'}] },
-	fireSprite:      { atk:2, def:1, spd:8, desc:'Tiny flame elementals that dart about with frightening speed. Individually they deal little damage, but groups of them can overwhelm the unprepared.', drops:[{icon:'🔥',name:'Ember Shard',chance:'50%'},{icon:'🔶',name:'Lava Essence',chance:'30%'}] },
+	imp:             { atk:3, def:2, spd:5, desc:'Small mischievous fire demons that attack with rapid aerial assaults. They hurl Pyroclastic Orbs that detonate into ember rings, volley Volcanic Darts that spiral outward, and Smoke Dash through targets while dropping smoldering clouds.', drops:[{icon:'🔥',name:'Ember Shard',chance:'60%'},{icon:'✨',name:'Arcane Dust',chance:'40%'}] },
+	flameSerpent:    { atk:4, def:2, spd:6, desc:'Scaled creatures infused with living flame. They leave Scorch Trails of burning ground during high-speed dashes, crash down with a Coil Slam that sends out a shockwave ring, and spit a Venom Flame glob that applies both poison and burn.', drops:[{icon:'🐍',name:'Serpent Scale',chance:'55%'},{icon:'🔥',name:'Ember Shard',chance:'45%'},{icon:'☠️',name:'Venom Gland',chance:'25%'}] },
+	emberMage:       { atk:5, def:2, spd:3, desc:'Renegade mages who traded their sanity for fire power. They unleash a Spellbook Zigzag beam of ricocheting fire, sweep the room with a Flamethrower Sweep arc, and summon rising Lava Pillars beneath the player.', drops:[{icon:'🔥',name:'Ember Shard',chance:'65%'},{icon:'✨',name:'Arcane Dust',chance:'50%'}] },
+	magmaGolem:      { atk:6, def:7, spd:2, desc:'Animated constructs of solid lava rock. Nearly immune to physical force — they open ground fissures with a Seismic Fist shockwave, launch a Lava Crown of radial magma shards, and detonate a Molten Armor burst that sprays magma in all directions.', drops:[{icon:'🌋',name:'Molten Core',chance:'35%'},{icon:'🔥',name:'Ember Shard',chance:'70%'},{icon:'🧱',name:'Stone Chip',chance:'55%'}] },
+	fireSprite:      { atk:2, def:1, spd:8, desc:'Tiny flame elementals that dart about with frightening speed. They unleash an Ember Whirl arc of rapid fire embers, hurl a Meteor Seed that falls back as a devastating meteor, and vanish with Phase Flicker before striking from behind.', drops:[{icon:'🔥',name:'Ember Shard',chance:'50%'},{icon:'🔶',name:'Lava Essence',chance:'30%'}] },
 	fireDragon:      { atk:9, def:8, spd:5, desc:'An ancient fire dragon sealed within the dungeon\'s deepest chamber. Its scales are impervious, its breath incinerates stone, and its roar shakes the very walls around it.', drops:[{icon:'🐉',name:'Dragon Scale',chance:'100%'},{icon:'🦷',name:'Inferno Fang',chance:'80%'},{icon:'🌋',name:'Molten Core',chance:'100%'},{icon:'🔥',name:'Ember Shard',chance:'100%'}] },
 	// Ice Dungeon
 	frostWraith:     { atk:3, def:2, spd:5, desc:'The restless spirits of those who froze to death in the ice caverns. They phase through walls and drain warmth from anyone living nearby.', drops:[{icon:'👻',name:'Spirit Wisp',chance:'55%'},{icon:'🧊',name:'Ice Crystal',chance:'40%'}] },
