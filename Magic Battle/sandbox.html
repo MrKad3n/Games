@@ -1013,12 +1013,15 @@ function updateProjectiles() {
 			}
 
 			case 'spiral': {
-				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || (p.phase.speed||1)*7;
-				const baseAng = p.aimAngle != null ? p.aimAngle : (p.facing===1 ? 0 : Math.PI);
-				const spiralAngle = baseAng + p.age * 0.06;
-				const outward = 0.3 + p.age * 0.008;
-				p.vx = Math.cos(spiralAngle) * spd * outward;
-				p.vy = Math.sin(spiralAngle) * spd * outward;
+				const spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy) || ((p.phase.speed||1)*7);
+				const ang = p.aimAngle != null ? p.aimAngle : (p.facing===1 ? 0 : Math.PI);
+				const perpAng = ang + Math.PI/2;
+				const radius = (p.phase.spiralRadius || 40) + p.width * 0.5;
+				const freq = p.phase.spiralFreq || 0.12;
+				const lateral = radius * freq;
+				const orbitAng = perpAng + p.age * freq;
+				p.vx = Math.cos(ang) * spd + Math.cos(orbitAng) * lateral;
+				p.vy = Math.sin(ang) * spd + Math.sin(orbitAng) * lateral;
 				break;
 			}
 
