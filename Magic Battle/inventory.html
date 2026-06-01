@@ -635,6 +635,7 @@ const BEHAVIORS = {
 	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:6,  desc:'Projectiles around you in a circle (uses Around Self Count slider)', dmgNote:'' },
 	ground:       { label:'Ground',       controlReq:3,  manaCost:4,  desc:'Erupts from ground at nearest enemy within radius. Expand radius for mana.', dmgNote:'+40% dmg' },
 	zigzag:       { label:'Zigzag',       controlReq:4,  manaCost:5,  desc:'Weaves in a sine wave pattern', dmgNote:'' },
+	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Corkscrews along the aimed path, orbiting the straight trajectory', dmgNote:'' },
 	teleport:     { label:'Teleport',     controlReq:6,  manaCost:7,  desc:'Blinks forward at intervals, hard to dodge', dmgNote:'' },
 	control:      { label:'Control',      controlReq:3,  manaCost:30, desc:'Projectile follows your cursor — starts at player and glides to cursor position. Allows up to 30s duration.', dmgNote:'-85% dmg' },
 	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing. Matching elemental spells buffed. Max 2 phases. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
@@ -737,7 +738,7 @@ const BEHAVIOR_RANK_REQ = {
 	straight:0, stationary:0, selfCast:0,
 	lob:1, underfoot:1,
 	homing:2, boomerang:2, groundSurge:2, control:2,
-	aroundSelf:3, ground:3, zigzag:3,
+	aroundSelf:3, ground:3, zigzag:3, spiral:3,
 	orbit:4, rain:4, barrage:4, teleport:4,
 	domain:5, transformation:5,
 };
@@ -893,7 +894,7 @@ const ITEM_BOOSTS = {
 	/* --- Relics --- */
 	chaos_orb:      { effects:['ricochet'], behaviors:['boomerang'], boost:1.2, desc:'+20% Ricochet/Boomerang damage' },
 	sun_medallion:  { shapes:['cone','ring'], boost:1.25, desc:'+25% Cone/Ring damage' },
-	moon_pendant:   { behaviors:['zigzag'], boost:1.2, desc:'+20% Zigzag damage' },
+	moon_pendant:   { behaviors:['spiral','zigzag'], boost:1.2, desc:'+20% Spiral & Zigzag damage' },
 	crystal_crown:  { shapes:['polygon','spike'], boost:1.25, desc:'+25% Polygon/Spike damage' },
 	phoenix_feather:{ effects:['healSelf','damageHeal','damageStore','damageRelease'], boost:1.35, desc:'+35% healing/damage store effects' },
 	dragon_heart:   { shapes:['blade'], effects:['shatter'], boost:1.3, desc:'+30% Blade/Shatter damage' },
@@ -1933,6 +1934,7 @@ const DICT_BEHAVIOR_DETAILS = {
 	aroundSelf:   { phaseNote:'Spawns projectiles in a circle around you. Uses the Around Self Count slider for count.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
 	ground:       { phaseNote:'Erupts from the ground at the nearest enemy (within customizable radius). If no enemy in range, spawns at your feet. Expand radius costs +3 mana per 50px above 200.', dmgMod:'+40% (×1.4)', extraNote:'Auto-locks nearest enemy. Duration ×3' },
 	zigzag:       { phaseNote:'Weaves in a sine wave pattern toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
+	spiral:       { phaseNote:'Corkscrews along the aimed path — orbits around the straight centerline toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
 	teleport:     { phaseNote:'Blinks forward at intervals, making it hard to dodge.', dmgMod:'None (×1.0)', extraNote:'' },
 	domain:       { phaseNote:'ULTIMATE ONLY. Creates a massive zone (1.8× canvas size). Must be in spell slot 0 as Phase 1. Next phases fire from domain edges with forced homing. Matching elemental effects get +50% damage.', dmgMod:'Domain sub-phases capped at power 10 base', extraNote:'Dominion Master class: +30% range, +40% damage. Domain Vows can buff slow, range, power, DoT, mana regen, duration, and more.' },
 };
@@ -4662,6 +4664,7 @@ function newPhase(){
 		duration:1, power:1, count:1, spread:0, effects:[], color:'#4488ff',
 		trail:'sparkle', nextTrigger:'onHit',
 		orbitRadius:80, orbitSpeed:3, orbitDuration:1.5,
+		spiralRadius:40, spiralFreq:0.12,
 		timedReleaseDelay:0.5,
 		phaseForkDelay:1, phaseForkRepeats:1,
 		aroundSelfCount:4, aroundSelfRadius:50,
@@ -5695,6 +5698,14 @@ function drawPreview(){
 					const originY2 = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
 					px = originX + (tx - originX) * localT;
 					py = originY2 + Math.sin(localT * 20) * 15 + (ty - 12 - originY2) * localT;
+					break;
+				}
+				case 'spiral': {
+					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
+					const originY2 = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
+					const spiralR = 12;
+					px = originX + (tx - originX) * localT + Math.cos(localT * 24) * spiralR;
+					py = originY2 + Math.sin(localT * 24) * spiralR + (ty - 12 - originY2) * localT;
 					break;
 				}
 				case 'teleport': {

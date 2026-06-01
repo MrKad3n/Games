@@ -706,7 +706,7 @@ const BEHAVIOR_RANK_REQ = {
 	straight:0, stationary:0, selfCast:0,
 	lob:1, underfoot:1,
 	homing:2, boomerang:2, groundSurge:2, control:2,
-	aroundSelf:3, ground:3, zigzag:3,
+	aroundSelf:3, ground:3, zigzag:3, spiral:3,
 	orbit:4, rain:4, barrage:4, teleport:4,
 	domain:5,
 };
@@ -905,8 +905,8 @@ const stats=computeStats();
 /* --- Spell cost helpers --- */
 const SHAPE_MANA={missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,spike:8,allyOrb:6,polygon:9,meteor:16,vortex:18,same:0,explosion:14};
 const SHAPE_CTRL={missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,spike:3,allyOrb:1,polygon:3,meteor:6,vortex:7,same:0,explosion:5};
-const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:6,ground:4,zigzag:5,teleport:7,control:30,domain:1000};
-const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,control:3,domain:10};
+const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:6,ground:4,zigzag:5,spiral:6,teleport:7,control:30,domain:1000};
+const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,control:3,domain:10};
 const FX_MANA={burn:36,freeze:36,knockback:8,pull:10,poison:36,stun:54,healSelf:15,shield:15,lifesteal:48,timedRelease:8,phaseFork:6,resetProjectiles:0,forceJump:10,randomDelay:5,evenDelay:5,phaseThrough:35,damageStore:10,damageRelease:15,damageHeal:12,dispel:45,ricochet:35,shatter:60,gravityWell:120,classDisable:0,rotate:8,solidify:0,awayFromPlayer:5,solidObjectBreak:100,sticky:35};
 const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,randomDelay:1,evenDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0,rotate:2,solidify:4,awayFromPlayer:2,solidObjectBreak:1,sticky:5};
 
@@ -12386,7 +12386,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	const effectiveBehavior = isDomainSubPhase ? (domainStraightShapes.has(domainSE) ? 'straight' : 'homing') : (ph.behavior || 'straight');
 	
 	// Cursor-aimed behaviors: compute angle from player to mouse cursor
-	const cursorAimBehaviors = new Set(['straight','boomerang','lob','zigzag','teleport']);
+	const cursorAimBehaviors = new Set(['straight','boomerang','lob','zigzag','spiral','teleport']);
 	let baseAngle;
 	if(_overrideAngle!=null){
 		baseAngle=_overrideAngle;
@@ -17302,6 +17302,11 @@ function updateProjectiles(){
 				const _ztNow=Date.now()/160;
 				p.x=player.x+player.w/2+player.facing*(16+Math.sin(_ztNow)*9);
 				p.y=player.y+player.h/2-6+Math.cos(_ztNow*1.4)*13;
+			} else if(_hb==='spiral'){
+				// Corkscrew orbit in front of caster
+				const _stNow=Date.now()/200;
+				p.x=player.x+player.w/2+player.facing*(16+Math.cos(_stNow)*10);
+				p.y=player.y+player.h/2-6+Math.sin(_stNow)*10;
 			} else {
 				p.x=player.x+player.w/2+player.facing*20;
 				p.y=player.y+player.h/2-6;
@@ -17396,6 +17401,18 @@ function updateProjectiles(){
 				const offset=Math.sin(p.age*freq)*amplitude*freq;
 				p.vx=Math.cos(ang)*spd+Math.cos(perpAng)*offset;
 				p.vy=Math.sin(ang)*spd+Math.sin(perpAng)*offset;
+				break;
+			}
+			case'spiral':{
+				const spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||((p.phase.speed||1)*7);
+				const ang=p.aimAngle!=null?p.aimAngle:(p.facing===1?0:Math.PI);
+				const perpAng=ang+Math.PI/2;
+				const radius=(p.phase.spiralRadius||40)+p.width*0.5;
+				const freq=p.phase.spiralFreq||0.12;
+				const lateral=radius*freq;
+				const orbitAng=perpAng+p.age*freq;
+				p.vx=Math.cos(ang)*spd+Math.cos(orbitAng)*lateral;
+				p.vy=Math.sin(ang)*spd+Math.sin(orbitAng)*lateral;
 				break;
 			}
 			case'teleport':{
