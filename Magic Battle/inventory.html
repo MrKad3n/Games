@@ -1192,6 +1192,9 @@ function loadState(){
 			if(!s.loadouts) s.loadouts = [];
 			if(s.activeLoadoutIdx == null) s.activeLoadoutIdx = -1;
 			if(!s.transformSpells) s.transformSpells = new Array(10).fill(null);
+			if(!s.equipment) s.equipment = { staff:null, robe:null, relic1:null, relic2:null };
+			if(!s.baseStats) s.baseStats = { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 };
+			if(!s.inventory) s.inventory = [];
 			return s;
 		}
 	} catch(e){}
@@ -1325,6 +1328,8 @@ document.addEventListener('DOMContentLoaded', () => {
    COMPUTED STATS (base + equipment)
    ============================================================= */
 function computeStats(){
+	if(!STATE.baseStats) STATE.baseStats = { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 };
+	if(!STATE.equipment) STATE.equipment = { staff:null, robe:null, relic1:null, relic2:null };
 	const s = {...STATE.baseStats};
 	for(const slotKey of ['staff','robe','relic1','relic2']){
 		const id = STATE.equipment[slotKey];

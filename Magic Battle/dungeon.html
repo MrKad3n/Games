@@ -47,6 +47,34 @@ canvas{display:block}
 #dialogueText{font-size:14px;color:#ddd;line-height:1.55;min-height:44px}
 #dialogueContinue{font-size:11px;color:#666;margin-top:10px;text-align:right}
 
+/* === CONVERSATIONAL NPC CHAT === */
+#aiChatOverlay{position:fixed;inset:0;z-index:55;display:none;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:16px}
+#aiChatPanel{width:min(760px,96vw);max-height:min(88vh,720px);display:flex;flex-direction:column;background:rgba(14,10,28,0.98);border:2px solid rgba(108,92,231,0.5);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+#aiChatHeader{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(108,92,231,0.12)}
+#aiChatIcon{font-size:28px}
+#aiChatName{font-size:16px;font-weight:bold;color:#f1c40f}
+#aiChatTitle{font-size:11px;color:#888}
+#aiChatCloseBtn{margin-left:auto;background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#aiChatCloseBtn:hover{color:#fff;background:rgba(255,255,255,0.08)}
+#aiChatMessages{flex:1;overflow-y:auto;padding:16px 18px;min-height:200px;max-height:min(52vh,420px)}
+.ai-chat-msg{margin-bottom:14px}
+.ai-chat-msg-player .ai-chat-msg-label{color:#6c5ce7}
+.ai-chat-msg-npc .ai-chat-msg-label{color:#f1c40f}
+.ai-chat-msg-label{font-size:11px;font-weight:bold;margin-bottom:4px}
+.ai-chat-msg-text{font-size:13px;color:#ddd;line-height:1.55;background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:8px}
+.ai-chat-msg-player .ai-chat-msg-text{border-left:3px solid #6c5ce7}
+.ai-chat-msg-npc .ai-chat-msg-text{border-left:3px solid #f1c40f}
+#aiChatThinking{display:none;padding:0 18px 8px;font-size:12px;color:#888;font-style:italic}
+#aiChatFooter{display:flex;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.1)}
+#aiChatInput{flex:1;resize:none;min-height:44px;max-height:120px;padding:10px 12px;font-size:13px;font-family:inherit;color:#eee;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.15);border-radius:8px}
+#aiChatInput:focus{outline:none;border-color:#6c5ce7}
+#aiChatSendBtn{padding:10px 18px;font-size:13px;font-weight:bold;color:#fff;background:linear-gradient(135deg,#5a3ec8,#6c5ce7);border:none;border-radius:8px;cursor:pointer}
+#aiChatSendBtn:disabled{opacity:0.5;cursor:not-allowed}
+#aiChatHint{font-size:10px;color:#555;padding:0 18px 10px;text-align:center}
+body.ai-chat-open #game{pointer-events:none}
+body.ai-chat-open #hotbar,
+body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
+
 /* === NPC SYSTEM === */
 #interactPrompt{position:fixed;bottom:200px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;z-index:15;display:none}
 .npc-nameplate{position:absolute;font-size:11px;color:#f1c40f;text-shadow:1px 1px 2px #000;text-align:center;pointer-events:none}
@@ -119,6 +147,28 @@ canvas{display:block}
 	</div>
 </div>
 
+<!-- Conversational NPC Chat (type your own messages) -->
+<div id="aiChatOverlay">
+	<div id="aiChatPanel">
+		<div id="aiChatHeader">
+			<span id="aiChatIcon"></span>
+			<div>
+				<div id="aiChatName"></div>
+				<div id="aiChatTitle"></div>
+			</div>
+			<button id="aiChatCloseBtn" type="button" title="Close (Esc)">✕</button>
+		</div>
+		<div id="aiChatMessages"></div>
+		<div id="aiChatThinking"></div>
+		<div id="aiChatFooter">
+			<textarea id="aiChatInput" rows="2" placeholder="Type your message… (Enter to send, Shift+Enter for new line)"></textarea>
+			<button id="aiChatSendBtn" type="button">Send</button>
+		</div>
+		<div id="aiChatHint">Esc to close · AI-powered dialogue (cloud) · Conversations remembered</div>
+	</div>
+</div>
+
+<!-- Story Mode 2 — World Map -->
 <!-- Inventory Overlay (M key) -->
 <div id="inventoryOverlay">
 	<div id="invCloseBtn" onclick="closeInventory()">✕</div>
@@ -158,6 +208,9 @@ canvas{display:block}
 	</div>
 </div>
 
+<script src="https://js.puter.com/v2/" onload="try{puter.quiet=true}catch(e){}"></script>
+<script src="conversational-npc.js"></script>
+<script src="npc-profiles.js"></script>
 <script>
 /* =========================================================
    Magic Battle — Unified Spell Battle Engine
@@ -382,6 +435,7 @@ const NPC_IMG_MAP = {
 	ranger_sylva:'forest-ranger', scout_fern:'forest-ranger',
 	grothar:'black-smith', briar:'merchant', watcher_aelara:'clock-keeper',
 	volcanologist:'eldery-sage',
+	theron_sandbox:'scroll-vendor',
 };
 Object.entries(NPC_IMG_MAP).forEach(([id, file]) => {
 	if(!NPC_IMAGES[file]){ const img = new Image(); img.src = 'images/NPCS/' + file + '.png'; NPC_IMAGES[file] = img; }
@@ -648,6 +702,11 @@ if(!playerData){
 /* --- Ensure vows array exists (migration) --- */
 if(!playerData.vows) playerData.vows = [null,null,null];
 if(playerData.domainVow === undefined) playerData.domainVow = null;
+/* --- Ensure spells array exists (migration) --- */
+if(!playerData.spells || !Array.isArray(playerData.spells)){
+	playerData.spells = new Array(10).fill(null);
+}
+while(playerData.spells.length < 10) playerData.spells.push(null);
 /* --- Ensure spellBoosts array exists (migration) --- */
 if(!playerData.spellBoosts) playerData.spellBoosts = new Array(10).fill(1.0);
 /* --- Ensure rank/xp fields exist (migration) --- */
@@ -657,6 +716,8 @@ if(!playerData.mageClass) playerData.mageClass = 'none';
 if(!playerData.mageClass2) playerData.mageClass2 = 'none';
 /* --- Ensure equipment object exists (migration for saves predating equipment feature) --- */
 if(!playerData.equipment) playerData.equipment = {staff:null,robe:null,relic1:null,relic2:null};
+if(!playerData.baseStats) playerData.baseStats = {magicPower:10,magicControl:5,manaRegen:100,magicDefence:8};
+if(!playerData.inventory) playerData.inventory = [];
 /* --- Enforce: never start with transformation loadout as active spells --- */
 if(playerData.loadouts && playerData.activeLoadoutIdx >= 0){
 	const _al = playerData.loadouts[playerData.activeLoadoutIdx];
@@ -1890,6 +1951,19 @@ const SANDBOX_CONFIG = {
 		{ x:2400, y:2292 },
 		{ x:2800, y:2292 },
 	],
+	npcs: [
+		{
+			id: 'theron_sandbox',
+			name: 'Archivist Theron',
+			x: 820,
+			icon: '📚',
+			color: '#6c5ce7',
+			w: 58,
+			h: 90,
+			conversational: true,
+			conversationalProfile: 'theron_sandbox',
+		},
+	],
 };
 
 /* =============================================================
@@ -2348,7 +2422,7 @@ const STORMISLANDS_CONFIG = {
    OPENWORLD MODE CONFIG — TUTORIAL ZONE
    ============================================================= */
 const OPENWORLD_CONFIG = {
-	name: 'Tutorial — Mage Academy Grounds',
+	name: 'Story Mode 1 — Mage Academy Grounds',
 	worldW: 8000,
 	worldH: 2400,
 	bgColor: '#1a1a3e',
@@ -4312,7 +4386,7 @@ if(IS_SANDBOX){
 	document.getElementById('dungeonName').innerHTML = RAID_CONFIG.name + ' <span style="font-size:12px;color:#ff4466;">(Raid)</span>';
 	document.getElementById('backBtn').href = 'index.html';
 } else if(IS_OPENWORLD){
-	document.getElementById('dungeonName').innerHTML = OPENWORLD_CONFIG.name + ' <span style="font-size:12px;color:#66aaff;">(Tutorial)</span>';
+	document.getElementById('dungeonName').innerHTML = OPENWORLD_CONFIG.name + ' <span style="font-size:12px;color:#66aaff;">(Story Mode 1)</span>';
 	document.getElementById('backBtn').href = 'index.html';
 } else if(IS_CITY){
 	document.getElementById('dungeonName').innerHTML = CITY_CONFIG.name + ' <span style="font-size:12px;color:#f1c40f;">(City)</span>';
@@ -4674,23 +4748,24 @@ function updateCamera(){
    ============================================================= */
 const keys = {};
 addEventListener('keydown', e => {
+	// Conversational chat — block game controls; only chat panel + Escape
+	if(aiChatActive){
+		if(e.key === 'Escape'){
+			closeConversationalChat();
+			return;
+		}
+		if(isConversationalChatTarget(e.target)){
+			return;
+		}
+		e.preventDefault();
+		return;
+	}
+
 	keys[e.key.toLowerCase()] = true;
 	const digit = e.key >= '0' && e.key <= '9' ? (+e.key===0?9:+e.key-1) : -1;
 	if(digit >= 0 && digit < 10) selectSpellSlot(digit);
 
-	// Check instant-cast keybinds from settings
-	try {
-		const _skb = JSON.parse(localStorage.getItem('magicBattle_slotKeybinds')||'{}');
-		for(let _si = 0; _si < 10; _si++){
-			if(_skb[_si] && e.key === _skb[_si]){
-				selectSpellSlot(_si);
-				castSpell();
-				break;
-			}
-		}
-	} catch(_kberr){}
-
-	// M key — toggle inventory
+	// M key — inventory
 	if(e.key.toLowerCase() === 'm'){
 		toggleInventory();
 		return;
@@ -4698,6 +4773,7 @@ addEventListener('keydown', e => {
 	
 	// E key — interact with NPCs / advance dialogue
 	if(e.key.toLowerCase() === 'e'){
+		if(aiChatActive) return;
 		if(dialogueActive){
 			advanceDialogue();
 			return;
@@ -4803,17 +4879,21 @@ addEventListener('keydown', e => {
 		return;
 	}
 
-	// Escape — close inventory or dialogue
+	// Escape — close inventory or dialogue (chat handled at top of handler)
 	if(e.key === 'Escape'){
 		if(necroSelectOpen){ cancelNecroSelect(); return; }
 		if(inventoryOpen){ closeInventory(); return; }
 		if(dialogueActive) return;
 	}
 });
-addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('keyup', e => {
+	if(aiChatActive) return;
+	keys[e.key.toLowerCase()] = false;
+});
 let mouseDown = false;
 let mouseScreenX = 0, mouseScreenY = 0;
 canvas.addEventListener('mousedown', e => {
+	if(aiChatActive) return;
 	mouseDown = true; mouseScreenX = e.clientX * CAMERA_ZOOM; mouseScreenY = e.clientY * CAMERA_ZOOM;
 	// Necro select click handling
 	if(necroSelectOpen){
@@ -4886,7 +4966,8 @@ const playerSpawn = IS_SANDBOX ? SANDBOX_CONFIG.playerStart
 	: dungeon.playerStart;
 
 const player = {
-	x: playerSpawn.x, y: playerSpawn.y,
+	x: playerSpawn.x,
+	y: (IS_OPENWORLD || IS_SANDBOX || IS_CITY) ? Math.min(playerSpawn.y, GROUND_Y - 58) : playerSpawn.y,
 	w: 38, h: 56,
 	vx: 0, vy: 0, launchVx: 0,
 	speed: hasClass('warrior') ? (hasClass('ranger') ? 7.8 : 7.5) : (hasClass('ranger') ? 7.2 : 7.0),
@@ -9266,8 +9347,8 @@ computeTileEdges();
 /* =============================================================
    MANA
    ============================================================= */
-const maxMana = IS_SANDBOX ? Infinity : Math.max(100, 1500 - vowManaPenalty);
-let mana = IS_SANDBOX ? Infinity : maxMana;
+const maxMana = (IS_SANDBOX) ? Infinity : Math.max(100, 1500 - vowManaPenalty);
+let mana = (IS_SANDBOX) ? Infinity : maxMana;
 const baseManaRegen = 0.45 + (stats.manaRegen||0) * 0.009;
 function updateManaHUD(){
 	if(IS_SANDBOX){
@@ -9283,7 +9364,15 @@ function updateManaHUD(){
 /* Total Mana — accumulates from every spell cast, used for ultimate */
 let totalMana = 0;
 function updateTotalManaHUD(){
-	const ultSpell = playerData.spells[9];
+	if(IS_SANDBOX){
+		const fill = document.getElementById('totalManaBarFill');
+		const text = document.getElementById('totalManaText');
+		if(fill) fill.style.width = '100%';
+		if(text) text.textContent = '⚡ Total Mana: ∞';
+		return;
+	}
+	const spells = playerData.spells || [];
+	const ultSpell = spells[9];
 	let ultCost = ultSpell ? calcSpellCost(ultSpell) * 10 : 999999;
 	// Domain/Transformation always flat 25k; necromancer domain 50k
 	if(ultSpell && ultSpell.phases.some(p=>p.behavior==='domain'||p.behavior==='transformation')){
@@ -10115,7 +10204,7 @@ if(IS_SANDBOX){
 
 // Openworld / city training dummies
 const _dummyCfg = IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
-if(_dummyCfg){
+if(_dummyCfg && _dummyCfg.dummies){
 	for(let i = 0; i < _dummyCfg.dummies.length; i++){
 		const d = _dummyCfg.dummies[i];
 		dummies.push({
@@ -10138,7 +10227,7 @@ if(_dummyCfg){
 // Slime enemies for openworld / city
 const slimes = [];
 const _slimeCfg = IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
-if(_slimeCfg && _slimeCfg.slimeSpawns.length > 0){
+if(_slimeCfg && _slimeCfg.slimeSpawns && _slimeCfg.slimeSpawns.length > 0){
 	for(const spawn of _slimeCfg.slimeSpawns){
 		slimes.push({
 			x: spawn.x, y: _slimeCfg.groundY - SLIME_TYPE.h,
@@ -10160,21 +10249,20 @@ if(_slimeCfg && _slimeCfg.slimeSpawns.length > 0){
 
 // NPCs for openworld / city
 const npcs = [];
-const _npcCfg = IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
-if(_npcCfg){
+const _npcCfg = IS_SANDBOX ? SANDBOX_CONFIG : IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : null;
+	if(_npcCfg){
 	for(const npc of _npcCfg.npcs){
 		npcs.push({
 			...npc,
 			y: npc.y !== undefined ? npc.y : (_npcCfg.groundY - npc.h),
 		});
 	}
-	// Hide Elder Maris if time rewind has occurred (osStage >= 5)
-	if(IS_CITY){
-		const osStage = parseInt(localStorage.getItem('magicBattle_oldSocietyStage')||'0');
-		if(osStage >= 5){
-			const elder = npcs.find(n => n.id === 'elder');
-			if(elder) elder._hidden = true;
-		}
+}
+if(IS_CITY){
+	const osStage = parseInt(localStorage.getItem('magicBattle_oldSocietyStage')||'0');
+	if(osStage >= 5){
+		const elder = npcs.find(n => n.id === 'elder');
+		if(elder) elder._hidden = true;
 	}
 }
 
@@ -12167,6 +12255,7 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
    CAST PLAYER SPELLS (adapted from sandbox)
    ============================================================= */
 function castSpell(){
+	if(aiChatActive) return;
 	const spell=playerData.spells[activeSlot];
 	if(!spell||!spell.phases.length)return;
 	// Block casting from vow-locked spell slots
@@ -18909,7 +18998,7 @@ function respawnPlayer(){
 			notify('The duel has been interrupted. Speak with Captain Dorn to try again.');
 		}
 		health=maxHealth;
-		mana=IS_SANDBOX?Infinity:maxMana;
+		mana=(IS_SANDBOX)?Infinity:maxMana;
 		player.x=playerSpawn.x;
 		player.y=playerSpawn.y;
 		player.vx=0;player.vy=0;player.launchVx=0;
@@ -20325,7 +20414,7 @@ function checkFirePuzzles(){
 function updateNpcs(){
 	nearbyNpc = null;
 	// Openworld / City NPCs
-	if(IS_OPENWORLD || IS_CITY || IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS){
+	if(IS_SANDBOX || IS_OPENWORLD || IS_CITY || IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS){
 		for(const npc of npcs){
 			if(npc._hidden) continue;
 			if(npc.id === 'dorn_city' && captainDuel.active) continue;
@@ -20413,7 +20502,7 @@ function updateNpcs(){
 	}
 	// Show/hide interact prompt
 	const prompt = document.getElementById('interactPrompt');
-	if(nearbyNpc && !dialogueActive){
+	if(nearbyNpc && !dialogueActive && !aiChatActive){
 		prompt.style.display = 'block';
 	} else {
 		prompt.style.display = 'none';
@@ -20599,8 +20688,14 @@ function updateTypewriter(){
 
 /* NPC interaction — quest-aware dialogue */
 function tryInteractNpc(){
-	if(!nearbyNpc || dialogueActive) return;
+	if(!nearbyNpc || dialogueActive || aiChatActive) return;
 	const npc = nearbyNpc; // capture reference for callback
+
+	// Conversational AI NPC — free-form typed chat
+	if(npc.conversational && npc.conversationalProfile){
+		openConversationalChat(npc);
+		return;
+	}
 
 	// Fire dungeon puzzle lever
 	if(npc._puzzleLever){
@@ -25065,7 +25160,11 @@ function update(){
 	if(player._stickyNoAttach>0) player._stickyNoAttach--;
 
 	/* Player movement */
-	if(player.stunTimer<=0&&!player.ultCharging){
+	if(aiChatActive){
+		player.vx = 0;
+		player.launchVx = 0;
+	}
+	if(player.stunTimer<=0&&!player.ultCharging&&!aiChatActive){
 		const spdM=player.slowTimer>0?0.5:1;
 		const vowSpdMult=1+vowSpeedBonus*0.08;
 		const vowMvPenalty=Math.max(0.5, 1 - vowMovementPenalty*0.01);
@@ -25338,7 +25437,7 @@ function update(){
 	}
 
 	/* Casting */
-	const wantCast=mouseDown;
+	const wantCast=mouseDown&&!aiChatActive;
 	if(wantCast&&!castPressed){castPressed=true;castSpell();}
 	if(!wantCast)castPressed=false;
 	if(player.castTimer>0)player.castTimer--;
@@ -26309,6 +26408,39 @@ function render(){
 				ctx.font = 'bold 12px monospace';
 				ctx.textAlign = 'center';
 				ctx.fillText(Math.round(totalDmg) + ' dmg', dx + d.w/2, dy - 18);
+			}
+		}
+
+		// Draw sandbox NPCs (conversational mage, etc.)
+		for(const npc of npcs){
+			if(npc._hidden) continue;
+			const nx = npc.x - camera.x, ny = npc.y - camera.y;
+			if(nx + npc.w < -50 || nx > canvas.width + 50) continue;
+			ctx.fillStyle = 'rgba(0,0,0,0.3)';
+			ctx.beginPath();
+			ctx.ellipse(nx + npc.w/2, ny + npc.h, npc.w/2, 6, 0, 0, Math.PI * 2);
+			ctx.fill();
+			const npcImgFile = NPC_IMG_MAP[npc.id];
+			const npcImg = npcImgFile && NPC_IMAGES[npcImgFile];
+			if(npcImg && npcImg.complete && npcImg.naturalWidth > 0){
+				ctx.drawImage(npcImg, nx, ny, npc.w, npc.h);
+			} else {
+				ctx.fillStyle = npc.color || '#6c5ce7';
+				ctx.fillRect(nx + 4, ny + 16, npc.w - 8, npc.h - 16);
+				ctx.fillStyle = '#ffddbb';
+				ctx.fillRect(nx + 8, ny, npc.w - 16, 20);
+				ctx.font = '20px Arial';
+				ctx.textAlign = 'center';
+				ctx.fillText(npc.icon, nx + npc.w/2, ny + 40);
+			}
+			ctx.fillStyle = '#f1c40f';
+			ctx.font = 'bold 11px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(npc.name, nx + npc.w/2, ny - 8);
+			if(npc.conversational){
+				ctx.fillStyle = 'rgba(108,92,231,0.85)';
+				ctx.font = '9px Arial';
+				ctx.fillText('💬 Press E to chat', nx + npc.w/2, ny + npc.h + 14);
 			}
 		}
 	} else if(IS_RAID){
@@ -27953,7 +28085,6 @@ function render(){
 
 	} else if(IS_OPENWORLD){
 		// Painted valley background with mountains
-		// Sky gradient
 		const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
 		skyGrad.addColorStop(0, '#4a7ec2');
 		skyGrad.addColorStop(0.35, '#7ab4e0');
