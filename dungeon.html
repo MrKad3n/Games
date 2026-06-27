@@ -1976,14 +1976,14 @@ const SANDBOX_CONFIG = {
    ============================================================= */
 const COLOSSEUM_CONFIG = {
 	name: 'Colosseum',
-	worldW: 2600,
+	worldW: 2000,
 	worldH: 1400,
 	bgColor: '#c8a96b',
 	bgColor2: '#8a6f3e',
 	groundY: 1340,
 	groundThick: 60,
-	// Spawn on opposite sides depending on which player you are.
-	playerStart: (PVP_SIDE === 'right') ? { x: 2040, y: 1280 } : { x: 480, y: 1280 },
+	// Spawn on opposite sides (close enough that both fit on screen).
+	playerStart: (PVP_SIDE === 'right') ? { x: 1500, y: 1280 } : { x: 450, y: 1280 },
 	infiniteMana: false,
 	platforms: [], // arena has no platforms — ground only
 };
@@ -26377,6 +26377,70 @@ function update(){
 /* =============================================================
    RENDER
    ============================================================= */
+// Procedural colosseum backdrop: tiered sandstone wall with arched
+// openings full of crowd silhouettes. Drawn when the PNG isn't available.
+function drawColosseumArch(x, y, w, h, seed){
+	const r = w/2;
+	ctx.save();
+	ctx.beginPath();
+	ctx.moveTo(x, y+h);
+	ctx.lineTo(x, y+r);
+	ctx.arc(x+r, y+r, r, Math.PI, 0, false);
+	ctx.lineTo(x+w, y+h);
+	ctx.closePath();
+	const ig = ctx.createLinearGradient(0, y, 0, y+h);
+	ig.addColorStop(0, '#2a2018'); ig.addColorStop(1, '#0d0a06');
+	ctx.fillStyle = ig; ctx.fill();
+	ctx.clip();
+	for(let row=0; row<3; row++){
+		const cy = y + h - 8 - row*12;
+		for(let cx = x+8; cx < x+w-6; cx += 11){
+			const j = ((Math.sin(cx*12.9 + cy*7.3 + seed*3.1) * 43758.5453) % 1 + 1) % 1;
+			const hr = 3 + j*1.6;
+			ctx.fillStyle = 'rgba(0,0,0,0.55)';
+			ctx.beginPath(); ctx.arc(cx + j*3, cy, hr, 0, Math.PI*2); ctx.fill();
+			ctx.fillStyle = 'rgba(120,90,60,0.18)';
+			ctx.beginPath(); ctx.arc(cx + j*3, cy-1, hr*0.6, 0, Math.PI*2); ctx.fill();
+		}
+	}
+	ctx.restore();
+	ctx.strokeStyle = 'rgba(70,50,25,0.7)'; ctx.lineWidth = 3;
+	ctx.beginPath();
+	ctx.moveTo(x, y+h); ctx.lineTo(x, y+r);
+	ctx.arc(x+r, y+r, r, Math.PI, 0, false);
+	ctx.lineTo(x+w, y+h);
+	ctx.stroke();
+	ctx.fillStyle = 'rgba(214,188,138,0.95)'; ctx.fillRect(x+r-5, y-2, 10, 12);
+}
+function drawColosseumWall(wallBottom){
+	if(wallBottom <= 0) return;
+	const W = canvas.width;
+	const g = ctx.createLinearGradient(0, 0, 0, wallBottom);
+	g.addColorStop(0, '#d8bd86'); g.addColorStop(0.5, '#c2a166'); g.addColorStop(1, '#9c7b4a');
+	ctx.fillStyle = g; ctx.fillRect(0, 0, W, wallBottom);
+	const off = camera.x * 0.25; // parallax
+	const tiers = 3;
+	const tierH = wallBottom / tiers;
+	for(let t=0; t<tiers; t++){
+		const top = t*tierH;
+		ctx.fillStyle = t%2 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
+		ctx.fillRect(0, top, W, tierH);
+		ctx.fillStyle = 'rgba(90,65,30,0.55)'; ctx.fillRect(0, top, W, 6);
+		ctx.fillStyle = 'rgba(255,240,200,0.25)'; ctx.fillRect(0, top+6, W, 2);
+		const archW = 86, span = 132;
+		const archTop = top + 16;
+		const archH = Math.min(tierH - 34, 96);
+		if(archH < 24) continue;
+		const startX = -(((off % span) + span) % span) - span;
+		for(let x = startX; x < W + span; x += span){
+			drawColosseumArch(x, archTop, archW, archH, t);
+		}
+	}
+	const sh = ctx.createLinearGradient(0, Math.max(0, wallBottom-60), 0, wallBottom);
+	sh.addColorStop(0, 'rgba(40,25,5,0)'); sh.addColorStop(1, 'rgba(40,25,5,0.45)');
+	ctx.fillStyle = sh; ctx.fillRect(0, Math.max(0, wallBottom-60), W, 60);
+}
+
 function render(){
 	ctx.clearRect(0,0,canvas.width,canvas.height);
 	
@@ -26394,17 +26458,18 @@ function render(){
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 		const floorScreenY = COLOSSEUM_CONFIG.groundY - camera.y;
-		// Flat colosseum wall texture fills everything above the sand floor.
+		const wallBottom = Math.max(0, Math.min(canvas.height, floorScreenY));
+		// Use the texture if it loaded; otherwise draw the arena wall procedurally
+		// (so the colosseum always appears even if the PNG isn't deployed).
 		if(colosseumBgImg.complete && colosseumBgImg.naturalWidth > 0){
-			const wallBottom = Math.max(0, Math.min(canvas.height, floorScreenY));
-			// gentle horizontal parallax so the backdrop feels like a fixed wall
 			const par = -(camera.x * 0.25) % colosseumBgImg.width;
 			for(let x = par - colosseumBgImg.width; x < canvas.width; x += colosseumBgImg.width){
 				ctx.drawImage(colosseumBgImg, x, 0, colosseumBgImg.width, wallBottom > 0 ? wallBottom : 1);
 			}
-			// subtle shade toward the floor
 			ctx.fillStyle = 'rgba(20,10,0,0.18)';
 			ctx.fillRect(0, 0, canvas.width, wallBottom);
+		} else {
+			drawColosseumWall(wallBottom);
 		}
 
 		// Sand floor
@@ -38138,7 +38203,7 @@ loop();
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=3"></script>
 <script src="cloud-save.js?v=3"></script>
-<script src="pvp-net.js?v=3"></script>
+<script src="pvp-net.js?v=4"></script>
 <script>
 /* ===== Colosseum PvP networking ===== */
 (function(){
@@ -38147,18 +38212,21 @@ loop();
 	var opp = { active:false, x:0, y:0, facing:-1, hp:1, maxHp:1, name:'Opponent', castFlash:0, castColor:'#ffcc44', left:false };
 	var net = null, lastSent = 0, prevCast = 0, connecting = false;
 	var oppW = 38, oppH = 56;
+	var pvpStatus = 'Connecting to match…';
 
 	function connect(){
 		if(net || connecting) return; // connect only once
-		if(!window.PvPNet || !PvPNet.enabled()) return;
+		if(!window.PvPNet || !PvPNet.enabled()){ pvpStatus = 'Online PvP not configured'; return; }
 		var client = window.CloudSave && CloudSave.client && CloudSave.client();
 		if(!client){ setTimeout(connect, 400); return; } // wait for supabase client/session
 		connecting = true;
 		net = PvPNet.connectMatch(PVP_MATCH, PVP_SIDE, {
-			onState: function(s){ opp.active=true; opp.x=s.x; opp.y=s.y; opp.facing=s.facing; opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent'; },
+			onConnected: function(){ pvpStatus = 'Waiting for opponent…'; },
+			onReady:     function(){ pvpStatus = 'Opponent connected'; },
+			onState: function(s){ opp.active=true; opp.x=s.x; opp.y=s.y; opp.facing=s.facing; opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent'; pvpStatus = ''; },
 			onCast:  function(c){ opp.castFlash=14; opp.castColor=(c&&c.color)||'#ffcc44'; },
 			onHit:   function(h){ if(typeof damagePlayer==='function') damagePlayer((h&&h.dmg)||10, (h&&h.effects)||null); },
-			onLeft:  function(){ opp.active=false; opp.left=true; if(typeof notify==='function') notify('🏳️ Opponent left the arena'); },
+			onLeft:  function(){ opp.active=false; opp.left=true; pvpStatus = 'Opponent left the arena'; if(typeof notify==='function') notify('🏳️ Opponent left the arena'); },
 		});
 		window.__pvpNet = net;
 	}
@@ -38197,22 +38265,55 @@ loop();
 
 	// Drawn from render() each frame when in colosseum mode
 	window.drawPvpOpponent = function(){
+		var cw = canvas.width;
+		// Status banner (top-center) until the opponent's data is flowing
+		if(pvpStatus){
+			ctx.save();
+			ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
+			var tw = ctx.measureText(pvpStatus).width;
+			ctx.fillStyle = 'rgba(0,0,0,0.55)';
+			ctx.fillRect(cw/2 - tw/2 - 14, 14, tw + 28, 30);
+			ctx.fillStyle = '#ffe08a';
+			ctx.fillText(pvpStatus, cw/2, 35);
+			ctx.restore();
+		}
 		if(!opp.active) return;
+
 		var sx = opp.x - camera.x, sy = opp.y - camera.y;
-		if(sx < -200 || sx > canvas.width + 200) return;
-		ctx.fillStyle = 'rgba(0,0,0,0.3)';
-		ctx.beginPath(); ctx.ellipse(sx+oppW/2, sy+oppH, oppW/2, 6, 0, 0, Math.PI*2); ctx.fill();
-		if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 18; }
-		ctx.fillStyle = '#b23b3b'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
-		ctx.fillStyle = '#ffd9b3'; ctx.fillRect(sx+8, sy, oppW-16, 20);
-		ctx.fillStyle = '#222'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 4, 4);
-		ctx.shadowBlur = 0;
-		ctx.fillStyle = '#ff8a8a'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-		ctx.fillText(opp.name, sx+oppW/2, sy-20);
-		var pct = Math.max(0, Math.min(1, opp.hp/(opp.maxHp||1)));
-		ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx-6, sy-14, oppW+12, 6);
-		ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
-		ctx.fillRect(sx-6, sy-14, (oppW+12)*pct, 6);
+		var onScreen = (sx > -120 && sx < cw + 120);
+
+		if(onScreen){
+			ctx.fillStyle = 'rgba(0,0,0,0.3)';
+			ctx.beginPath(); ctx.ellipse(sx+oppW/2, sy+oppH, oppW/2, 6, 0, 0, Math.PI*2); ctx.fill();
+			if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 18; }
+			ctx.fillStyle = '#b23b3b'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
+			ctx.fillStyle = '#ffd9b3'; ctx.fillRect(sx+8, sy, oppW-16, 20);
+			ctx.fillStyle = '#222'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 4, 4);
+			ctx.shadowBlur = 0;
+			ctx.fillStyle = '#ff8a8a'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+			ctx.fillText(opp.name, sx+oppW/2, sy-20);
+			var pct = Math.max(0, Math.min(1, opp.hp/(opp.maxHp||1)));
+			ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx-6, sy-14, oppW+12, 6);
+			ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
+			ctx.fillRect(sx-6, sy-14, (oppW+12)*pct, 6);
+		} else {
+			// Off-screen: arrow at the edge pointing toward the opponent
+			var dir = sx < 0 ? -1 : 1;
+			var ax = dir < 0 ? 40 : cw - 40;
+			var ay = Math.max(70, Math.min(canvas.height - 80, sy));
+			var dist = Math.round(Math.abs(opp.x - player.x));
+			ctx.save();
+			ctx.fillStyle = 'rgba(178,59,59,0.92)';
+			ctx.beginPath();
+			ctx.moveTo(ax + dir*18, ay);
+			ctx.lineTo(ax - dir*12, ay - 14);
+			ctx.lineTo(ax - dir*12, ay + 14);
+			ctx.closePath(); ctx.fill();
+			ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+			ctx.fillText(opp.name, ax, ay - 22);
+			ctx.fillText(dist + ' away', ax, ay + 30);
+			ctx.restore();
+		}
 	};
 })();
 </script>
