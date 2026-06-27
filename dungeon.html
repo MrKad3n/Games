@@ -225,6 +225,9 @@ addEventListener('resize',resize);resize();
 const GAME_MODE = new URLSearchParams(location.search).get('mode') || 'dungeon';
 const DUNGEON_TYPE = new URLSearchParams(location.search).get('type') || 'fire';
 const DIFFICULTY = new URLSearchParams(location.search).get('diff') || 'normal';
+// PvP colosseum params
+const PVP_MATCH = new URLSearchParams(location.search).get('match') || null;
+const PVP_SIDE = (new URLSearchParams(location.search).get('side') === 'right') ? 'right' : 'left';
 // Difficulty multipliers: easy / normal / hard
 const DIFF_HP_MULT = DIFFICULTY === 'hard' ? 2 : DIFFICULTY === 'easy' ? 0.6 : 1;
 const DIFF_SIZE_MULT = 1.4; // always use hard-mode size for all difficulties
@@ -1965,6 +1968,27 @@ const SANDBOX_CONFIG = {
 		},
 	],
 };
+
+/* =============================================================
+   COLOSSEUM (PvP ARENA) CONFIG
+   Flat sandstone backdrop texture, sand floor, no platforms.
+   ============================================================= */
+const COLOSSEUM_CONFIG = {
+	name: 'Colosseum',
+	worldW: 2600,
+	worldH: 1400,
+	bgColor: '#c8a96b',
+	bgColor2: '#8a6f3e',
+	groundY: 1340,
+	groundThick: 60,
+	// Spawn on opposite sides depending on which player you are.
+	playerStart: (PVP_SIDE === 'right') ? { x: 2040, y: 1280 } : { x: 480, y: 1280 },
+	infiniteMana: false,
+	platforms: [], // arena has no platforms — ground only
+};
+// Flat backdrop texture for the colosseum
+const colosseumBgImg = new Image();
+colosseumBgImg.src = 'images/backgrounds/colosseum-bg.png';
 
 /* =============================================================
    RAID MODE CONFIG
@@ -4343,7 +4367,8 @@ const IS_BLACKSANDS = GAME_MODE === 'blacksands';
 const IS_ARCANERUINS = GAME_MODE === 'arcaneruins';
 const IS_CHRONORAID = GAME_MODE === 'chronoraid';
 const IS_ZENITH = GAME_MODE === 'zenith';
-const IS_DUNGEON = !IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_STORMISLANDS && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH;
+const IS_COLOSSEUM = GAME_MODE === 'colosseum';
+const IS_DUNGEON = !IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_STORMISLANDS && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH && !IS_COLOSSEUM;
 
 // Helper to pick config value for current mode
 function modeVal(sb, rd, ow, city, def){
@@ -4357,7 +4382,7 @@ function modeVal(sb, rd, ow, city, def){
 }
 
 // Create dungeon object (real dungeon for dungeon mode, stub for other modes)
-const _cfg = IS_ZENITH ? ZENITH_RAID_CONFIG : IS_CHRONORAID ? CHRONO_RAID_CONFIG : IS_ARCANERUINS ? ARCANERUINS_CONFIG : IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : IS_RAID ? RAID_CONFIG : IS_SANDBOX ? SANDBOX_CONFIG : null;
+const _cfg = IS_COLOSSEUM ? COLOSSEUM_CONFIG : IS_ZENITH ? ZENITH_RAID_CONFIG : IS_CHRONORAID ? CHRONO_RAID_CONFIG : IS_ARCANERUINS ? ARCANERUINS_CONFIG : IS_BLACKSANDS ? BLACKSANDS_CONFIG : IS_STORMISLANDS ? STORMISLANDS_CONFIG : IS_DRAGONGRAVEYARD ? DRAGONGRAVEYARD_CONFIG : IS_OBSERVATORY ? OBSERVATORY_CONFIG : IS_SYLVARIS ? SYLVARIS_CONFIG : IS_CITY ? CITY_CONFIG : IS_OPENWORLD ? OPENWORLD_CONFIG : IS_RAID ? RAID_CONFIG : IS_SANDBOX ? SANDBOX_CONFIG : null;
 const dungeon = IS_DUNGEON ? (DUNGEONS[DUNGEON_TYPE] || DUNGEONS.fire) : {
 	name: _cfg ? _cfg.name : 'Open World',
 	worldW: _cfg ? _cfg.worldW : 4000,
@@ -4415,6 +4440,9 @@ if(IS_SANDBOX){
 } else if(IS_ZENITH){
 	document.getElementById('dungeonName').style.display = 'none'; // Hidden — boss title shown in canvas HUD
 	document.getElementById('backBtn').href = 'index.html';
+} else if(IS_COLOSSEUM){
+	document.getElementById('dungeonName').innerHTML = 'Colosseum <span style="font-size:12px;color:#e0b85a;">(PvP Duel)</span>';
+	document.getElementById('backBtn').href = 'index.html';
 } else {
 	document.getElementById('dungeonName').innerHTML = dungeon.name + ' <span style="font-size:12px;color:' + diffColors[DIFFICULTY] + ';">(' + diffLabel + ')</span>';
 	document.getElementById('backBtn').href = 'index.html';
@@ -4438,6 +4466,13 @@ if(IS_SANDBOX){
 	sandboxPlatforms = [
 		{ x:0, y:SANDBOX_CONFIG.groundY, w:WORLD_W, h:SANDBOX_CONFIG.groundThick }, // Main ground
 		...SANDBOX_CONFIG.platforms,
+		{ x:-50, y:0, w:50, h:WORLD_H },
+		{ x:WORLD_W, y:0, w:50, h:WORLD_H },
+	];
+} else if(IS_COLOSSEUM){
+	sandboxPlatforms = [
+		{ x:0, y:COLOSSEUM_CONFIG.groundY, w:WORLD_W, h:COLOSSEUM_CONFIG.groundThick }, // sand floor
+		// No jump platforms in the arena
 		{ x:-50, y:0, w:50, h:WORLD_H },
 		{ x:WORLD_W, y:0, w:50, h:WORLD_H },
 	];
@@ -4951,7 +4986,8 @@ function releaseHeldProjectiles(){
    PLAYER
    ============================================================= */
 // Get spawn point based on game mode
-const playerSpawn = IS_SANDBOX ? SANDBOX_CONFIG.playerStart 
+const playerSpawn = IS_COLOSSEUM ? COLOSSEUM_CONFIG.playerStart
+	: IS_SANDBOX ? SANDBOX_CONFIG.playerStart 
 	: IS_RAID ? RAID_CONFIG.playerStart
 	: IS_OPENWORLD ? OPENWORLD_CONFIG.playerStart
 	: IS_CITY ? CITY_CONFIG.playerStart
@@ -26348,7 +26384,50 @@ function render(){
 	ctx.translate(camera.shakeX, camera.shakeY);
 
 	/* Background fill */
-	if(IS_SANDBOX){
+	if(IS_COLOSSEUM){
+		// Warm sandstone base in case the texture hasn't loaded yet
+		const cgrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		cgrad.addColorStop(0, COLOSSEUM_CONFIG.bgColor);
+		cgrad.addColorStop(1, COLOSSEUM_CONFIG.bgColor2);
+		ctx.fillStyle = cgrad;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		const floorScreenY = COLOSSEUM_CONFIG.groundY - camera.y;
+		// Flat colosseum wall texture fills everything above the sand floor.
+		if(colosseumBgImg.complete && colosseumBgImg.naturalWidth > 0){
+			const wallBottom = Math.max(0, Math.min(canvas.height, floorScreenY));
+			// gentle horizontal parallax so the backdrop feels like a fixed wall
+			const par = -(camera.x * 0.25) % colosseumBgImg.width;
+			for(let x = par - colosseumBgImg.width; x < canvas.width; x += colosseumBgImg.width){
+				ctx.drawImage(colosseumBgImg, x, 0, colosseumBgImg.width, wallBottom > 0 ? wallBottom : 1);
+			}
+			// subtle shade toward the floor
+			ctx.fillStyle = 'rgba(20,10,0,0.18)';
+			ctx.fillRect(0, 0, canvas.width, wallBottom);
+		}
+
+		// Sand floor
+		if(floorScreenY < canvas.height){
+			const sand = ctx.createLinearGradient(0, floorScreenY, 0, canvas.height);
+			sand.addColorStop(0, '#d9b878');
+			sand.addColorStop(1, '#b8975a');
+			ctx.fillStyle = sand;
+			ctx.fillRect(0, floorScreenY, canvas.width, canvas.height - floorScreenY);
+			// darker top edge line of the sand
+			ctx.fillStyle = 'rgba(120,90,40,0.5)';
+			ctx.fillRect(0, floorScreenY, canvas.width, 5);
+			// scattered sand speckles
+			ctx.fillStyle = 'rgba(150,115,60,0.35)';
+			for(let i = 0; i < 60; i++){
+				const sx = (i * 137.5 - (camera.x % canvas.width)) % canvas.width;
+				const sy = floorScreenY + 14 + ((i * 53) % Math.max(1, (canvas.height - floorScreenY - 10)));
+				ctx.fillRect((sx + canvas.width) % canvas.width, sy, 3, 2);
+			}
+		}
+
+		// Draw remote opponent (if connected)
+		if(typeof drawPvpOpponent === 'function') drawPvpOpponent();
+	} else if(IS_SANDBOX){
 		// Gradient sky for sandbox mode
 		const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
 		grad.addColorStop(0, SANDBOX_CONFIG.bgColor);
@@ -38052,6 +38131,87 @@ function loop(){update();updateDebugPanel();updateHealthHUD();render();requestAn
 // Start boss music for Zenith mode (deferred to intro completion; see updateZenithBoss)
 // For Zenith, music starts after the intro animation ends (~6s). Nothing to auto-start here.
 loop();
+</script>
+
+<!-- Accounts + cloud save + PvP networking -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="cloud-save.js"></script>
+<script src="pvp-net.js"></script>
+<script>
+/* ===== Colosseum PvP networking ===== */
+(function(){
+	if(typeof IS_COLOSSEUM === 'undefined' || !IS_COLOSSEUM || !PVP_MATCH) return;
+
+	var opp = { active:false, x:0, y:0, facing:-1, hp:1, maxHp:1, name:'Opponent', castFlash:0, castColor:'#ffcc44', left:false };
+	var net = null, lastSent = 0, prevCast = 0;
+	var oppW = 38, oppH = 56;
+
+	function connect(){
+		if(!window.PvPNet || !PvPNet.enabled()) return;
+		var client = window.CloudSave && CloudSave.client && CloudSave.client();
+		if(!client){ setTimeout(connect, 400); return; } // wait for supabase client/session
+		net = PvPNet.connectMatch(PVP_MATCH, PVP_SIDE, {
+			onState: function(s){ opp.active=true; opp.x=s.x; opp.y=s.y; opp.facing=s.facing; opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent'; },
+			onCast:  function(c){ opp.castFlash=14; opp.castColor=(c&&c.color)||'#ffcc44'; },
+			onHit:   function(h){ if(typeof damagePlayer==='function') damagePlayer((h&&h.dmg)||10, (h&&h.effects)||null); },
+			onLeft:  function(){ opp.active=false; opp.left=true; if(typeof notify==='function') notify('🏳️ Opponent left the arena'); },
+		});
+		window.__pvpNet = net;
+	}
+	if(window.CloudSave) CloudSave.onAuthChange(function(){ if(!net) connect(); });
+	setTimeout(connect, 800);
+
+	function tick(){
+		if(net){
+			var now = performance.now();
+			if(now - lastSent > 50){ // ~20Hz transform/hp sync
+				lastSent = now;
+				net.sendState({
+					x: player.x, y: player.y, facing: player.facing,
+					hp: Math.max(0, Math.round(health)), maxHp: Math.round(maxHealth),
+					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
+				});
+			}
+			// broadcast cast (rising edge)
+			if(player.castTimer > 0 && prevCast <= 0) net.sendCast({ color: player.castColor || '#88bbff' });
+			prevCast = player.castTimer;
+			// my projectiles hitting the opponent -> tell them to take damage
+			if(opp.active && typeof projectiles !== 'undefined'){
+				for(var i=0;i<projectiles.length;i++){
+					var p = projectiles[i];
+					if(!p || p.hasHit || p._pvpHit) continue;
+					if(p.x > opp.x-6 && p.x < opp.x+oppW+6 && p.y > opp.y-6 && p.y < opp.y+oppH+6){
+						p._pvpHit = true;
+						net.sendHit({ dmg: Math.max(4, Math.round(p.power || 10)), effects:(p.effects && p.effects.length) ? p.effects : null });
+					}
+				}
+			}
+		}
+		requestAnimationFrame(tick);
+	}
+	requestAnimationFrame(tick);
+
+	// Drawn from render() each frame when in colosseum mode
+	window.drawPvpOpponent = function(){
+		if(!opp.active) return;
+		var sx = opp.x - camera.x, sy = opp.y - camera.y;
+		if(sx < -200 || sx > canvas.width + 200) return;
+		ctx.fillStyle = 'rgba(0,0,0,0.3)';
+		ctx.beginPath(); ctx.ellipse(sx+oppW/2, sy+oppH, oppW/2, 6, 0, 0, Math.PI*2); ctx.fill();
+		if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 18; }
+		ctx.fillStyle = '#b23b3b'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
+		ctx.fillStyle = '#ffd9b3'; ctx.fillRect(sx+8, sy, oppW-16, 20);
+		ctx.fillStyle = '#222'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 4, 4);
+		ctx.shadowBlur = 0;
+		ctx.fillStyle = '#ff8a8a'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+		ctx.fillText(opp.name, sx+oppW/2, sy-20);
+		var pct = Math.max(0, Math.min(1, opp.hp/(opp.maxHp||1)));
+		ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx-6, sy-14, oppW+12, 6);
+		ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
+		ctx.fillRect(sx-6, sy-14, (oppW+12)*pct, 6);
+	};
+})();
 </script>
 </body>
 </html>

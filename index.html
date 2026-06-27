@@ -243,6 +243,91 @@
 			transform: rotate(30deg);
 		}
 
+		/* Account button (top-right, left of settings) */
+		#accountBtn {
+			position: fixed;
+			top: 16px;
+			right: 70px;
+			z-index: 100;
+			height: 44px;
+			padding: 0 16px;
+			border-radius: 22px;
+			border: 2px solid var(--border);
+			background: rgba(0,0,0,0.5);
+			color: #fff;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			transition: background 0.2s, border-color 0.2s;
+		}
+		#accountBtn:hover { background: rgba(108,92,231,0.5); }
+		#accountBtn .acct-dot { width:8px;height:8px;border-radius:50%;background:#888; }
+		#accountBtn.signed-in .acct-dot { background:#44ff88; box-shadow:0 0 8px #44ff88; }
+
+		/* Generic modal overlay used by auth + pvp popups */
+		.mb-overlay {
+			position: fixed; inset: 0; z-index: 200;
+			background: rgba(0,0,0,0.72);
+			display: none; align-items: center; justify-content: center;
+			backdrop-filter: blur(3px);
+		}
+		.mb-overlay.open { display: flex; }
+		.mb-panel {
+			width: min(420px, 92vw);
+			background: linear-gradient(160deg, #1a1530, #120b22);
+			border: 2px solid var(--border);
+			border-radius: 16px;
+			padding: 26px 26px 22px;
+			box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+			color: #fff;
+		}
+		.mb-panel h3 { margin: 0 0 4px; font-size: 22px; }
+		.mb-panel .mb-sub { color: #b9b3d6; font-size: 13px; margin: 0 0 18px; }
+		.mb-panel label { display:block; font-size:12px; color:#cfc8ea; margin: 10px 0 4px; }
+		.mb-panel input[type=email],
+		.mb-panel input[type=password],
+		.mb-panel input[type=text] {
+			width: 100%; box-sizing: border-box;
+			padding: 11px 12px; border-radius: 9px;
+			border: 1px solid var(--border);
+			background: rgba(0,0,0,0.45); color: #fff; font-size: 14px;
+		}
+		.mb-btn {
+			width: 100%; margin-top: 16px; padding: 12px;
+			border: none; border-radius: 10px; cursor: pointer;
+			background: linear-gradient(90deg,#6c5ce7,#8e7bff);
+			color:#fff; font-size:15px; font-weight:700;
+			transition: filter 0.15s;
+		}
+		.mb-btn:hover { filter: brightness(1.12); }
+		.mb-btn.secondary { background: rgba(255,255,255,0.08); border:1px solid var(--border); }
+		.mb-btn:disabled { opacity:0.55; cursor:default; }
+		.mb-link { display:block; text-align:center; margin-top:14px; color:#8e7bff; font-size:13px; cursor:pointer; background:none; border:none; width:100%; }
+		.mb-msg { margin-top:12px; font-size:13px; min-height:18px; text-align:center; }
+		.mb-msg.err { color:#ff7b7b; }
+		.mb-msg.ok { color:#5be08a; }
+		.pvp-choice {
+			display:flex; flex-direction:column; gap:12px; margin-top:8px;
+		}
+		.pvp-opt {
+			text-align:left; padding:16px; border-radius:12px; cursor:pointer;
+			border:1px solid var(--border); background: rgba(255,255,255,0.04);
+			color:#fff; transition: background 0.15s, border-color 0.15s;
+		}
+		.pvp-opt:hover { background: rgba(108,92,231,0.18); border-color:#8e7bff; }
+		.pvp-opt b { font-size:16px; }
+		.pvp-opt span { display:block; color:#b9b3d6; font-size:12.5px; margin-top:3px; }
+		.pvp-spinner {
+			width:34px;height:34px;margin:16px auto 6px;border-radius:50%;
+			border:3px solid rgba(255,255,255,0.18); border-top-color:#8e7bff;
+			animation: mbspin 0.9s linear infinite;
+		}
+		@keyframes mbspin { to { transform: rotate(360deg); } }
+		.code-display { font-size:34px; letter-spacing:10px; font-weight:800; text-align:center; margin:14px 0; color:#8e7bff; }
+
 		/* Settings modal */
 		#settingsOverlay {
 			position: fixed;
@@ -589,7 +674,72 @@
 	</style>
 </head>
 <body>
+	<button id="accountBtn" title="Account"><span class="acct-dot"></span><span id="accountLabel">Sign In</span></button>
 	<button id="settingsBtn" title="Settings">⚙️</button>
+
+	<!-- Auth modal -->
+	<div id="authOverlay" class="mb-overlay">
+		<div class="mb-panel">
+			<h3 id="authTitle">Sign In</h3>
+			<p class="mb-sub" id="authSub">Sign in to save your spells, loadouts and stats to your account.</p>
+			<div id="authForm">
+				<label for="authEmail">Email</label>
+				<input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+				<label for="authPass">Password</label>
+				<input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+				<button id="authSubmit" class="mb-btn" type="button">Sign In</button>
+				<button id="authToggle" class="mb-link" type="button">Need an account? Sign up</button>
+				<div id="authMsg" class="mb-msg"></div>
+			</div>
+			<div id="authSignedIn" style="display:none">
+				<p class="mb-sub" style="margin-top:6px">Signed in as <b id="authWho"></b>. Your progress syncs to the cloud automatically.</p>
+				<button id="authSignOut" class="mb-btn secondary" type="button">Sign Out</button>
+			</div>
+			<button id="authClose" class="mb-link" type="button">Close</button>
+		</div>
+	</div>
+
+	<!-- PvP modal -->
+	<div id="pvpOverlay" class="mb-overlay">
+		<div class="mb-panel">
+			<h3 id="pvpTitle">Player vs Player</h3>
+			<p class="mb-sub" id="pvpSub">Choose how you want to battle.</p>
+
+			<div id="pvpChoice" class="pvp-choice">
+				<button class="pvp-opt" id="pvpCasual" type="button">
+					<b>⚔️ Casual Play (1v1)</b>
+					<span>Jump in the queue and get matched with another mage.</span>
+				</button>
+				<button class="pvp-opt" id="pvpPrivateCreate" type="button">
+					<b>🔒 Create Private Match</b>
+					<span>Generate a code and share it with a friend.</span>
+				</button>
+				<button class="pvp-opt" id="pvpPrivateJoin" type="button">
+					<b>🔑 Join with Code</b>
+					<span>Enter a friend's code to fight them directly.</span>
+				</button>
+			</div>
+
+			<div id="pvpJoinForm" style="display:none">
+				<label for="pvpCodeInput">Match code</label>
+				<input id="pvpCodeInput" type="text" maxlength="6" placeholder="ABCD" style="text-transform:uppercase;text-align:center;letter-spacing:6px;font-size:20px;" />
+				<button id="pvpJoinGo" class="mb-btn" type="button">Join Match</button>
+			</div>
+
+			<div id="pvpQueue" style="display:none;text-align:center">
+				<div class="pvp-spinner"></div>
+				<div id="pvpQueueStatus" class="mb-sub">Searching for an opponent…</div>
+				<div id="pvpCodeWrap" style="display:none">
+					<div class="mb-sub">Share this code with your opponent:</div>
+					<div id="pvpCodeDisplay" class="code-display">----</div>
+				</div>
+			</div>
+
+			<div id="pvpMsg" class="mb-msg"></div>
+			<button id="pvpBack" class="mb-btn secondary" type="button" style="display:none">Back</button>
+			<button id="pvpClose" class="mb-link" type="button">Close</button>
+		</div>
+	</div>
 
 	<div id="settingsOverlay">
 		<div id="settingsPanel">
@@ -728,7 +878,7 @@
 			</div>
 
 			<!-- Iron Forge (Iron Dungeon) — right of center -->
-			<div class="map-location" style="left:69%;top:49%;--loc-glow:rgba(150,150,170,0.4)" data-loc="ironforge">
+			<div class="map-location" style="left:80%;top:65%;--loc-glow:rgba(150,150,170,0.4)" data-loc="ironforge">
 				<div class="map-icon" style="background:rgba(50,50,60,0.85);border-color:#7a7a8a">⚒️</div>
 				<div class="map-name">Iron Forge</div>
 				<div class="map-sub">Iron Dungeon</div>
@@ -742,7 +892,7 @@
 			</div>
 
 			<!-- IronRidge (Earth Dungeon) — below-right of Iron Forge -->
-			<div class="map-location" style="left:80%;top:65%;--loc-glow:rgba(100,200,80,0.4)" data-loc="ironridge">
+			<div class="map-location" style="left:69%;top:49%;--loc-glow:rgba(100,200,80,0.4)" data-loc="ironridge">
 				<div class="map-icon" style="background:rgba(40,60,30,0.85);border-color:#27ae60">🌿</div>
 				<div class="map-name">IronRidge</div>
 				<div class="map-sub">Earth Dungeon</div>
@@ -823,13 +973,16 @@
 		</section>
 	</main>
 
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="supabase-config.js"></script>
+	<script src="cloud-save.js"></script>
+	<script src="pvp-net.js"></script>
 	<script src="world-map.js"></script>
 	<script>
 		const modeRoutes = {
 			sandbox: 'dungeon.html?mode=sandbox',
 			inventory: 'inventory.html',
 			dungeons: 'dungeons.html',
-			pvp: 'pvp.html',
 			raids: 'raids.html',
 			openworld: 'dungeon.html?mode=openworld'
 		};
@@ -846,12 +999,166 @@
 		document.getElementById('sandboxBtn').addEventListener('click', () => launchMode('sandbox'));
 		document.getElementById('inventoryBtn').addEventListener('click', () => launchMode('inventory'));
 		document.getElementById('dungeonsBtn').addEventListener('click', () => launchMode('dungeons'));
-		document.getElementById('pvpBtn').addEventListener('click', () => launchMode('pvp'));
+		document.getElementById('pvpBtn').addEventListener('click', () => openPvP());
 		document.getElementById('raidsBtn').addEventListener('click', () => launchMode('raids'));
 		document.getElementById('openworldBtn').addEventListener('click', () => {
 			openWorldMap();
 			requestAnimationFrame(() => WorldMapVoronoi.setHover('emberfall'));
 		});
+
+		/* ============ ACCOUNTS (sign in / sign up) ============ */
+		const authOverlay = document.getElementById('authOverlay');
+		const accountBtn = document.getElementById('accountBtn');
+		const accountLabel = document.getElementById('accountLabel');
+		let authIsSignup = false;
+
+		function setAuthMode(signup) {
+			authIsSignup = signup;
+			document.getElementById('authTitle').textContent = signup ? 'Create Account' : 'Sign In';
+			document.getElementById('authSub').textContent = signup
+				? 'Create an account to store your spells, loadouts and stats in the cloud.'
+				: 'Sign in to save your spells, loadouts and stats to your account.';
+			document.getElementById('authSubmit').textContent = signup ? 'Sign Up' : 'Sign In';
+			document.getElementById('authToggle').textContent = signup
+				? 'Already have an account? Sign in' : 'Need an account? Sign up';
+			document.getElementById('authPass').autocomplete = signup ? 'new-password' : 'current-password';
+			document.getElementById('authMsg').textContent = '';
+		}
+
+		function refreshAuthView() {
+			const u = window.CloudSave && CloudSave.user;
+			const form = document.getElementById('authForm');
+			const signed = document.getElementById('authSignedIn');
+			if (u) {
+				accountBtn.classList.add('signed-in');
+				accountLabel.textContent = CloudSave.displayName;
+				form.style.display = 'none';
+				signed.style.display = 'block';
+				document.getElementById('authWho').textContent = u.email || CloudSave.displayName;
+			} else {
+				accountBtn.classList.remove('signed-in');
+				accountLabel.textContent = 'Sign In';
+				form.style.display = 'block';
+				signed.style.display = 'none';
+			}
+		}
+
+		accountBtn.addEventListener('click', () => {
+			if (window.CloudSave && !CloudSave.enabled && !CloudSave.user) {
+				setAuthMode(false);
+				document.getElementById('authMsg').className = 'mb-msg err';
+				document.getElementById('authMsg').textContent = 'Online accounts not set up yet — add your Supabase keys in supabase-config.js.';
+			}
+			refreshAuthView();
+			authOverlay.classList.add('open');
+		});
+		document.getElementById('authClose').addEventListener('click', () => authOverlay.classList.remove('open'));
+		authOverlay.addEventListener('click', e => { if (e.target === authOverlay) authOverlay.classList.remove('open'); });
+		document.getElementById('authToggle').addEventListener('click', () => setAuthMode(!authIsSignup));
+
+		document.getElementById('authSubmit').addEventListener('click', async () => {
+			const email = document.getElementById('authEmail').value.trim();
+			const pass = document.getElementById('authPass').value;
+			const msg = document.getElementById('authMsg');
+			const btn = document.getElementById('authSubmit');
+			if (!email || !pass) { msg.className = 'mb-msg err'; msg.textContent = 'Enter your email and password.'; return; }
+			btn.disabled = true;
+			msg.className = 'mb-msg'; msg.textContent = 'Please wait…';
+			try {
+				if (authIsSignup) {
+					const r = await CloudSave.signUp(email, pass);
+					if (!CloudSave.user) {
+						msg.className = 'mb-msg ok';
+						msg.textContent = 'Account created! Check your email to confirm, then sign in.';
+						setAuthMode(false);
+					} else {
+						msg.className = 'mb-msg ok'; msg.textContent = 'Welcome!';
+						setTimeout(() => authOverlay.classList.remove('open'), 600);
+					}
+				} else {
+					await CloudSave.signIn(email, pass);
+					msg.className = 'mb-msg ok'; msg.textContent = 'Signed in — progress synced.';
+					setTimeout(() => authOverlay.classList.remove('open'), 600);
+				}
+			} catch (err) {
+				msg.className = 'mb-msg err';
+				msg.textContent = (err && err.message) ? err.message : 'Something went wrong.';
+			} finally { btn.disabled = false; refreshAuthView(); }
+		});
+
+		document.getElementById('authSignOut').addEventListener('click', async () => {
+			await CloudSave.signOut();
+			refreshAuthView();
+		});
+
+		if (window.CloudSave) CloudSave.onAuthChange(refreshAuthView);
+		setAuthMode(false);
+
+		/* ============ PvP POPUP ============ */
+		const pvpOverlay = document.getElementById('pvpOverlay');
+		let pvpSearch = null; // active matchmaking handle
+
+		function pvpReset() {
+			if (pvpSearch) { try { pvpSearch.cancel(); } catch (e) {} pvpSearch = null; }
+			document.getElementById('pvpChoice').style.display = 'flex';
+			document.getElementById('pvpJoinForm').style.display = 'none';
+			document.getElementById('pvpQueue').style.display = 'none';
+			document.getElementById('pvpCodeWrap').style.display = 'none';
+			document.getElementById('pvpBack').style.display = 'none';
+			document.getElementById('pvpMsg').textContent = '';
+		}
+		function openPvP() {
+			pvpReset();
+			const msg = document.getElementById('pvpMsg');
+			if (!window.PvPNet || !PvPNet.enabled()) {
+				msg.className = 'mb-msg err';
+				msg.textContent = 'Online PvP needs setup — add your Supabase keys in supabase-config.js.';
+			}
+			pvpOverlay.classList.add('open');
+		}
+		function goToMatch(matchId, side) {
+			window.location.href = 'dungeon.html?mode=colosseum&match=' + encodeURIComponent(matchId) + '&side=' + side;
+		}
+		function showQueue(label, codeToShow) {
+			document.getElementById('pvpChoice').style.display = 'none';
+			document.getElementById('pvpJoinForm').style.display = 'none';
+			document.getElementById('pvpQueue').style.display = 'block';
+			document.getElementById('pvpQueueStatus').textContent = label;
+			document.getElementById('pvpBack').style.display = 'block';
+			const cw = document.getElementById('pvpCodeWrap');
+			if (codeToShow) { cw.style.display = 'block'; document.getElementById('pvpCodeDisplay').textContent = codeToShow; }
+			else cw.style.display = 'none';
+		}
+		const matchHandlers = (st) => ({
+			onStatus: s => { document.getElementById('pvpQueueStatus').textContent = s; },
+			onMatched: (matchId, side) => goToMatch(matchId, side),
+		});
+
+		document.getElementById('pvpCasual').addEventListener('click', () => {
+			if (!PvPNet.enabled()) return;
+			showQueue('Searching for an opponent…');
+			pvpSearch = PvPNet.findCasual(Object.assign({ name: CloudSave && CloudSave.displayName }, matchHandlers()));
+		});
+		document.getElementById('pvpPrivateCreate').addEventListener('click', () => {
+			if (!PvPNet.enabled()) return;
+			const code = PvPNet.createPrivateCode();
+			showQueue('Waiting for your opponent to join…', code);
+			pvpSearch = PvPNet.joinPrivate(code, Object.assign({ name: CloudSave && CloudSave.displayName }, matchHandlers()));
+		});
+		document.getElementById('pvpPrivateJoin').addEventListener('click', () => {
+			document.getElementById('pvpChoice').style.display = 'none';
+			document.getElementById('pvpJoinForm').style.display = 'block';
+			document.getElementById('pvpBack').style.display = 'block';
+		});
+		document.getElementById('pvpJoinGo').addEventListener('click', () => {
+			const code = document.getElementById('pvpCodeInput').value.trim().toUpperCase();
+			if (code.length < 3) { document.getElementById('pvpMsg').className = 'mb-msg err'; document.getElementById('pvpMsg').textContent = 'Enter a valid code.'; return; }
+			showQueue('Joining room ' + code + '…');
+			pvpSearch = PvPNet.joinPrivate(code, Object.assign({ name: CloudSave && CloudSave.displayName }, matchHandlers()));
+		});
+		document.getElementById('pvpBack').addEventListener('click', pvpReset);
+		document.getElementById('pvpClose').addEventListener('click', () => { pvpReset(); pvpOverlay.classList.remove('open'); });
+		pvpOverlay.addEventListener('click', e => { if (e.target === pvpOverlay) { pvpReset(); pvpOverlay.classList.remove('open'); } });
 
 		/* --- Settings --- */
 		const settingsBtn = document.getElementById('settingsBtn');
@@ -1343,8 +1650,8 @@
 			{ id: 'cinderwatch', mapX: 50, mapY: 52 },
 			{ id: 'sylvaris_wildes', mapX: 33, mapY: 68 },
 			{ id: 'black_sands', mapX: 54.5, mapY: 76 },
-			{ id: 'ironforge', mapX: 69, mapY: 49 },
-			{ id: 'ironridge', mapX: 80, mapY: 65 },
+			{ id: 'ironforge', mapX: 80, mapY: 65 },
+			{ id: 'ironridge', mapX: 69, mapY: 49 },
 			{ id: 'arcane_ruins', mapX: 83.5, mapY: 24.5 },
 		];
 
