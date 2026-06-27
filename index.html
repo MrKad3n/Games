@@ -275,6 +275,8 @@
 			backdrop-filter: blur(3px);
 		}
 		.mb-overlay.open { display: flex; }
+		body.auth-locked .mode-grid,
+		body.auth-locked #settingsBtn { filter: blur(2px); pointer-events: none; opacity: 0.45; }
 		.mb-panel {
 			width: min(420px, 92vw);
 			background: linear-gradient(160deg, #1a1530, #120b22);
@@ -974,10 +976,10 @@
 	</main>
 
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-	<script src="supabase-config.js"></script>
-	<script src="cloud-save.js"></script>
-	<script src="pvp-net.js"></script>
-	<script src="world-map.js"></script>
+	<script src="supabase-config.js?v=3"></script>
+	<script src="cloud-save.js?v=3"></script>
+	<script src="pvp-net.js?v=3"></script>
+	<script src="world-map.js?v=3"></script>
 	<script>
 		const modeRoutes = {
 			sandbox: 'dungeon.html?mode=sandbox',
@@ -988,6 +990,7 @@
 		};
 
 		function launchMode(mode) {
+			if (!requireAuth()) return;
 			const route = modeRoutes[mode];
 			if (route) {
 				window.location.href = route;
@@ -1002,6 +1005,7 @@
 		document.getElementById('pvpBtn').addEventListener('click', () => openPvP());
 		document.getElementById('raidsBtn').addEventListener('click', () => launchMode('raids'));
 		document.getElementById('openworldBtn').addEventListener('click', () => {
+			if (!requireAuth()) return;
 			openWorldMap();
 			requestAnimationFrame(() => WorldMapVoronoi.setHover('emberfall'));
 		});
@@ -1025,6 +1029,32 @@
 			document.getElementById('authMsg').textContent = '';
 		}
 
+		let authGateLocked = false;
+		function gateActive() { return window.CloudSave && CloudSave.enabled; }
+		function isSignedIn() { return !!(window.CloudSave && CloudSave.user); }
+
+		function enforceGate(user) {
+			if (gateActive() && !user) {
+				authGateLocked = true;
+				document.getElementById('authClose').style.display = 'none';
+				document.getElementById('authSub').textContent = 'You need an account to play. Sign in or create one to continue.';
+				authOverlay.classList.add('open');
+				document.body.classList.add('auth-locked');
+			} else {
+				const wasLocked = authGateLocked;
+				authGateLocked = false;
+				document.getElementById('authClose').style.display = '';
+				document.body.classList.remove('auth-locked');
+				if (wasLocked) authOverlay.classList.remove('open');
+			}
+		}
+
+		// Returns true if allowed to proceed; otherwise opens the sign-in gate.
+		function requireAuth() {
+			if (gateActive() && !isSignedIn()) { enforceGate(null); return false; }
+			return true;
+		}
+
 		function refreshAuthView() {
 			const u = window.CloudSave && CloudSave.user;
 			const form = document.getElementById('authForm');
@@ -1041,6 +1071,7 @@
 				form.style.display = 'block';
 				signed.style.display = 'none';
 			}
+			enforceGate(u);
 		}
 
 		accountBtn.addEventListener('click', () => {
@@ -1052,8 +1083,8 @@
 			refreshAuthView();
 			authOverlay.classList.add('open');
 		});
-		document.getElementById('authClose').addEventListener('click', () => authOverlay.classList.remove('open'));
-		authOverlay.addEventListener('click', e => { if (e.target === authOverlay) authOverlay.classList.remove('open'); });
+		document.getElementById('authClose').addEventListener('click', () => { if (!authGateLocked) authOverlay.classList.remove('open'); });
+		authOverlay.addEventListener('click', e => { if (e.target === authOverlay && !authGateLocked) authOverlay.classList.remove('open'); });
 		document.getElementById('authToggle').addEventListener('click', () => setAuthMode(!authIsSignup));
 
 		document.getElementById('authSubmit').addEventListener('click', async () => {
@@ -1108,6 +1139,7 @@
 			document.getElementById('pvpMsg').textContent = '';
 		}
 		function openPvP() {
+			if (!requireAuth()) return;
 			pvpReset();
 			const msg = document.getElementById('pvpMsg');
 			if (!window.PvPNet || !PvPNet.enabled()) {

@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Magic Battle — Dungeon</title>
+<script src="auth-gate.js?v=3"></script>
 <audio id="bossMusic" loop></audio>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -12292,8 +12293,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
    ============================================================= */
 function castSpell(){
 	if(aiChatActive) return;
-	const spell=playerData.spells[activeSlot];
-	if(!spell||!spell.phases.length)return;
+	const spell=playerData && playerData.spells && playerData.spells[activeSlot];
+	if(!spell||!spell.phases||!spell.phases.length)return;
 	// Block casting from vow-locked spell slots
 	if(vowLockedSlots.has(activeSlot))return;
 	const controlDiscount=Math.max(0.3,1-stats.magicControl*0.015);
@@ -38135,22 +38136,24 @@ loop();
 
 <!-- Accounts + cloud save + PvP networking -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script src="cloud-save.js"></script>
-<script src="pvp-net.js"></script>
+<script src="supabase-config.js?v=3"></script>
+<script src="cloud-save.js?v=3"></script>
+<script src="pvp-net.js?v=3"></script>
 <script>
 /* ===== Colosseum PvP networking ===== */
 (function(){
 	if(typeof IS_COLOSSEUM === 'undefined' || !IS_COLOSSEUM || !PVP_MATCH) return;
 
 	var opp = { active:false, x:0, y:0, facing:-1, hp:1, maxHp:1, name:'Opponent', castFlash:0, castColor:'#ffcc44', left:false };
-	var net = null, lastSent = 0, prevCast = 0;
+	var net = null, lastSent = 0, prevCast = 0, connecting = false;
 	var oppW = 38, oppH = 56;
 
 	function connect(){
+		if(net || connecting) return; // connect only once
 		if(!window.PvPNet || !PvPNet.enabled()) return;
 		var client = window.CloudSave && CloudSave.client && CloudSave.client();
 		if(!client){ setTimeout(connect, 400); return; } // wait for supabase client/session
+		connecting = true;
 		net = PvPNet.connectMatch(PVP_MATCH, PVP_SIDE, {
 			onState: function(s){ opp.active=true; opp.x=s.x; opp.y=s.y; opp.facing=s.facing; opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent'; },
 			onCast:  function(c){ opp.castFlash=14; opp.castColor=(c&&c.color)||'#ffcc44'; },
