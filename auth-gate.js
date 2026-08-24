@@ -6,8 +6,22 @@
    index.html, where the (non-dismissable) sign-in modal is shown.
    Uses a fast synchronous localStorage check first to avoid a flash
    of the game, then re-checks once CloudSave has initialised.
+
+   Local servers (localhost / 127.0.0.1 / file://) skip the gate so
+   you can play without an account; progress stays in localStorage.
    ============================================================= */
 (function () {
+	function isLocalPlay() {
+		try {
+			var h = (location.hostname || '').toLowerCase();
+			if (location.protocol === 'file:') return true;
+			if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true;
+			if (h.indexOf('localhost') !== -1) return true;
+			return false;
+		} catch (e) { return false; }
+	}
+	window.MB_LOCAL_PLAY = isLocalPlay();
+
 	function onIndex() {
 		var p = location.pathname;
 		return /index\.html?$/.test(p) || p === '/' || p.endsWith('/');
@@ -29,6 +43,9 @@
 		location.replace('index.html');
 	}
 
+	// Local play: never bounce. Saves stay on this machine.
+	if (window.MB_LOCAL_PLAY) return;
+
 	// Fast synchronous gate (runs before the heavy game script).
 	if (!onIndex() && !hasPersistedSession()) { bounce(); return; }
 
@@ -36,7 +53,7 @@
 	function attach() {
 		if (!window.CloudSave) { setTimeout(attach, 150); return; }
 		CloudSave.onAuthChange(function (user) {
-			if (CloudSave.enabled && !user && !onIndex()) bounce();
+			if (CloudSave.enabled && !CloudSave.localPlay && !user && !onIndex()) bounce();
 		});
 	}
 	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);

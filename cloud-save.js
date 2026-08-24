@@ -9,12 +9,27 @@
      (debounced) and on page hide / unload.
    - If Supabase is not configured, everything no-ops gracefully and
      the game keeps using local-only saves.
+   - On a local server (localhost / 127.0.0.1 / file://) sign-in is
+     optional; progress stays in localStorage unless the player signs in.
    ============================================================= */
 (function (global) {
 	const CFG = global.SUPABASE_CONFIG || {};
 	const ENABLED = !!(CFG.url && CFG.anonKey &&
 		CFG.url.indexOf('YOUR_') === -1 && CFG.anonKey.indexOf('YOUR_') === -1);
 	const PREFIX = 'magicBattle_';
+
+	function isLocalPlay() {
+		if (typeof global.MB_LOCAL_PLAY === 'boolean') return global.MB_LOCAL_PLAY;
+		try {
+			const h = (location.hostname || '').toLowerCase();
+			if (location.protocol === 'file:') return true;
+			if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true;
+			if (h.indexOf('localhost') !== -1) return true;
+		} catch (e) {}
+		return false;
+	}
+	const LOCAL_PLAY = isLocalPlay();
+	global.MB_LOCAL_PLAY = LOCAL_PLAY;
 
 	let sb = null;
 	let user = null;
@@ -150,9 +165,10 @@
 		init, signUp, signIn, signOut, push, pull, onAuthChange,
 		client() { return sb; },
 		get enabled() { return ENABLED; },
+		get localPlay() { return LOCAL_PLAY; },
 		get user() { return user; },
 		get displayName() {
-			if (!user) return null;
+			if (!user) return LOCAL_PLAY ? 'Local' : null;
 			return (user.email || 'Mage').split('@')[0];
 		},
 	};

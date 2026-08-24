@@ -978,7 +978,7 @@
 
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 	<script src="supabase-config.js?v=3"></script>
-	<script src="cloud-save.js?v=3"></script>
+	<script src="cloud-save.js?v=4"></script>
 	<script src="pvp-net.js?v=4"></script>
 	<script src="world-map.js?v=3"></script>
 	<script>
@@ -1020,9 +1020,13 @@
 		function setAuthMode(signup) {
 			authIsSignup = signup;
 			document.getElementById('authTitle').textContent = signup ? 'Create Account' : 'Sign In';
-			document.getElementById('authSub').textContent = signup
-				? 'Create an account to store your spells, loadouts and stats in the cloud.'
-				: 'Sign in to save your spells, loadouts and stats to your account.';
+			document.getElementById('authSub').textContent = isLocalPlay()
+				? (signup
+					? 'Optional — create an account to sync this local save to the cloud.'
+					: 'Playing locally — progress is saved on this computer. Sign in anytime to sync to the cloud.')
+				: (signup
+					? 'Create an account to store your spells, loadouts and stats in the cloud.'
+					: 'Sign in to save your spells, loadouts and stats to your account.');
 			document.getElementById('authSubmit').textContent = signup ? 'Sign Up' : 'Sign In';
 			document.getElementById('authToggle').textContent = signup
 				? 'Already have an account? Sign in' : 'Need an account? Sign up';
@@ -1031,7 +1035,8 @@
 		}
 
 		let authGateLocked = false;
-		function gateActive() { return window.CloudSave && CloudSave.enabled; }
+		function isLocalPlay() { return !!(window.MB_LOCAL_PLAY || (window.CloudSave && CloudSave.localPlay)); }
+		function gateActive() { return window.CloudSave && CloudSave.enabled && !isLocalPlay(); }
 		function isSignedIn() { return !!(window.CloudSave && CloudSave.user); }
 
 		function enforceGate(user) {
@@ -1068,9 +1073,12 @@
 				document.getElementById('authWho').textContent = u.email || CloudSave.displayName;
 			} else {
 				accountBtn.classList.remove('signed-in');
-				accountLabel.textContent = 'Sign In';
+				accountLabel.textContent = isLocalPlay() ? 'Local' : 'Sign In';
 				form.style.display = 'block';
 				signed.style.display = 'none';
+				if (isLocalPlay() && !authGateLocked) {
+					document.getElementById('authSub').textContent = 'Playing locally — progress is saved on this computer. Sign in anytime to sync to the cloud.';
+				}
 			}
 			enforceGate(u);
 		}
