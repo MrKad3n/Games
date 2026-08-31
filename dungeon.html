@@ -4670,15 +4670,15 @@ if(IS_DUNGEON && dungeon){
 }
 
 function isSolid(col, row){
-	// No tilemap in sandbox/raid/openworld/city modes (Sylvaris, Storm Islands & Black Sands use tilemap underground)
-	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_ARCANERUINS || IS_CHRONORAID || IS_ZENITH) return false;
+	// No tilemap in sandbox/raid/openworld/city/colosseum modes (Sylvaris, Storm Islands & Black Sands use tilemap underground)
+	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_ARCANERUINS || IS_CHRONORAID || IS_ZENITH || IS_COLOSSEUM) return false;
 	if(row < 0 || row >= MAP_ROWS || col < 0 || col >= MAP_COLS) return true;
 	return tileMap[row][col] === 0;
 }
 
 // Platform collision for open-sky modes
 function checkPlatformCollision(x, y, w, h){
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_STORMISLANDS && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH) return null;
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_STORMISLANDS && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH && !IS_COLOSSEUM) return null;
 	for(const p of sandboxPlatforms){
 		if(x + w > p.x && x < p.x + p.w && y + h > p.y && y < p.y + p.h){
 			return p;
@@ -4689,7 +4689,7 @@ function checkPlatformCollision(x, y, w, h){
 
 // One-way platform check (landing from above)
 function checkPlatformLanding(x, y, w, h, vy){
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH) return null;
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH && !IS_COLOSSEUM) return null;
 	for(const p of sandboxPlatforms){
 		// Only collide if falling and feet are above/at platform top
 		if(vy >= 0 && x + w > p.x && x < p.x + p.w){
@@ -11550,8 +11550,8 @@ function getTargetHitRect(target){
 
 /* Tilemap collision for an entity — stepped to prevent tunneling */
 function moveEntityTile(ent){
-	// Open-sky modes (sandbox/raid/openworld) use platform collision instead of tilemap
-	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_ARCANERUINS || IS_CHRONORAID || IS_ZENITH){
+	// Open-sky modes (sandbox/raid/openworld/colosseum) use platform collision instead of tilemap
+	if(IS_SANDBOX || IS_RAID || IS_OPENWORLD || IS_CITY || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_ARCANERUINS || IS_CHRONORAID || IS_ZENITH || IS_COLOSSEUM){
 		moveEntitySandbox(ent);
 		return;
 	}
@@ -18097,7 +18097,7 @@ function updateProjectiles(){
 		/* wall collision — tilemap for dungeons, ground/platforms for open-sky modes */
 		const skipWall=p.shape==='nova'||p.shape==='vortex'||p.effects.includes('phaseThrough')||p._fromDomain||p.behavior==='stationary'||p.behavior==='selfCast'||p.behavior==='underfoot'||p.behavior==='aroundSelf'||p.behavior==='ground'||(p.behavior==='orbit'&&p.age<p.orbitDur);
 		/* Ground/platform collision in open-sky modes */
-		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&(IS_SANDBOX||IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_OPENWORLD||IS_CITY||IS_OBSERVATORY||IS_DRAGONGRAVEYARD||(IS_BLACKSANDS&&p.y<=BLACKSANDS_CONFIG.groundY&&!isInBlackSandsTunnelPoint(p.x,p.y))||(IS_SYLVARIS&&p.y<=SYLVARIS_CONFIG.groundY)||(IS_STORMISLANDS&&p.y<=STORMISLANDS_CONFIG.groundY))){
+		if(!skipWall&&!p.hasHit&&!p.isSolidPlatform&&(IS_SANDBOX||IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_COLOSSEUM||IS_OPENWORLD||IS_CITY||IS_OBSERVATORY||IS_DRAGONGRAVEYARD||(IS_BLACKSANDS&&p.y<=BLACKSANDS_CONFIG.groundY&&!isInBlackSandsTunnelPoint(p.x,p.y))||(IS_SYLVARIS&&p.y<=SYLVARIS_CONFIG.groundY)||(IS_STORMISLANDS&&p.y<=STORMISLANDS_CONFIG.groundY))){
 			let groundHit=false;
 			let groundHitNormalY=0; // -1=bounce up (floor/platform), 1=bounce down (ceiling)
 			// Ground collision
@@ -18188,7 +18188,12 @@ function updateProjectiles(){
 			if(!wallHit){for(const sw of spellWalls){if(p.x>=sw.x&&p.x<=sw.x+sw.w&&p.y>=sw.y&&p.y<=sw.y+sw.h){wallHit=true;
 				const cx=sw.x+sw.w/2,cy=sw.y+sw.h/2;wallNormalX=p.x<cx?-1:1;wallNormalY=p.y<cy?-1:1;break;}}}
 			/* solidify platforms block all non-platform projectiles (phase bypasses) */
-			if(!wallHit&&!p.effects.includes('phaseThrough')){for(const sp of projectiles){if(!sp.isSolidPlatform||sp===p)continue;if(pointInSolid(p.x,p.y,sp)){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}}
+			if(!wallHit&&!p.effects.includes('phaseThrough')){
+				for(const sp of projectiles){if(!sp.isSolidPlatform||sp===p)continue;if(pointInSolid(p.x,p.y,sp)){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}
+				if(!wallHit&&IS_COLOSSEUM&&window.__pvpRemoteProjectiles){
+					for(const sp of window.__pvpRemoteProjectiles){if(!sp.isSolidPlatform)continue;if(pointInSolid(p.x,p.y,sp)){wallHit=true;wallNormalX=p.x<sp.x?-1:1;wallNormalY=p.y<sp.y?-1:1;break;}}
+				}
+			}
 			/* Tree trunk blocks projectiles */
 			if(!wallHit&&IS_SYLVARIS){for(const tp of sandboxPlatforms){if(!tp.isTreeTrunk)continue;if(p.x>=tp.x&&p.x<=tp.x+tp.w&&p.y>=tp.y&&p.y<=tp.y+tp.h){wallHit=true;wallNormalX=p.x<tp.x+tp.w/2?-1:1;wallNormalY=p.y<tp.y+tp.h/2?-1:1;break;}}}
 			if(wallHit){
@@ -25404,9 +25409,12 @@ function update(){
 
 
 
-	/* Solidify platform & spell wall collision */
-	for(const p of projectiles){
-		if(!p.isSolidPlatform) continue;
+	/* Solidify platform & spell wall collision (local + remote PvP solids) */
+	const _pvpRemSolids = (IS_COLOSSEUM && window.__pvpRemoteProjectiles) ? window.__pvpRemoteProjectiles : null;
+	const _solidSrcCount = projectiles.length + (_pvpRemSolids ? _pvpRemSolids.length : 0);
+	for(let _ssi = 0; _ssi < _solidSrcCount; _ssi++){
+		const p = _ssi < projectiles.length ? projectiles[_ssi] : _pvpRemSolids[_ssi - projectiles.length];
+		if(!p || !p.isSolidPlatform) continue;
 		// Beam solidify: use accurate OBB collision instead of oversized AABB
 		if(p.shape==='beam'){
 			if((p.beamLen||0)<4) continue;
@@ -26512,9 +26520,6 @@ function render(){
 				ctx.fillRect((sx + canvas.width) % canvas.width, sy, 3, 2);
 			}
 		}
-
-		// Draw remote opponent (if connected)
-		if(typeof drawPvpOpponent === 'function') drawPvpOpponent();
 	} else if(IS_SANDBOX){
 		// Gradient sky for sandbox mode
 		const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -32992,8 +32997,8 @@ function render(){
 		ctx.fillRect(0,0,canvas.width,canvas.height);
 	}
 
-	/* Render tilemap (only visible tiles) - skip for sandbox/raid/openworld/chronoraid */
-	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH){
+	/* Render tilemap (only visible tiles) - skip for sandbox/raid/openworld/chronoraid/colosseum */
+	if(!IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH && !IS_COLOSSEUM){
 		const sylvarisGroundRow = IS_SYLVARIS ? Math.floor(SYLVARIS_CONFIG.groundY / TILE) : IS_STORMISLANDS ? Math.floor(STORMISLANDS_CONFIG.groundY / TILE) : IS_BLACKSANDS ? Math.floor(BLACKSANDS_CONFIG.groundY / TILE) : 0;
 		const startCol=Math.max(0,Math.floor(camera.x/TILE));
 		const endCol=Math.min(MAP_COLS-1,Math.ceil((camera.x+canvas.width)/TILE));
@@ -34969,6 +34974,9 @@ break;}
 			ctx.restore();
 		}
 	}
+
+	// PvP: draw remote opponent + their spells above the local player / world
+	if(IS_COLOSSEUM && typeof drawPvpOpponent === 'function') drawPvpOpponent();
 
 	// Lightstep Blade anchors
 	for(const anchor of lightAnchors){
@@ -38225,30 +38233,84 @@ loop();
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=3"></script>
 <script src="cloud-save.js?v=4"></script>
-<script src="pvp-net.js?v=4"></script>
+<script src="pvp-net.js?v=5"></script>
 <script>
 /* ===== Colosseum PvP networking ===== */
 (function(){
 	if(typeof IS_COLOSSEUM === 'undefined' || !IS_COLOSSEUM || !PVP_MATCH) return;
 
 	var opp = { active:false, x:0, y:0, facing:-1, hp:1, maxHp:1, name:'Opponent', castFlash:0, castColor:'#ffcc44', left:false };
+	var remoteProjs = [];
+	window.__pvpRemoteProjectiles = remoteProjs;
 	var net = null, lastSent = 0, prevCast = 0, connecting = false;
 	var oppW = 38, oppH = 56;
 	var pvpStatus = 'Connecting to match…';
 
+	function packProjectiles(){
+		var out = [];
+		if(typeof projectiles === 'undefined') return out;
+		for(var i = 0; i < projectiles.length && out.length < 28; i++){
+			var p = projectiles[i];
+			if(!p || p.hasHit) continue;
+			out.push({
+				x: Math.round(p.x), y: Math.round(p.y),
+				vx: Math.round((p.vx||0)*10)/10, vy: Math.round((p.vy||0)*10)/10,
+				w: Math.round(p.width||10), h: Math.round(p.height||10),
+				sh: p.shape || 'orb', c: p.color || '#88bbff',
+				sol: !!p.isSolidPlatform,
+				bl: Math.round(p.beamLen||0), ba: Math.round((p.beamAngle||0)*1000)/1000,
+				sx: Math.round(p.startX != null ? p.startX : p.x),
+				sy: Math.round(p.startY != null ? p.startY : p.y),
+				mom: Math.round(p.momentum||0),
+				age: Math.round(p.age||0), ma: Math.round(p.maxAge||60)
+			});
+		}
+		return out;
+	}
+
+	function unpackProjectiles(list){
+		remoteProjs.length = 0;
+		if(!list || !list.length) return;
+		for(var i = 0; i < list.length; i++){
+			var s = list[i];
+			if(!s) continue;
+			remoteProjs.push({
+				x: s.x, y: s.y, vx: s.vx||0, vy: s.vy||0,
+				width: s.w||10, height: s.h||10,
+				shape: s.sh || 'orb', color: s.c || '#ff8866',
+				isSolidPlatform: !!s.sol,
+				beamLen: s.bl||0, beamAngle: s.ba||0,
+				startX: s.sx != null ? s.sx : s.x,
+				startY: s.sy != null ? s.sy : s.y,
+				momentum: s.mom||0, age: s.age||0, maxAge: s.ma||60,
+				effects: [], phase: {}, hasHit: false
+			});
+		}
+	}
+
 	function connect(){
-		if(net || connecting) return; // connect only once
+		if(net || connecting) return;
 		if(!window.PvPNet || !PvPNet.enabled()){ pvpStatus = 'Online PvP not configured'; return; }
 		var client = window.CloudSave && CloudSave.client && CloudSave.client();
-		if(!client){ setTimeout(connect, 400); return; } // wait for supabase client/session
+		if(!client){ setTimeout(connect, 400); return; }
 		connecting = true;
 		net = PvPNet.connectMatch(PVP_MATCH, PVP_SIDE, {
 			onConnected: function(){ pvpStatus = 'Waiting for opponent…'; },
 			onReady:     function(){ pvpStatus = 'Opponent connected'; },
-			onState: function(s){ opp.active=true; opp.x=s.x; opp.y=s.y; opp.facing=s.facing; opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent'; pvpStatus = ''; },
+			onState: function(s){
+				opp.active=true;
+				opp.x=s.x; opp.y=s.y; opp.facing=s.facing;
+				opp.hp=s.hp; opp.maxHp=s.maxHp; opp.name=s.name||'Opponent';
+				pvpStatus = '';
+				unpackProjectiles(s.projs);
+			},
 			onCast:  function(c){ opp.castFlash=14; opp.castColor=(c&&c.color)||'#ffcc44'; },
 			onHit:   function(h){ if(typeof damagePlayer==='function') damagePlayer((h&&h.dmg)||10, (h&&h.effects)||null); },
-			onLeft:  function(){ opp.active=false; opp.left=true; pvpStatus = 'Opponent left the arena'; if(typeof notify==='function') notify('🏳️ Opponent left the arena'); },
+			onLeft:  function(){
+				opp.active=false; opp.left=true; remoteProjs.length=0;
+				pvpStatus = 'Opponent left the arena';
+				if(typeof notify==='function') notify('🏳️ Opponent left the arena');
+			},
 		});
 		window.__pvpNet = net;
 	}
@@ -38258,23 +38320,22 @@ loop();
 	function tick(){
 		if(net){
 			var now = performance.now();
-			if(now - lastSent > 50){ // ~20Hz transform/hp sync
+			if(now - lastSent > 50){
 				lastSent = now;
 				net.sendState({
 					x: player.x, y: player.y, facing: player.facing,
 					hp: Math.max(0, Math.round(health)), maxHp: Math.round(maxHealth),
-					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
+					name: (window.CloudSave && CloudSave.displayName) || 'Mage',
+					projs: packProjectiles()
 				});
 			}
-			// broadcast cast (rising edge)
 			if(player.castTimer > 0 && prevCast <= 0) net.sendCast({ color: player.castColor || '#88bbff' });
 			prevCast = player.castTimer;
-			// my projectiles hitting the opponent -> tell them to take damage
 			if(opp.active && typeof projectiles !== 'undefined'){
 				for(var i=0;i<projectiles.length;i++){
 					var p = projectiles[i];
-					if(!p || p.hasHit || p._pvpHit) continue;
-					if(p.x > opp.x-6 && p.x < opp.x+oppW+6 && p.y > opp.y-6 && p.y < opp.y+oppH+6){
+					if(!p || p.hasHit || p._pvpHit || p.isSolidPlatform) continue;
+					if(p.x > opp.x-8 && p.x < opp.x+oppW+8 && p.y > opp.y-8 && p.y < opp.y+oppH+8){
 						p._pvpHit = true;
 						net.sendHit({ dmg: Math.max(4, Math.round(p.power || 10)), effects:(p.effects && p.effects.length) ? p.effects : null });
 					}
@@ -38285,10 +38346,51 @@ loop();
 	}
 	requestAnimationFrame(tick);
 
-	// Drawn from render() each frame when in colosseum mode
+	function drawRemoteProj(p){
+		var px = p.x - camera.x, py = p.y - camera.y;
+		if(px < -200 || px > canvas.width + 200 || py < -200 || py > canvas.height + 200) return;
+		ctx.save();
+		ctx.globalAlpha = p.isSolidPlatform ? 0.85 : 0.9;
+		ctx.fillStyle = p.color;
+		ctx.strokeStyle = p.color;
+		ctx.shadowColor = p.color;
+		ctx.shadowBlur = p.isSolidPlatform ? 10 : 14;
+		if(p.shape === 'beam' && (p.beamLen||0) > 4){
+			ctx.translate(px, py);
+			ctx.rotate(p.beamAngle||0);
+			var len = p.beamLen, hh = Math.max(4, (p.height||10)/2);
+			ctx.globalAlpha = 0.35;
+			ctx.fillRect(0, -hh*1.6, len, hh*3.2);
+			ctx.globalAlpha = 0.9;
+			ctx.fillRect(0, -hh, len, hh*2);
+			ctx.fillStyle = '#fff';
+			ctx.globalAlpha = 0.5;
+			ctx.fillRect(0, -hh*0.35, len, hh*0.7);
+		} else if(p.shape === 'wall' || p.shape === 'blade'){
+			var box = (typeof getSolidBox === 'function') ? getSolidBox(p) : {x:p.x-p.width,y:p.y-p.height,w:p.width*2,h:p.height*2};
+			ctx.fillRect(box.x - camera.x, box.y - camera.y, box.w, box.h);
+			if(p.isSolidPlatform){
+				ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+				ctx.lineWidth = 2;
+				ctx.strokeRect(box.x - camera.x, box.y - camera.y, box.w, box.h);
+			}
+		} else {
+			var rw = Math.max(6, p.width * (p.isSolidPlatform ? 1.4 : 1.1));
+			var rh = Math.max(6, p.height * (p.isSolidPlatform ? 1.4 : 1.1));
+			ctx.beginPath();
+			ctx.ellipse(px, py, rw, rh, 0, 0, Math.PI*2);
+			ctx.fill();
+			if(p.isSolidPlatform){
+				ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+				ctx.lineWidth = 2;
+				ctx.stroke();
+			}
+		}
+		ctx.restore();
+	}
+
 	window.drawPvpOpponent = function(){
 		var cw = canvas.width;
-		// Status banner (top-center) until the opponent's data is flowing
 		if(pvpStatus){
 			ctx.save();
 			ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
@@ -38299,33 +38401,44 @@ loop();
 			ctx.fillText(pvpStatus, cw/2, 35);
 			ctx.restore();
 		}
+
+		// Opponent spells / solidify platforms (draw behind the fighter body)
+		for(var i = 0; i < remoteProjs.length; i++) drawRemoteProj(remoteProjs[i]);
+
 		if(!opp.active) return;
 
 		var sx = opp.x - camera.x, sy = opp.y - camera.y;
-		var onScreen = (sx > -120 && sx < cw + 120);
+		var onScreen = (sx > -120 && sx < cw + 120 && sy > -120 && sy < canvas.height + 120);
 
 		if(onScreen){
-			ctx.fillStyle = 'rgba(0,0,0,0.3)';
+			ctx.save();
+			ctx.fillStyle = 'rgba(0,0,0,0.35)';
 			ctx.beginPath(); ctx.ellipse(sx+oppW/2, sy+oppH, oppW/2, 6, 0, 0, Math.PI*2); ctx.fill();
-			if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 18; }
-			ctx.fillStyle = '#b23b3b'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
-			ctx.fillStyle = '#ffd9b3'; ctx.fillRect(sx+8, sy, oppW-16, 20);
-			ctx.fillStyle = '#222'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 4, 4);
+			if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 22; }
+			// Distinct red mage silhouette so they never blend into sandstone
+			ctx.fillStyle = '#c62828'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
+			ctx.fillStyle = '#8b1a1a'; ctx.fillRect(sx+4, sy+oppH-12, oppW-8, 12);
+			ctx.fillStyle = '#ffd7b0'; ctx.fillRect(sx+8, sy, oppW-16, 20);
+			ctx.fillStyle = '#1a1a1a'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 5, 5);
+			ctx.fillStyle = '#7a1010';
+			ctx.beginPath();
+			ctx.moveTo(sx+6, sy+4); ctx.lineTo(sx+oppW/2, sy-16); ctx.lineTo(sx+oppW-6, sy+4);
+			ctx.closePath(); ctx.fill();
 			ctx.shadowBlur = 0;
-			ctx.fillStyle = '#ff8a8a'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-			ctx.fillText(opp.name, sx+oppW/2, sy-20);
+			ctx.fillStyle = '#ffe0e0'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
+			ctx.fillText(opp.name, sx+oppW/2, sy-22);
 			var pct = Math.max(0, Math.min(1, opp.hp/(opp.maxHp||1)));
-			ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx-6, sy-14, oppW+12, 6);
+			ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(sx-8, sy-14, oppW+16, 7);
 			ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
-			ctx.fillRect(sx-6, sy-14, (oppW+12)*pct, 6);
+			ctx.fillRect(sx-8, sy-14, (oppW+16)*pct, 7);
+			ctx.restore();
 		} else {
-			// Off-screen: arrow at the edge pointing toward the opponent
 			var dir = sx < 0 ? -1 : 1;
 			var ax = dir < 0 ? 40 : cw - 40;
 			var ay = Math.max(70, Math.min(canvas.height - 80, sy));
 			var dist = Math.round(Math.abs(opp.x - player.x));
 			ctx.save();
-			ctx.fillStyle = 'rgba(178,59,59,0.92)';
+			ctx.fillStyle = 'rgba(198,40,40,0.95)';
 			ctx.beginPath();
 			ctx.moveTo(ax + dir*18, ay);
 			ctx.lineTo(ax - dir*12, ay - 14);
