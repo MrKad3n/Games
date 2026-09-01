@@ -104,7 +104,7 @@ body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
 <div id="versionBadge" style="position:fixed;left:8px;bottom:6px;z-index:99999;font:11px/1.2 monospace;color:rgba(255,255,255,0.5);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.85);user-select:none;">v1.0.0</div>
 <div id="hud">
 	<div>WASD / Arrows — Move &amp; Jump</div>
-	<div>1-0 — Select Spell · X or Click — Cast</div>
+	<div>1-0 — Select Spell · Click — Cast</div>
 </div>
 <a href="dungeons.html" id="backBtn">← Back</a>
 <div id="dungeonName"></div>
@@ -2627,7 +2627,7 @@ const OPENWORLD_CONFIG = {
 				if(qi === 2) return [
 					{ name:'Archmage Thalen', icon:'🧙', text:"Good, you can move! Now let's talk about spells." },
 					{ name:'Archmage Thalen', icon:'🧙', text:"Press keys 1 through 0 to select a spell from your hotbar at the bottom." },
-					{ name:'Archmage Thalen', icon:'🧙', text:"Then press X or Click to cast your selected spell!" },
+					{ name:'Archmage Thalen', icon:'🧙', text:"Then Click to cast your selected spell!" },
 					{ name:'Archmage Thalen', icon:'🧙', text:"You start with Magic Missile — try casting it at the training dummies east of here." },
 				];
 				if(qi === 4) return [
@@ -4984,7 +4984,20 @@ function updateCamera(){
    INPUT
    ============================================================= */
 const keys = {};
+let SLOT_KEYBINDS = {};
+try { SLOT_KEYBINDS = JSON.parse(localStorage.getItem('magicBattle_slotKeybinds') || '{}'); } catch(e) { SLOT_KEYBINDS = {}; }
+function slotForCustomHotkey(key){
+	if(!key) return -1;
+	const k = key.length === 1 ? key.toLowerCase() : key;
+	for(let i = 0; i < 10; i++){
+		const b = SLOT_KEYBINDS[i];
+		if(!b) continue;
+		if(b === key || String(b).toLowerCase() === k) return i;
+	}
+	return -1;
+}
 addEventListener('keydown', e => {
+	if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 	// Conversational chat — block game controls; only chat panel + Escape
 	if(aiChatActive){
 		if(e.key === 'Escape'){
@@ -5001,6 +5014,17 @@ addEventListener('keydown', e => {
 	keys[e.key.toLowerCase()] = true;
 	const digit = e.key >= '0' && e.key <= '9' ? (+e.key===0?9:+e.key-1) : -1;
 	if(digit >= 0 && digit < 10) selectSpellSlot(digit);
+
+	// Instant-cast keybinds from Settings (select that slot and fire)
+	if(!e.repeat && !inventoryOpen && !dialogueActive && !necroSelectOpen){
+		const bindSlot = slotForCustomHotkey(e.key);
+		if(bindSlot >= 0){
+			selectSpellSlot(bindSlot);
+			castSpell();
+			e.preventDefault();
+			return;
+		}
+	}
 
 	// M key — inventory
 	if(e.key.toLowerCase() === 'm'){
@@ -10649,7 +10673,7 @@ const TUTORIAL_QUESTS = [
 	},
 	/* 3 */ {
 		title: 'Cast Your First Spell',
-		desc: 'Select a spell (1-0) and cast it (X or Click) at a training dummy.',
+		desc: 'Select a spell (1-0) and Click to cast it at a training dummy.',
 		check(){ return player.hasCast; },
 		onComplete(){ notify('Nice cast! Talk to Thalen about your inventory.'); }
 	},
@@ -10765,7 +10789,7 @@ const SPELL_TEACHER_QUESTS = [
 /* 0  */ { title:'Meet Spell Teacher Mira', desc:'Find Spell Teacher Mira at the Spell Market in the city.', check(){ return stFlags.st_0; } },
 /* 1  */ { title:'Open Your Inventory', desc:'Press M to open your inventory and view your spell slots.', check(){ return player.hasOpenedInventory; } },
 /* 2  */ { title:'Lesson: Understanding Mana', desc:'Return to Mira to learn how mana and spell costs work.', check(){ return stFlags.st_2; } },
-/* 3  */ { title:'Cast Your First Spell', desc:'Equip any spell and cast it. (Select slot 1-0, then X or Click)', check(){ return stFlags.cast_any; } },
+/* 3  */ { title:'Cast Your First Spell', desc:'Equip any spell and cast it. (Select slot 1-0, then Click)', check(){ return stFlags.cast_any; } },
 /* 4  */ { title:'Lesson: Spell Power', desc:'Talk to Mira about how spell power affects damage.', check(){ return stFlags.st_4; } },
 /* 5  */ { title:'Hit a Training Dummy', desc:'Go to the sandbox and hit a training dummy with any spell.', check(){ return stFlags.st_hitDummy; } },
 /* 6  */ { title:'Lesson: Shapes & Behaviors', desc:'Return to Mira to learn about spell shapes and behaviors.', check(){ return stFlags.st_6; } },
@@ -11207,7 +11231,7 @@ function syncGraveyardQuestProgress(){
 // Tutorial hint state - hints disappear when action is completed
 let tutorialHints = IS_OPENWORLD ? [
 	{ x: 500, shown: false, completed: false, text: '💡 Use WASD or Arrow Keys to move.\nPress SPACE or W to jump!', check: () => player.hasMoved && player.hasJumped },
-	{ x: 1000, shown: false, completed: false, text: '💡 Press 1-0 to select spells, then X or Click to cast!', check: () => player.hasCast },
+	{ x: 1000, shown: false, completed: false, text: '💡 Press 1-0 to select spells, then Click to cast!', check: () => player.hasCast },
 	{ x: 3000, shown: false, completed: false, text: '💡 Press M anytime to open\nyour Inventory!', check: () => player.hasOpenedInventory },
 	{ x: 4800, shown: false, completed: false, text: '⚔️ Slimes ahead!\nThey hop toward you — watch out!', check: () => slimes.some(s => s.dead) },
 ] : [];
@@ -26114,7 +26138,7 @@ function update(){
 	}
 
 	/* Casting */
-	const wantCast=mouseDown&&!aiChatActive;
+	const wantCast=mouseDown&&!aiChatActive&&!inventoryOpen&&!dialogueActive&&!necroSelectOpen;
 	if(wantCast&&!castPressed){castPressed=true;castSpell();}
 	if(!wantCast)castPressed=false;
 	if(player.castTimer>0)player.castTimer--;
