@@ -1107,13 +1107,14 @@
 			try {
 				if (authIsSignup) {
 					const r = await CloudSave.signUp(email, pass);
-					if (!CloudSave.user) {
+					if (r.session) {
 						msg.className = 'mb-msg ok';
-						msg.textContent = 'Account created! Check your email to confirm, then sign in.';
-						setAuthMode(false);
-					} else {
-						msg.className = 'mb-msg ok'; msg.textContent = 'Welcome!';
+						msg.textContent = 'Welcome! Your account is ready.';
 						setTimeout(() => authOverlay.classList.remove('open'), 600);
+					} else {
+						setAuthMode(false);
+						msg.className = 'mb-msg ok';
+						msg.textContent = 'Account created! We sent a verification email to ' + email + '. Check your inbox (and spam folder), confirm your email, then sign in.';
 					}
 				} else {
 					await CloudSave.signIn(email, pass);
