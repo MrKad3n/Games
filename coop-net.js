@@ -1,11 +1,17 @@
 /* =============================================================
-   coop-net.js  —  co-op matchmaking + in-game sync
+   coop-net.js  —  co-op matchmaking + in-game sync (up to 4 players)
    -------------------------------------------------------------
-   Room-code pairing for dungeons and raid bosses. Host creates
-   a room with the chosen game; guest joins by code. Both navigate
-   to dungeon.html with coop=1&match=...&side=left|right.
+   Room-code pairing for dungeons and raid bosses. One player hosts a
+   room and shares the code; up to three more join. The lobby reports
+   every occupied slot so the UI can show who has arrived, and the host
+   starts the run when everyone is ready.
+
+   Slot 0 is always the host. The host owns enemy/boss simulation
+   in-game; guests replay what the host broadcasts.
    ============================================================= */
 (function (global) {
+	const MAX_PLAYERS = 4;
+
 	function sb() {
 		return (global.CloudSave && global.CloudSave.client && global.CloudSave.client()) || null;
 	}
@@ -34,125 +40,123 @@
 		} catch (e) {}
 	}
 
-	function buildCoopUrl(game, matchId, side) {
+	/* Deterministic slot order, derived identically on every client:
+	   the room creator is always slot 0 (an explicit flag, not a timestamp,
+	   so a skewed clock can't promote a guest to host), then earliest joiner
+	   with the id as a final tiebreak. */
+	function rosterFrom(presenceState) {
+		return Object.keys(presenceState).map(k => {
+			const meta = (presenceState[k] || [])[0] || {};
+			return {
+				id: k, name: meta.name || 'Mage', t: meta.t || 0,
+				game: meta.game || null, isHost: !!meta.isHost,
+			};
+		}).sort((a, b) =>
+			(b.isHost - a.isHost) || (a.t - b.t) || (a.id < b.id ? -1 : 1)
+		).slice(0, MAX_PLAYERS);
+	}
+
+	function buildCoopUrl(game, matchId, slot) {
 		const m = encodeURIComponent(matchId);
+		const tail = '&coop=1&match=' + m + '&slot=' + slot + '&side=' + (slot === 0 ? 'left' : 'right');
 		if (game && game.kind === 'dungeon') {
-			return 'dungeon.html?type=' + encodeURIComponent(game.type) + '&diff=' + encodeURIComponent(game.diff || 'normal') + '&coop=1&match=' + m + '&side=' + side;
+			return 'dungeon.html?type=' + encodeURIComponent(game.type) +
+				'&diff=' + encodeURIComponent(game.diff || 'normal') + tail;
 		}
-		return 'dungeon.html?mode=' + encodeURIComponent((game && game.mode) || 'raid') + '&coop=1&match=' + m + '&side=' + side;
+		return 'dungeon.html?mode=' + encodeURIComponent((game && game.mode) || 'raid') + tail;
 	}
 
-	/* ---------------- HOST ROOM ---------------- */
-	function hostRoom(gameSpec, opts) {
+	/* ---------------- LOBBY (host + join share one implementation) ----------------
+	   opts: { name, code, game, onStatus, onLobby(players, isHost, code), onMatched(matchId, slot, game, url) } */
+	function openLobby(rawCode, gameSpec, opts, creator) {
 		opts = opts || {};
 		const client = sb();
-		if (!client) { opts.onStatus && opts.onStatus('Online co-op is not configured.'); return { cancel() {} }; }
-		const codeStr = (opts.code || code4()).toUpperCase();
-		const me = myId();
-		const name = opts.name || (global.CloudSave && global.CloudSave.displayName) || 'Mage';
-		let done = false;
-		opts.onStatus && opts.onStatus('Room ' + codeStr + ' — waiting for ally…');
+		if (!client) { opts.onStatus && opts.onStatus('Online co-op is not configured.'); return { cancel() {}, start() {} }; }
 
-		dropChannel(client, 'coop-room-' + codeStr);
-		const ch = client.channel('coop-room-' + codeStr, { config: { broadcast: { self: true }, presence: { key: me } } });
-
-		function finish(matchId, side, game) {
-			if (done) return;
-			done = true;
-			try { ch.untrack(); } catch (e) {}
-			try { ch.unsubscribe(); } catch (e) {}
-			opts.onStatus && opts.onStatus('Ally found! Starting…');
-			opts.onMatched && opts.onMatched(matchId, side, game, buildCoopUrl(game, matchId, side));
-		}
-
-		function tryStart() {
-			if (done) return;
-			const state = ch.presenceState();
-			const players = Object.keys(state).map(k => ({ id: k, t: (state[k][0] || {}).t || 0 }))
-				.sort((a, b) => (a.t - b.t) || (a.id < b.id ? -1 : 1));
-			if (players.length < 2) return;
-			if (players[0].id !== me) return;
-			const matchId = 'coop-' + codeStr;
-			ch.send({
-				type: 'broadcast', event: 'start',
-				payload: { matchId, host: players[0].id, guest: players[1].id, game: gameSpec },
-			});
-			finish(matchId, 'left', gameSpec);
-		}
-
-		ch.on('presence', { event: 'sync' }, () => setTimeout(tryStart, 400));
-		ch.on('broadcast', { event: 'start' }, ({ payload }) => {
-			if (!payload) return;
-			if (payload.host === me) finish(payload.matchId, 'left', payload.game || gameSpec);
-			else if (payload.guest === me) finish(payload.matchId, 'right', payload.game || gameSpec);
-		});
-
-		ch.subscribe(async (status) => {
-			if (status === 'SUBSCRIBED') {
-				await ch.track({ name, t: Date.now(), game: gameSpec });
-				setTimeout(tryStart, 600);
-			}
-		});
-
-		return { code: codeStr, cancel() { if (done) return; done = true; try { ch.untrack(); } catch (e) {} try { ch.unsubscribe(); } catch (e) {} } };
-	}
-
-	/* ---------------- JOIN ROOM ---------------- */
-	function joinRoom(rawCode, opts) {
-		opts = opts || {};
-		const client = sb();
-		if (!client) { opts.onStatus && opts.onStatus('Online co-op is not configured.'); return { cancel() {} }; }
 		const codeStr = String(rawCode || '').trim().toUpperCase();
-		if (codeStr.length < 3) { opts.onStatus && opts.onStatus('Enter a valid code.'); return { cancel() {} }; }
+		if (codeStr.length < 3) { opts.onStatus && opts.onStatus('Enter a valid code.'); return { cancel() {}, start() {} }; }
 
 		const me = myId();
 		const name = opts.name || (global.CloudSave && global.CloudSave.displayName) || 'Mage';
 		let done = false;
-		opts.onStatus && opts.onStatus('Joining room ' + codeStr + '…');
+		let roster = [];
+		let isHost = false;
 
 		dropChannel(client, 'coop-room-' + codeStr);
-		const ch = client.channel('coop-room-' + codeStr, { config: { broadcast: { self: true }, presence: { key: me } } });
+		const ch = client.channel('coop-room-' + codeStr, {
+			config: { broadcast: { self: true }, presence: { key: me } },
+		});
 
-		function finish(matchId, side, game) {
+		function finish(matchId, slot, game) {
 			if (done) return;
 			done = true;
 			try { ch.untrack(); } catch (e) {}
 			try { ch.unsubscribe(); } catch (e) {}
 			opts.onStatus && opts.onStatus('Starting co-op!');
-			opts.onMatched && opts.onMatched(matchId, side, game, buildCoopUrl(game, matchId, side));
+			opts.onMatched && opts.onMatched(matchId, slot, game, buildCoopUrl(game, matchId, slot));
 		}
 
-		function tryStart() {
+		function syncLobby() {
 			if (done) return;
-			const state = ch.presenceState();
-			const players = Object.keys(state).map(k => ({ id: k, t: (state[k][0] || {}).t || 0 }))
-				.sort((a, b) => (a.t - b.t) || (a.id < b.id ? -1 : 1));
-			if (players.length < 2) return;
-			if (players[0].id !== me) return;
-			const matchId = 'coop-' + codeStr;
-			const game = (state[players[0].id] && state[players[0].id][0] && state[players[0].id][0].game) || null;
-			ch.send({
-				type: 'broadcast', event: 'start',
-				payload: { matchId, host: players[0].id, guest: players[1].id, game },
-			});
-			finish(matchId, 'left', game);
+			roster = rosterFrom(ch.presenceState());
+			isHost = roster.length > 0 && roster[0].id === me;
+			if (!creator && roster.length === MAX_PLAYERS && !roster.some(p => p.id === me)) {
+				opts.onStatus && opts.onStatus('That room is full (4 players).');
+			}
+			opts.onLobby && opts.onLobby(roster, isHost, codeStr);
 		}
 
-		ch.on('presence', { event: 'sync' }, () => setTimeout(tryStart, 400));
+		ch.on('presence', { event: 'sync' }, () => setTimeout(syncLobby, 250));
+		ch.on('presence', { event: 'join' }, () => setTimeout(syncLobby, 250));
+		ch.on('presence', { event: 'leave' }, () => setTimeout(syncLobby, 250));
+
 		ch.on('broadcast', { event: 'start' }, ({ payload }) => {
-			if (!payload) return;
-			if (payload.host === me) finish(payload.matchId, 'left', payload.game);
-			else if (payload.guest === me) finish(payload.matchId, 'right', payload.game);
+			if (!payload || !Array.isArray(payload.order)) return;
+			const slot = payload.order.indexOf(me);
+			if (slot < 0) return;
+			finish(payload.matchId, slot, payload.game || gameSpec);
 		});
 
 		ch.subscribe(async (status) => {
 			if (status === 'SUBSCRIBED') {
-				await ch.track({ name, t: Date.now() });
-				setTimeout(tryStart, 600);
+				await ch.track({ name, t: Date.now(), game: gameSpec || null, isHost: !!creator });
+				setTimeout(syncLobby, 400);
 			}
 		});
 
-		return { cancel() { if (done) return; done = true; try { ch.untrack(); } catch (e) {} try { ch.unsubscribe(); } catch (e) {} } };
+		return {
+			code: codeStr,
+			isHost() { return isHost; },
+			players() { return roster.slice(); },
+			/* Host-only: lock in the current roster and send everyone in. */
+			start() {
+				if (done) return;
+				roster = rosterFrom(ch.presenceState());
+				if (roster.length === 0 || roster[0].id !== me) return;
+				if (roster.length < 2) { opts.onStatus && opts.onStatus('Wait for at least one ally to join.'); return; }
+				const game = gameSpec || roster[0].game || null;
+				ch.send({
+					type: 'broadcast', event: 'start',
+					payload: { matchId: 'coop-' + codeStr, order: roster.map(p => p.id), game },
+				});
+				finish('coop-' + codeStr, 0, game);
+			},
+			cancel() {
+				if (done) return;
+				done = true;
+				try { ch.untrack(); } catch (e) {}
+				try { ch.unsubscribe(); } catch (e) {}
+			},
+		};
+	}
+
+	function hostRoom(gameSpec, opts) {
+		opts = opts || {};
+		return openLobby(opts.code || code4(), gameSpec, opts, true);
+	}
+	function joinRoom(rawCode, opts) {
+		// Guests do not know the game yet; they inherit it from the host's start payload.
+		return openLobby(rawCode, null, opts || {}, false);
 	}
 
 	/* ---------------- IN-GAME SYNC ---------------- */
@@ -161,7 +165,9 @@
 		const client = sb();
 		if (!client) {
 			return {
-				sendState() {}, sendCast() {}, sendEnemyDmg() {}, sendBoss() {}, leave() {},
+				id: 'offline',
+				sendState() {}, sendCast() {}, sendEnemyDmg() {}, sendBoss() {},
+				sendWorld() {}, sendProjectiles() {}, sendEvent() {}, leave() {},
 			};
 		}
 		const me = myId();
@@ -170,23 +176,30 @@
 		const ch = client.channel(topic, { config: { broadcast: { self: false }, presence: { key: me } } });
 		let subscribed = false;
 
-		ch.on('broadcast', { event: 'state' }, ({ payload }) => {
-			if (payload && payload.from !== me) handlers.onState && handlers.onState(payload);
-		});
-		ch.on('broadcast', { event: 'cast' }, ({ payload }) => {
-			if (payload && payload.from !== me) handlers.onCast && handlers.onCast(payload);
-		});
-		ch.on('broadcast', { event: 'enemyDmg' }, ({ payload }) => {
-			if (payload && payload.from !== me) handlers.onEnemyDmg && handlers.onEnemyDmg(payload);
-		});
-		ch.on('broadcast', { event: 'boss' }, ({ payload }) => {
-			if (payload && payload.from !== me) handlers.onBoss && handlers.onBoss(payload);
-		});
-		ch.on('presence', { event: 'leave' }, () => {
-			if (Object.keys(ch.presenceState()).length <= 1) handlers.onLeft && handlers.onLeft();
+		function on(event, cb) {
+			ch.on('broadcast', { event }, ({ payload }) => {
+				if (payload && payload.from !== me) cb && cb(payload);
+			});
+		}
+		on('state', p => handlers.onState && handlers.onState(p));
+		on('cast', p => handlers.onCast && handlers.onCast(p));
+		on('enemyDmg', p => handlers.onEnemyDmg && handlers.onEnemyDmg(p));
+		on('boss', p => handlers.onBoss && handlers.onBoss(p));
+		on('world', p => handlers.onWorld && handlers.onWorld(p));
+		on('projectiles', p => handlers.onProjectiles && handlers.onProjectiles(p));
+		on('event', p => handlers.onEvent && handlers.onEvent(p));
+
+		// Supabase reports the departing player's presence key at the top level.
+		ch.on('presence', { event: 'leave' }, ({ key }) => {
+			if (key) handlers.onLeft && handlers.onLeft(key);
+			handlers.onRoster && handlers.onRoster(rosterFrom(ch.presenceState()));
 		});
 		ch.on('presence', { event: 'join' }, () => {
+			handlers.onRoster && handlers.onRoster(rosterFrom(ch.presenceState()));
 			if (Object.keys(ch.presenceState()).length >= 2) handlers.onReady && handlers.onReady();
+		});
+		ch.on('presence', { event: 'sync' }, () => {
+			handlers.onRoster && handlers.onRoster(rosterFrom(ch.presenceState()));
 		});
 
 		ch.subscribe(async (status) => {
@@ -202,15 +215,21 @@
 			ch.send({ type: 'broadcast', event, payload: Object.assign({ from: me }, payload) });
 		}
 		return {
+			id: me,
 			sendState(s) { send('state', s); },
 			sendCast(c) { send('cast', c); },
 			sendEnemyDmg(d) { send('enemyDmg', d); },
 			sendBoss(b) { send('boss', b); },
+			sendWorld(w) { send('world', w); },
+			sendProjectiles(p) { send('projectiles', p); },
+			sendEvent(e) { send('event', e); },
 			leave() { try { ch.untrack(); } catch (e) {} try { ch.unsubscribe(); } catch (e) {} },
 		};
 	}
 
 	global.CoopNet = {
-		enabled, hostRoom, joinRoom, connectCoop, createCode: code4, buildCoopUrl,
+		MAX_PLAYERS,
+		enabled, hostRoom, joinRoom, openLobby, connectCoop,
+		createCode: code4, buildCoopUrl, myId,
 	};
 })(window);

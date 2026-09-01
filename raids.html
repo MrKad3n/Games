@@ -7,7 +7,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 	<script src="supabase-config.js?v=3"></script>
 	<script src="cloud-save.js?v=4"></script>
-	<script src="coop-net.js?v=1"></script>
+	<script src="coop-net.js?v=3"></script>
 	<style>
 		:root {
 			--bg-top: #1a0f2e;
@@ -98,9 +98,27 @@
 		.coop-panel button { width:100%; padding:12px; margin-bottom:8px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; color:#fff; }
 		.coop-host { background:linear-gradient(135deg,#1b5e20,#43a047); }
 		.coop-join { background:linear-gradient(135deg,#1565c0,#42a5f5); }
+		.coop-start { background:linear-gradient(135deg,#e65100,#fb8c00); }
 		.coop-cancel { background:rgba(255,255,255,0.1); color:#ccc; }
 		.coop-status { min-height:20px; font-size:13px; color:#a8ffcc; margin:10px 0; }
 		.coop-code { font-size:28px; letter-spacing:8px; color:#fff; font-weight:bold; margin:8px 0; }
+
+		/* Lobby slots */
+		.coop-slots { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0; }
+		.coop-slot {
+			display:flex; align-items:center; gap:10px; padding:10px 12px;
+			border-radius:10px; border:2px dashed rgba(255,255,255,0.18);
+			background:rgba(255,255,255,0.04); text-align:left; min-height:54px;
+		}
+		.coop-slot.filled { border-style:solid; background:rgba(255,255,255,0.09); }
+		.coop-slot .pip {
+			width:22px; height:22px; border-radius:50%; flex:0 0 22px;
+			border:2px solid rgba(0,0,0,0.35); background:rgba(255,255,255,0.12);
+		}
+		.coop-slot.filled .pip { box-shadow:0 0 10px currentColor; }
+		.coop-slot .who { font-size:13px; font-weight:bold; color:#fff; line-height:1.25; }
+		.coop-slot .role { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+		.coop-slot.empty .who { color:rgba(255,255,255,0.35); font-weight:normal; font-style:italic; }
 
 		@media (max-width:700px) {
 			.boss-grid { grid-template-columns:1fr; max-width:420px; }
@@ -166,33 +184,76 @@
 	<div id="coopOverlay" class="coop-overlay">
 		<div class="coop-panel">
 			<h3 id="coopTitle">Co-op Raid</h3>
-			<p>Host a room, share the code, and fight the boss together.</p>
-			<button class="coop-host" type="button" onclick="hostCoop()">Create Room</button>
-			<input id="coopCodeInput" type="text" maxlength="6" placeholder="ROOM CODE" />
-			<button class="coop-join" type="button" onclick="joinCoop()">Join with Code</button>
-			<div id="coopStatus" class="coop-status"></div>
+			<p>Host a room, share the code, and fight the boss with up to 3 allies.</p>
+			<div id="coopMain">
+				<button class="coop-host" type="button" onclick="hostCoop()">Create Room</button>
+				<input id="coopCodeInput" type="text" maxlength="6" placeholder="ROOM CODE" />
+				<button class="coop-join" type="button" onclick="joinCoop()">Join with Code</button>
+			</div>
 			<div id="coopCodeWrap" style="display:none">
 				<div style="font-size:13px;color:#aaa">Share this code:</div>
 				<div id="coopCodeDisplay" class="coop-code">----</div>
 			</div>
+			<div id="coopSlots" class="coop-slots" style="display:none"></div>
+			<div id="coopStatus" class="coop-status"></div>
+			<button id="coopStartBtn" class="coop-start" type="button" style="display:none" onclick="startCoop()">Start Run</button>
 			<button class="coop-cancel" type="button" onclick="closeCoop()">Cancel</button>
 		</div>
 	</div>
 
 	<script>
+	/* ===== Co-op lobby (up to 4 players) ===== */
+	const COOP_SLOT_COLORS = ['#4488ff', '#44dd66', '#ff4455', '#ffcc33'];
+	const COOP_SLOT_NAMES  = ['Blue', 'Green', 'Red', 'Yellow'];
 	let coopSearch = null;
 	let coopMode = null;
 	const RAID_NAMES = { raid:'Void Arbiter', chronoraid:'Chrono Tyrant', zenith:'Zenith' };
+
+	function escapeHtml(s){
+		return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+	}
+	function renderCoopSlots(players, isHost){
+		const wrap = document.getElementById('coopSlots');
+		wrap.style.display = 'grid';
+		let html = '';
+		for(let i = 0; i < 4; i++){
+			const p = players[i];
+			const color = COOP_SLOT_COLORS[i];
+			html += '<div class="coop-slot ' + (p ? 'filled' : 'empty') + '" style="color:' + color + '">' +
+				'<span class="pip" style="background:' + (p ? color : 'rgba(255,255,255,0.12)') + '"></span>' +
+				'<span><span class="who">' + (p ? escapeHtml(p.name || 'Mage') : 'Waiting…') + '</span><br>' +
+				'<span class="role">' + COOP_SLOT_NAMES[i] + (i === 0 ? ' · Host' : '') + '</span></span></div>';
+		}
+		wrap.innerHTML = html;
+		const startBtn = document.getElementById('coopStartBtn');
+		startBtn.style.display = isHost ? 'block' : 'none';
+		startBtn.disabled = players.length < 2;
+		startBtn.textContent = players.length < 2 ? 'Waiting for allies…' : 'Start Raid (' + players.length + ')';
+		startBtn.style.opacity = players.length < 2 ? '0.55' : '1';
+		if(!isHost) document.getElementById('coopStatus').textContent = 'Waiting for the host to start…';
+	}
+	function coopHandlers(){
+		return {
+			name: window.CloudSave && CloudSave.displayName,
+			onStatus: s => { document.getElementById('coopStatus').textContent = s; },
+			onLobby: (players, isHost) => renderCoopSlots(players, isHost),
+			onMatched: (matchId, slot, game, url) => { location.href = url; },
+		};
+	}
 	function openCoop(mode){
 		coopMode = mode;
 		document.getElementById('coopTitle').textContent = 'Co-op: ' + (RAID_NAMES[mode] || 'Raid');
 		document.getElementById('coopStatus').textContent = '';
 		document.getElementById('coopCodeWrap').style.display = 'none';
+		document.getElementById('coopSlots').style.display = 'none';
+		document.getElementById('coopStartBtn').style.display = 'none';
+		document.getElementById('coopMain').style.display = 'block';
 		document.getElementById('coopCodeInput').value = '';
 		if(!window.CoopNet || !CoopNet.enabled()){
 			document.getElementById('coopStatus').textContent = 'Online co-op needs Supabase — sign in first.';
 		}
 		document.getElementById('coopOverlay').classList.add('open');
+		renderCoopSlots([], false);
 	}
 	function closeCoop(){
 		if(coopSearch){ try{ coopSearch.cancel(); }catch(e){} coopSearch = null; }
@@ -201,26 +262,24 @@
 	function hostCoop(){
 		if(!window.CoopNet || !CoopNet.enabled()) return;
 		if(coopSearch){ try{ coopSearch.cancel(); }catch(e){} }
-		const game = { kind:'raid', mode: coopMode };
-		coopSearch = CoopNet.hostRoom(game, {
-			name: window.CloudSave && CloudSave.displayName,
-			onStatus: s => { document.getElementById('coopStatus').textContent = s; },
-			onMatched: (matchId, side, game, url) => { location.href = url; }
-		});
+		coopSearch = CoopNet.hostRoom({ kind:'raid', mode: coopMode }, coopHandlers());
+		document.getElementById('coopMain').style.display = 'none';
 		document.getElementById('coopCodeWrap').style.display = 'block';
 		document.getElementById('coopCodeDisplay').textContent = coopSearch.code;
+		document.getElementById('coopStatus').textContent = 'Share the code — start when your party is ready.';
+		renderCoopSlots([], true);
 	}
 	function joinCoop(){
 		if(!window.CoopNet || !CoopNet.enabled()) return;
 		const code = document.getElementById('coopCodeInput').value.trim();
 		if(code.length < 3){ document.getElementById('coopStatus').textContent = 'Enter a valid code.'; return; }
 		if(coopSearch){ try{ coopSearch.cancel(); }catch(e){} }
-		coopSearch = CoopNet.joinRoom(code, {
-			name: window.CloudSave && CloudSave.displayName,
-			onStatus: s => { document.getElementById('coopStatus').textContent = s; },
-			onMatched: (matchId, side, game, url) => { location.href = url; }
-		});
+		coopSearch = CoopNet.joinRoom(code, coopHandlers());
+		document.getElementById('coopMain').style.display = 'none';
+		document.getElementById('coopStatus').textContent = 'Joined room ' + code.toUpperCase() + ' — waiting for the host…';
+		renderCoopSlots([], false);
 	}
+	function startCoop(){ if(coopSearch && coopSearch.start) coopSearch.start(); }
 	document.getElementById('coopOverlay').addEventListener('click', e => { if(e.target.id === 'coopOverlay') closeCoop(); });
 	</script>
 </body>

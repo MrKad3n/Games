@@ -232,6 +232,13 @@ const PVP_MATCH = new URLSearchParams(location.search).get('match') || null;
 const PVP_SIDE = (new URLSearchParams(location.search).get('side') === 'right') ? 'right' : 'left';
 const COOP_MATCH = new URLSearchParams(location.search).get('coop') === '1' ? (new URLSearchParams(location.search).get('match') || null) : null;
 const COOP_SIDE = (new URLSearchParams(location.search).get('side') === 'right') ? 'right' : 'left';
+// Co-op supports up to 4 players; slot 0 is the host and owns enemy/boss simulation.
+const COOP_MAX_PLAYERS = 4;
+const COOP_SLOT = (function(){
+	const raw = parseInt(new URLSearchParams(location.search).get('slot'), 10);
+	if(raw >= 0 && raw < COOP_MAX_PLAYERS) return raw;
+	return COOP_SIDE === 'right' ? 1 : 0; // legacy 2-player links
+})();
 // Difficulty multipliers: easy / normal / hard
 const DIFF_HP_MULT = DIFFICULTY === 'hard' ? 2 : DIFFICULTY === 'easy' ? 0.6 : 1;
 const DIFF_SIZE_MULT = 1.4; // always use hard-mode size for all difficulties
@@ -419,9 +426,38 @@ function setSeraphelAnim(en, state){
 	ENEMY_SPRITE_SHEETS['leviathan' + part.charAt(0).toUpperCase() + part.slice(1)] = img;
 });
 
-/* === PLAYER SPRITE SHEET === */
+/* === PLAYER SPRITE SHEETS ===
+   Four colour variants keep every client showing the same mage in the same
+   colour online. Index order must match the row order of the falling sheet. */
+const PLAYER_COLORS = ['blue', 'green', 'red', 'yellow'];
+const PLAYER_COLOR_HEX = ['#4488ff', '#44dd66', '#ff4455', '#ffcc33'];
+const PLAYER_COLOR_SHEETS = PLAYER_COLORS.map(name => {
+	const img = new Image();
+	img.src = 'images/assests/' + name + '-player-sheet.png';
+	return img;
+});
 const PLAYER_SPRITE = new Image();
 PLAYER_SPRITE.src = 'images/assests/player-sheet.png';
+
+/* Falling animation — one row per colour, same order as PLAYER_COLORS */
+const FALLING_SPRITE = new Image();
+FALLING_SPRITE.src = 'images/assests/falling-player-sheet.png';
+const FALLING_SPRITE_COLS = 6, FALLING_SPRITE_ROWS = 4;
+
+/* Which colour this client controls. Online it comes from the match slot so
+   every player sees the same colours; solo play is always blue.
+   Derived straight from the URL because IS_COOP/IS_COLOSSEUM are declared later. */
+const MY_COLOR_IDX = (GAME_MODE === 'colosseum' && PVP_MATCH)
+	? (PVP_SIDE === 'right' ? 2 : 0)
+	: COOP_MATCH ? (COOP_SLOT % PLAYER_COLORS.length)
+	: 0;
+
+function getPlayerSheet(colorIdx){
+	const sheet = PLAYER_COLOR_SHEETS[colorIdx % PLAYER_COLOR_SHEETS.length];
+	if(sheet && sheet.complete && sheet.naturalWidth > 0) return sheet;
+	if(PLAYER_SPRITE.complete && PLAYER_SPRITE.naturalWidth > 0) return PLAYER_SPRITE;
+	return null;
+}
 
 /* === TUTORIAL BACKGROUND === */
 const TUTORIAL_BG = new Image();
@@ -454,7 +490,111 @@ const PLAYER_SPRITE_FPS = 8;
 const PLAYER_SPRITE_SCALE = 2.5;
 let playerAnimFrame = 0;
 let playerAnimTimer = 0;
-let playerAnimState = 'idle'; // idle, walk, attack
+let playerAnimState = 'idle'; // idle, walk, attack, falling
+
+/* Shared mage renderer — used for the local player, PvP opponents and co-op
+   allies so every mage on screen is drawn from the same sprite sheets.
+   o: { colorIdx, facing, animState, animFrame, flash, stickyMode } */
+function drawMageSprite(ctx, px, py, w, h, o){
+	const falling = o.animState === 'falling';
+	const sheet = falling
+		? ((FALLING_SPRITE.complete && FALLING_SPRITE.naturalWidth > 0) ? FALLING_SPRITE : getPlayerSheet(o.colorIdx))
+		: getPlayerSheet(o.colorIdx);
+	if(!sheet) return false;
+	const usingFallSheet = falling && sheet === FALLING_SPRITE;
+	const cols = usingFallSheet ? FALLING_SPRITE_COLS : PLAYER_SPRITE_COLS;
+	const rows = usingFallSheet ? FALLING_SPRITE_ROWS : PLAYER_SPRITE_ROWS;
+	// Falling sheet stores one colour per row; the walk/idle sheets are per-file.
+	const row = usingFallSheet
+		? (o.colorIdx % FALLING_SPRITE_ROWS)
+		: (PLAYER_SPRITE_ROW[o.animState] != null ? PLAYER_SPRITE_ROW[o.animState] : 0);
+	const col = (o.animFrame || 0) % cols;
+	const fw = sheet.naturalWidth / cols;
+	const fh = sheet.naturalHeight / rows;
+	const fitScale = Math.min(w / fw, h / fh) * 2 * CAMERA_ZOOM;
+	const dw = fw * fitScale, dh = fh * fitScale;
+	const drawX = px + w / 2 - dw / 2;
+	const drawY = py + h - dh;
+
+	ctx.save();
+	if(o.stickyMode === 'ceiling'){
+		ctx.translate(px + w/2, py + h/2); ctx.scale(1, -1); ctx.translate(-(px + w/2), -(py + h/2));
+	} else if(o.stickyMode === 'wallLeft'){
+		ctx.translate(px + w/2, py + h/2); ctx.rotate(-Math.PI/2); ctx.translate(-(px + w/2), -(py + h/2));
+	} else if(o.stickyMode === 'wallRight'){
+		ctx.translate(px + w/2, py + h/2); ctx.rotate(Math.PI/2); ctx.translate(-(px + w/2), -(py + h/2));
+	}
+	if(o.flash > 0){
+		ctx.globalAlpha = 0.7;
+		ctx.filter = 'brightness(2) saturate(0.3) sepia(1) hue-rotate(-30deg)';
+	}
+	if(o.facing === -1){
+		ctx.translate(px + w/2, 0);
+		ctx.scale(-1, 1);
+		ctx.drawImage(sheet, col*fw, row*fh, fw, fh, -dw/2, drawY, dw, dh);
+	} else {
+		ctx.drawImage(sheet, col*fw, row*fh, fw, fh, drawX, drawY, dw, dh);
+	}
+	ctx.restore();
+	return true;
+}
+
+/* Animation state from motion — shared by local and networked mages. */
+function mageAnimStateFor(vx, vy, onGround, casting){
+	if(casting) return 'attack';
+	if(!onGround && vy > 0.8) return 'falling';
+	if(Math.abs(vx) > 0.5 || (!onGround && vy < -0.5)) return 'walk';
+	return 'idle';
+}
+
+/* Draws a networked mage (PvP opponent or co-op ally) with a nameplate and
+   health bar, or an edge arrow when they are off screen. */
+function drawNetMage(a, colorIdx, w, h){
+	const cw = canvas.width;
+	const sx = a.renderX - camera.x, sy = a.renderY - camera.y;
+	const accent = PLAYER_COLOR_HEX[colorIdx % PLAYER_COLOR_HEX.length];
+	if(sx > -140 && sx < cw + 140 && sy > -140 && sy < canvas.height + 140){
+		ctx.save();
+		ctx.fillStyle = 'rgba(0,0,0,0.35)';
+		ctx.beginPath(); ctx.ellipse(sx + w/2, sy + h, w/2, 6, 0, 0, Math.PI*2); ctx.fill();
+		if(a.castFlash > 0){ ctx.shadowColor = a.castColor || accent; ctx.shadowBlur = 22; }
+		if(!drawMageSprite(ctx, sx, sy, w, h, {
+			colorIdx: colorIdx,
+			facing: a.facing,
+			animState: a.animState || 'idle',
+			animFrame: a.animFrame || 0,
+			flash: a.hitFlash || 0,
+		})){
+			ctx.fillStyle = accent; ctx.fillRect(sx + 4, sy + 16, w - 8, h - 16);
+			ctx.fillStyle = '#ffd7b0'; ctx.fillRect(sx + 8, sy, w - 16, 20);
+		}
+		ctx.shadowBlur = 0;
+		ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
+		ctx.fillText(a.name, sx + w/2, sy - 22);
+		const pct = Math.max(0, Math.min(1, a.hp / (a.maxHp || 1)));
+		ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(sx - 8, sy - 14, w + 16, 7);
+		ctx.fillStyle = pct > 0.5 ? '#44ff88' : pct > 0.25 ? '#ffaa44' : '#ff4444';
+		ctx.fillRect(sx - 8, sy - 14, (w + 16) * pct, 7);
+		ctx.strokeStyle = accent; ctx.lineWidth = 1.5;
+		ctx.strokeRect(sx - 8, sy - 14, w + 16, 7);
+		ctx.restore();
+	} else {
+		const dir = sx < 0 ? -1 : 1;
+		const ax = dir < 0 ? 40 : cw - 40;
+		const ay = Math.max(70, Math.min(canvas.height - 80, sy));
+		ctx.save();
+		ctx.fillStyle = accent;
+		ctx.beginPath();
+		ctx.moveTo(ax + dir*18, ay);
+		ctx.lineTo(ax - dir*12, ay - 14);
+		ctx.lineTo(ax - dir*12, ay + 14);
+		ctx.closePath(); ctx.fill();
+		ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+		ctx.fillText(a.name, ax, ay - 22);
+		ctx.fillText(Math.round(Math.abs(a.renderX - player.x)) + ' away', ax, ay + 30);
+		ctx.restore();
+	}
+}
 
 /* === BOSS REWARD TABLES (per dungeon + difficulty) === */
 const BOSS_REWARDS = {
@@ -4376,7 +4516,54 @@ const IS_CHRONORAID = GAME_MODE === 'chronoraid';
 const IS_ZENITH = GAME_MODE === 'zenith';
 const IS_COLOSSEUM = GAME_MODE === 'colosseum';
 const IS_COOP = !!COOP_MATCH && !IS_COLOSSEUM;
-const COOP_HOST = COOP_SIDE === 'left';
+const COOP_HOST = COOP_SLOT === 0;
+// Guests never run enemy/boss AI — the host simulates and broadcasts it.
+const COOP_GUEST = IS_COOP && !COOP_HOST;
+
+/* =============================================================
+   CO-OP SYNC BRIDGE
+   -------------------------------------------------------------
+   The host is the single source of truth for enemies, bosses and
+   everything they spawn. Game code funnels those events through here;
+   the networking block at the bottom of the file drains the queues.
+   Without this both clients rolled their own boss AI and drifted into
+   completely different fights.
+   ============================================================= */
+const CoopSync = {
+	net: null,
+	projQueue: [],
+	eventQueue: [],
+	applying: false,      // true while replaying host data (suppresses re-broadcast)
+	/* Host: record an enemy/boss projectile so guests spawn the same one.
+	   We keep a live reference and serialize at flush time, because several
+	   attacks tweak the projectile (homing, speed) right after spawning it. */
+	queueProj(p){
+		if(!COOP_HOST || this.applying || !this.net || !p) return;
+		if(this.projQueue.length > 120) return; // hard cap on a single burst
+		this.projQueue.push(p);
+	},
+	/* Flatten to primitives — object references and trail buffers don't travel. */
+	serializeProj(p){
+		const o = {};
+		for(const k in p){
+			const v = p[k];
+			if(v === undefined || v === null || typeof v === 'function') continue;
+			if(Array.isArray(v)){
+				if(v.every(x => typeof x === 'string' || typeof x === 'number')) o[k] = v.slice();
+				continue;
+			}
+			if(typeof v === 'object') continue;
+			o[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v;
+		}
+		return o;
+	},
+	/* Host: record a telegraph / warning / one-shot effect. */
+	queueEvent(type, data){
+		if(!COOP_HOST || this.applying || !this.net) return;
+		if(this.eventQueue.length > 60) return;
+		this.eventQueue.push({ type, data });
+	},
+};
 const IS_DUNGEON = !IS_SANDBOX && !IS_RAID && !IS_OPENWORLD && !IS_CITY && !IS_SYLVARIS && !IS_OBSERVATORY && !IS_DRAGONGRAVEYARD && !IS_STORMISLANDS && !IS_BLACKSANDS && !IS_ARCANERUINS && !IS_CHRONORAID && !IS_ZENITH && !IS_COLOSSEUM;
 
 // Helper to pick config value for current mode
@@ -5066,7 +5253,8 @@ const player = {
 	hasOpenedInventory: false,
 };
 if(IS_COOP){
-	player.x += COOP_SIDE === 'left' ? -70 : 70;
+	// Fan the party out so four mages don't stack on the same tile.
+	player.x += [-105, -35, 35, 105][COOP_SLOT] || 0;
 }
 if(IS_RAID){
 	snapPlayerToRaidPlatform();
@@ -5756,6 +5944,12 @@ function updateBossCutscene(){
 	// End cutscene — spawn the boss
 	if(t >= dur){
 		bossState.textAlpha = 0;
+		const coopKey = bossSpawnDef ? ('boss_' + bossSpawnDef.type) : null;
+		const already = IS_COOP && coopKey && enemies.some(e => e._coopKey === coopKey);
+		if(already){
+			bossState.phase = 'active';
+			return;
+		}
 		// Iron forge: transition to emergence phase instead of going active immediately
 		if(DUNGEON_TYPE === 'iron'){
 			bossState.phase = 'iron_emergence';
@@ -5772,6 +5966,7 @@ function updateBossCutscene(){
 						w: Math.round(bt.w * DIFF_SIZE_MULT), h: Math.round(bt.h * DIFF_SIZE_MULT), vx: 0, vy: 0,
 						hp: bossHp, maxHp: bossHp, facing: -1,
 						patrol: bossSpawnDef.patrol, patrolDir: 1,
+						_coopKey: 'boss_' + bossSpawnDef.type,
 						state: 'idle', alertTimer: 0,
 						spellCooldowns: bt.spells.map(s => Math.round(s.cooldown * 0.8 * DIFF_CD_MULT)),
 						currentSpell: 0, flash: 0, dots: [],
@@ -5802,6 +5997,7 @@ function updateBossCutscene(){
 					w: Math.round(bt.w * DIFF_SIZE_MULT), h: Math.round(bt.h * DIFF_SIZE_MULT), vx: 0, vy: 0,
 					hp: bossHp, maxHp: bossHp, facing: -1,
 					patrol: bossSpawnDef.patrol, patrolDir: 1,
+					_coopKey: 'boss_' + bossSpawnDef.type,
 					state: 'alert', alertTimer: 0,
 					spellCooldowns: bt.spells.map(s => Math.round(s.cooldown * 0.8 * DIFF_CD_MULT)),
 					currentSpell: 0, flash: 0, dots: [],
@@ -11145,6 +11341,7 @@ const zenithBoss = IS_ZENITH ? {
 
 function showRaidWarning(text, duration){
 	if(!IS_RAID && !IS_CHRONORAID && !IS_ZENITH) return;
+	CoopSync.queueEvent('warn', { text, duration });
 	const el = document.getElementById('dungeonName');
 	const orig = el.innerHTML;
 	const col = IS_CHRONORAID ? '#daa520' : IS_ZENITH ? '#aaccff' : '#ff2244';
@@ -11176,6 +11373,7 @@ function snapPlayerToRaidPlatform(){
 }
 function addRaidBeamIndicator(ox, oy, angle, length, durationFrames, color){
 	if(!IS_RAID) return;
+	CoopSync.queueEvent('beamInd', { ox, oy, angle, length, d: durationFrames, c: color });
 	raidIndicators.push({
 		type: 'beam', ox, oy, angle, length,
 		x: ox, y: oy, w: length, h: 8,
@@ -11184,6 +11382,7 @@ function addRaidBeamIndicator(ox, oy, angle, length, durationFrames, color){
 	});
 }
 function addRaidIndicator(x, y, w, h, duration, color, type){
+	CoopSync.queueEvent('ind', { x, y, w, h, d: duration, c: color, t: type });
 	if(IS_CHRONORAID){ chronoIndicators.push({x, y, w, h, age:0, maxAge:duration, color:color||'#daa520', type:type||'rect'}); return; }
 	if(IS_ZENITH){ zenithIndicators.push({x, y, w, h, age:0, maxAge:duration, color:color||'#aaccff', type:type||'rect'}); return; }
 	if(!IS_RAID) return;
@@ -11194,6 +11393,8 @@ function addRaidIndicator(x, y, w, h, duration, color, type){
 function spawnRaidBossProj(x, y, vx, vy, opts){
 	const boss = IS_CHRONORAID ? chronoBoss : IS_ZENITH ? zenithBoss : raidBoss;
 	if((!IS_RAID && !IS_CHRONORAID && !IS_ZENITH) || !boss || boss.dead) return null;
+	// Co-op: the host owns boss attacks. Guests only spawn what they are told to.
+	if(COOP_GUEST && !CoopSync.applying) return null;
 	const p = {
 		x, y, vx, vy,
 		color: opts.color || '#ff2244',
@@ -11227,6 +11428,7 @@ function spawnRaidBossProj(x, y, vx, vy, opts){
 		pierce: opts.pierce || false,
 	};
 	enemyProjectiles.push(p);
+	CoopSync.queueProj(p);
 	return p;
 }
 
@@ -12152,7 +12354,17 @@ function renderWarriorSlashes(){
 }
 
 /* Spawn warrior melee effects based on spell shape, then trigger normal spell after delay */
+/* Warrior combos spawn a delayed follow-up. Locally it tracks the player as
+   they keep moving; for a networked cast there is no live player to follow, so
+   it stays pinned to where the caster swung. */
+let CAST_IS_REMOTE = false;
+function warriorFollowUpOrigin(isRemote, originX, originY, facing){
+	if(isRemote) return { x: originX, y: originY, f: facing };
+	return { x: player.x + player.w/2, y: player.y + player.h/2 - 6, f: player.facing };
+}
+
 function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, originX, originY, isUltimate){
+	const _remoteCast = CAST_IS_REMOTE; // frozen for the deferred follow-ups below
 	const ph = spell.phases[0];
 	const color = ph.color || '#f39c12';
 	const basePower = (ph.power||1) * (1+stats.magicPower*0.08);
@@ -12187,7 +12399,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 			});
 			shakeScreen(2, 4);
 			setTimeout(()=>{
-				spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+				const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 			}, 150);
 			handled = true;
 			break;
@@ -12223,7 +12436,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 				}, ci*comboDelay);
 			}
 			setTimeout(()=>{
-				spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+				const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 			}, 5*comboDelay+50);
 			handled = true;
 			break;
@@ -12256,7 +12470,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 			});
 			shakeScreen(4, 6);
 			setTimeout(()=>{
-				spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+				const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 			}, 200);
 			handled = true;
 			break;
@@ -12309,7 +12524,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 			});
 			shakeScreen(3, 4);
 			setTimeout(()=>{
-				spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+				const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 			}, 120);
 			handled = true;
 			break;
@@ -12335,7 +12551,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 				});
 				shakeScreen(6, 10);
 				setTimeout(()=>{
-					spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+					const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 				}, 300);
 				handled = true;
 				break;
@@ -12356,7 +12573,8 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 				});
 				shakeScreen(2, 4);
 				setTimeout(()=>{
-					spawnPhase(spell,0,player.x+player.w/2,player.y+player.h/2-6,player.facing,undefined,isUltimate,castId,sourceSlot);
+					const _fu=warriorFollowUpOrigin(_remoteCast,originX,originY,facing);
+				spawnPhase(spell,0,_fu.x,_fu.y,_fu.f,undefined,isUltimate,castId,sourceSlot);
 				}, 180);
 				handled = true;
 				break;
@@ -12368,6 +12586,93 @@ function spawnWarriorMelee(spell, shape, behavior, facing, castId, sourceSlot, o
 	if(!handled){
 		spawnPhase(spell,0,originX,originY,facing,undefined,isUltimate,castId,sourceSlot);
 	}
+}
+
+/* =============================================================
+   NETWORKED CASTS — replay another player's spell locally
+   -------------------------------------------------------------
+   The caster sends their actual spell definition and class, so we never
+   substitute the local player's loadout. While spawning we temporarily
+   move `player` onto the caster and swap in their class, because many
+   behaviours (aroundSelf, selfCast, orbit, warrior melee) are authored
+   relative to the casting mage.
+   ============================================================= */
+function buildCastPayload(spell, slot, ox, oy, facing, color, isUlt){
+	return {
+		slot: slot,
+		pslot: typeof COOP_SLOT !== 'undefined' ? COOP_SLOT : (PVP_SIDE === 'right' ? 1 : 0),
+		spell: cloneSpellForNet(spell),
+		cls: playerData.mageClass || 'none',
+		cls2: playerData.mageClass2 || 'none',
+		ox: ox, oy: oy,
+		facing: facing,
+		aimX: mouseScreenX + camera.x,
+		aimY: mouseScreenY + camera.y,
+		color: color,
+		ult: !!isUlt,
+	};
+}
+
+function cloneSpellForNet(spell){
+	if(!spell || !Array.isArray(spell.phases) || !spell.phases.length) return null;
+	try {
+		return JSON.parse(JSON.stringify({
+			name: spell.name || '',
+			isUltimate: !!spell.isUltimate,
+			phases: spell.phases
+		}));
+	} catch(e){ return null; }
+}
+
+function spawnRemoteCast(c, remoteFlag){
+	if(!c) return;
+	// Only ever spawn the caster's own spell. Never substitute the local loadout —
+	// that is what made the opponent appear to fire *your* spells.
+	const spell = c.spell;
+	if(!spell || !spell.phases || !spell.phases.length) return;
+
+	const ox = c.ox, oy = c.oy;
+	const facing = c.facing || 1;
+	const castId = nextCastId++;
+	spellHitCounts[castId] = 0;
+	const isUlt = !!c.ult;
+
+	// Save every bit of local state the spawn path can read from.
+	const sMX = mouseScreenX, sMY = mouseScreenY;
+	const sPX = player.x, sPY = player.y, sFacing = player.facing;
+	const sCls = playerData.mageClass, sCls2 = playerData.mageClass2;
+
+	if(c.aimX != null){ mouseScreenX = c.aimX - camera.x; mouseScreenY = c.aimY - camera.y; }
+	// Put the "player" on the caster so player-relative spawns land correctly.
+	player.x = ox - player.w / 2;
+	player.y = oy - player.h / 2 + 6;
+	player.facing = facing;
+	if(c.cls) playerData.mageClass = c.cls;
+	if(c.cls2) playerData.mageClass2 = c.cls2;
+	CAST_IS_REMOTE = true;
+
+	try {
+		if(hasClass('warrior') && !hasClassDisable(spell)){
+			const ph0 = spell.phases[0] || {};
+			spawnWarriorMelee(spell, ph0.shape || 'missile', ph0.behavior || 'straight', facing, castId, c.slot, ox, oy, isUlt);
+		} else {
+			spawnPhase(spell, 0, ox, oy, facing, isUlt ? 1 : undefined, isUlt, castId, c.slot, c.aimX, c.aimY);
+		}
+	} finally {
+		CAST_IS_REMOTE = false;
+		mouseScreenX = sMX; mouseScreenY = sMY;
+		player.x = sPX; player.y = sPY; player.facing = sFacing;
+		playerData.mageClass = sCls; playerData.mageClass2 = sCls2;
+	}
+
+	// Tag everything this cast produced so local hit detection knows it is not
+	// ours: co-op allies' spells are visual only, and a PvP opponent's spells
+	// damage us rather than them.
+	for(let i = projectiles.length - 1; i >= 0; i--){
+		const p = projectiles[i];
+		if(p && p.castId === castId) p[remoteFlag] = true;
+	}
+	return castId;
 }
 
 /* =============================================================
@@ -12439,24 +12744,10 @@ function castSpell(){
 			spawnPhase(spell,0,ox,oy,player.facing,undefined,undefined,castId,activeSlot);
 		}
 		if(IS_COLOSSEUM && window.__pvpNet && window.__pvpNet.sendCast){
-			window.__pvpNet.sendCast({
-				slot: activeSlot,
-				ox: ox, oy: oy,
-				facing: player.facing,
-				aimX: mouseScreenX + camera.x,
-				aimY: mouseScreenY + camera.y,
-				color: player.castColor
-			});
+			window.__pvpNet.sendCast(buildCastPayload(spell, activeSlot, ox, oy, player.facing, player.castColor, false));
 		}
 		if(IS_COOP && window.__coopNet && window.__coopNet.sendCast){
-			window.__coopNet.sendCast({
-				slot: activeSlot,
-				ox: ox, oy: oy,
-				facing: player.facing,
-				aimX: mouseScreenX + camera.x,
-				aimY: mouseScreenY + camera.y,
-				color: player.castColor
-			});
+			window.__coopNet.sendCast(buildCastPayload(spell, activeSlot, ox, oy, player.facing, player.castColor, false));
 		}
 	}
 }
@@ -12472,6 +12763,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	
 	// DOMAIN EXPANSION: spawn domain zone instead of projectiles
 	if(ph.behavior==='domain' && phaseIdx===0){
+		if(CAST_IS_REMOTE) return; // don't overwrite the local player's domain
 		// Dominion Master class: +30% domain range
 		const domainSizeMult = hasClass('dominion') ? 1.3 : 1.0;
 		// Domain Vow: +12% range per point
@@ -12972,6 +13264,8 @@ function morphProjectile(proj,phaseIdx,dmgMult){
    ============================================================= */
 let _eprojDmgNerf = 1; // global nerf multiplier for chrono domain summoned enemies
 function spawnEnemyProj(x,y,vx,vy,opts){
+	// Co-op: the host owns enemy attacks. Guests only spawn what they are told to.
+	if(COOP_GUEST && !CoopSync.applying) return;
 	const ENEMY_DMG_BUFF = 1.4; // global enemy damage buff multiplier
 	const nerfMult = _eprojDmgNerf !== 1 ? _eprojDmgNerf : 1;
 	const sylvarisNerf = IS_SYLVARIS ? 0.65 : 1; // Sylvaris enemies deal ~35% less damage
@@ -12982,7 +13276,7 @@ function spawnEnemyProj(x,y,vx,vy,opts){
 	// Auto-apply burn to all kitten fight projectiles
 	let _kef = opts.effects||[];
 	if(kittenBoss?.phase==='active' && !_kef.includes('burn')) _kef=[..._kef,'burn'];
-	enemyProjectiles.push({
+	const _ep = {
 		x,y,vx,vy,age:0,maxAge:opts.maxAge||180,
 		width:opts.width||8,height:opts.height||8,
 		color:opts.color||'#ff4400',color2:opts.color2||'#ffaa44',
@@ -12997,7 +13291,10 @@ function spawnEnemyProj(x,y,vx,vy,opts){
 		noWallCollide:nwc,
 		dispelImmune:opts.dispelImmune||(seraphelFight.phase==='active'),
 		_destroysSolid:opts._destroysSolid||false,
-	});
+	};
+	enemyProjectiles.push(_ep);
+	CoopSync.queueProj(_ep);
+	return _ep;
 }
 /* =============================================================
    FIRE DUNGEON ENEMY SPELLS — REVAMPED
@@ -17973,15 +18270,25 @@ function updateProjectiles(){
 					continue;
 				}
 				if(IS_CHRONORAID && en === chronoBoss && chronoBoss.phase >= 3){baseDmg*=0.5;dmgNumbers.push({x:en.x+en.w/2,y:en.y-5,text:'BLOCKED',age:0,color:'#aaddff'});}
-				en.hp-=baseDmg;en.flash=8;
+				en.flash=8;
 				if(!p.isSummonProj) player.lastAttackedEnemy = en;
 				dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:Math.round(baseDmg)+'',age:0,color:p.color});
-				if(IS_COOP && window.__coopNet && !p._coopRemote){
-					if(en._coopKey){
-						window.__coopNet.sendEnemyDmg({ key: en._coopKey, dmg: Math.round(baseDmg), dead: en.hp <= 0 });
-					} else if(typeof raidBoss !== 'undefined' && (en === raidBoss || en === chronoBoss || (typeof zenithBoss !== 'undefined' && en === zenithBoss))){
-						window.__coopNet.sendBoss({ hp: en.hp, maxHp: en.maxHp, dead: !!en.dead });
+				// Co-op guests never mutate enemy/boss HP — the host is the only
+				// authority, otherwise each computer runs its own fight.
+				if(IS_COOP && COOP_GUEST){
+					if(window.__coopNet && !p._coopRemote){
+						if(en._coopKey) window.__coopNet.sendEnemyDmg({ key: en._coopKey, dmg: Math.round(baseDmg) });
+						else if(isCoopBoss(en)) window.__coopNet.sendEnemyDmg({ boss: true, dmg: Math.round(baseDmg) });
 					}
+					p.hitTargets.add(en);
+					if(!PIERCE_SET.has(p.shape) && !p.effects.includes('phaseThrough')) p.hasHit = true;
+					spawnImpact(p.x,p.y,p.color);
+					continue;
+				}
+				en.hp-=baseDmg;
+				if(IS_COOP && window.__coopNet && !p._coopRemote){
+					if(en._coopKey) window.__coopNet.sendEnemyDmg({ key: en._coopKey, dmg: Math.round(baseDmg) });
+					else if(isCoopBoss(en)) window.__coopNet.sendEnemyDmg({ boss: true, dmg: Math.round(baseDmg) });
 				}
 				// Damage store: accumulate customizable % of damage dealt
 				if(p.effects.includes('damageStore')){const dsPct=p.phase.damageStorePercent!=null?p.phase.damageStorePercent:0.5;damageStored+=baseDmg*dsPct;updateDamageStoreHUD();}
@@ -21294,9 +21601,116 @@ function updateRaidIndicators(){
 	}
 }
 
+/* =============================================================
+   CO-OP GUEST REPLAY
+   -------------------------------------------------------------
+   Guests run no boss or enemy AI. They ease each entity toward the
+   position the host last broadcast and keep purely cosmetic timers
+   ticking, so animations stay smooth between the ~12Hz snapshots.
+   ============================================================= */
+function isCoopBoss(en){
+	if(!en) return false;
+	if(typeof raidBoss !== 'undefined' && raidBoss && en === raidBoss) return true;
+	if(typeof chronoBoss !== 'undefined' && chronoBoss && en === chronoBoss) return true;
+	if(typeof zenithBoss !== 'undefined' && zenithBoss && en === zenithBoss) return true;
+	return false;
+}
+function getCoopBoss(){
+	if(typeof raidBoss !== 'undefined' && raidBoss) return raidBoss;
+	if(typeof chronoBoss !== 'undefined' && chronoBoss) return chronoBoss;
+	if(typeof zenithBoss !== 'undefined' && zenithBoss) return zenithBoss;
+	return null;
+}
+function coopEase(ent, prop, target, rate){
+	if(target == null) return;
+	const cur = ent[prop];
+	// Snap on big jumps (teleports, dashes); glide for ordinary movement.
+	if(Math.abs(target - cur) > 260) ent[prop] = target;
+	else ent[prop] = cur + (target - cur) * rate;
+}
+
+function updateCoopRemoteBoss(boss){
+	if(!boss) return;
+	boss.animTimer++;
+	if(boss.flash > 0) boss.flash--;
+	if(boss.armRaised > 0) boss.armRaised--;
+	if(boss.slamTimer > 0) boss.slamTimer--;
+	if(boss.floatTimer != null) boss.floatTimer++;
+
+	if(boss.dead){
+		boss.deathTimer++;
+		if(boss === raidBoss && boss.deathTimer === 120) showRaidVictory();
+		if(typeof chronoBoss !== 'undefined' && boss === chronoBoss && boss.deathTimer === 150 && typeof showChronoVictory === 'function') showChronoVictory();
+		if(typeof zenithBoss !== 'undefined' && boss === zenithBoss && boss.deathTimer === 150 && typeof showZenithVictory === 'function') showZenithVictory();
+		return;
+	}
+	coopEase(boss, 'x', boss._netX, 0.35);
+	coopEase(boss, 'y', boss._netY, 0.35);
+
+	// The sweeping laser is cosmetic between snapshots but still has to hurt,
+	// so advance it locally using the host's phase/direction.
+	if(boss === raidBoss && boss.laserActive){
+		boss.laserTimer++;
+		if(boss.laserPhase === 'extend'){
+			boss.laserBeamLen = Math.min(boss.laserMaxLen || 1600, (boss.laserBeamLen || 0) + 26);
+		} else if(boss.laserPhase === 'sweep'){
+			boss.laserSweepTimer++;
+			boss.laserAngle = boss.laserTelegraphAngle + boss.laserSweepTimer * 0.012 * boss.laserSweepDir;
+			boss.laserBeamLen = boss.laserMaxLen || 1600;
+		}
+		const lx = boss.laserOriginX || (boss.x + boss.w/2);
+		const ly = boss.laserOriginY || (boss.y + boss.h/2);
+		const beamLen = boss.laserBeamLen || 0;
+		if(beamLen > 4 && player.iFrames <= 0){
+			const steps = Math.max(3, Math.floor(beamLen / 28));
+			for(let s = 0; s <= steps; s++){
+				const t = s / steps;
+				const sx = lx + Math.cos(boss.laserAngle) * beamLen * t;
+				const sy = ly + Math.sin(boss.laserAngle) * beamLen * t;
+				if(sx + 14 > player.x && sx - 14 < player.x + player.w && sy + 14 > player.y && sy - 14 < player.y + player.h){
+					damagePlayer(12, []);
+					break;
+				}
+			}
+		}
+	}
+}
+
+/* Contact damage is normally applied inside updateEnemies, which guests skip,
+   so mirror the touch-damage cases here or guests would be immune to them. */
+const COOP_CONTACT_DMG = {
+	deepRootHorror: { dmg: 45, effects: [], repeat: true },
+	flameSerpent:   { dmg: 21, effects: [] },
+	fireDragon:     { dmg: 63, effects: ['horizontalLaunch'] },
+	frostColossus:  { dmg: 77, effects: ['horizontalLaunch'] },
+};
+
+function updateCoopRemoteEnemies(){
+	for(const en of enemies){
+		if(en.flash > 0) en.flash--;
+		if(en.attackAnimTimer > 0) en.attackAnimTimer--;
+		if(en.dead){ en.deathTimer++; continue; }
+		en.animTimer++;
+		coopEase(en, 'x', en._netX, 0.35);
+		coopEase(en, 'y', en._netY, 0.35);
+
+		const contact = COOP_CONTACT_DMG[en.type];
+		if(contact && player.iFrames <= 0 && rectRect(en, player)){
+			if(contact.repeat || !en._coopContactDone){
+				damagePlayer(contact.dmg * DIFF_DMG_MULT, contact.effects);
+				if(!contact.repeat) en._coopContactDone = true;
+			}
+		} else if(contact && !contact.repeat && !rectRect(en, player)){
+			en._coopContactDone = false;
+		}
+	}
+}
+
 /* Update raid boss */
 function updateRaidBoss(){
 	if(!IS_RAID || !raidBoss) return;
+	// Co-op guests replay the host's boss instead of simulating their own.
+	if(COOP_GUEST){ updateCoopRemoteBoss(raidBoss); return; }
 	
 	if(raidBoss.dead){
 		raidBoss.deathTimer++;
@@ -21964,6 +22378,7 @@ function updateChronoIndicators(){
 
 function updateChronoBoss(){
 	if(!IS_CHRONORAID || !chronoBoss) return;
+	if(COOP_GUEST){ updateCoopRemoteBoss(chronoBoss); return; }
 
 	// Death handling
 	if(chronoBoss.dead){
@@ -23646,6 +24061,7 @@ function zenithChooseWill(){
 // ── Main boss update ──────────────────────────────────────
 function updateZenithBoss(){
 	if(!IS_ZENITH || !zenithBoss) return;
+	if(COOP_GUEST){ updateCoopRemoteBoss(zenithBoss); return; }
 	if(zenithBoss.dead){
 		zenithBoss.deathTimer++;
 		if(zenithBoss.deathTimer === 150) showZenithVictory();
@@ -24064,6 +24480,9 @@ function _solidPushBlocked(ent){
 }
 
 function updateEnemies(){
+	// Co-op guests glide enemies toward the host's broadcast positions and run
+	// no AI of their own, so both screens show the same fight.
+	if(COOP_GUEST){ updateCoopRemoteEnemies(); return; }
 	for(const en of enemies){
 		if(en.dead){
 			en.deathTimer++;
@@ -25335,6 +25754,7 @@ function update(){
 						w: Math.round(bt.w * DIFF_SIZE_MULT), h: Math.round(bt.h * DIFF_SIZE_MULT), vx: 0, vy: 0,
 						hp: bossHp, maxHp: bossHp, facing: -1,
 						patrol: bossSpawnDef.patrol, patrolDir: 1,
+						_coopKey: 'boss_' + bossSpawnDef.type,
 						state: 'patrol', alertTimer: 0,
 						spellCooldowns: bt.spells.map(s => Math.round(s.cooldown * 0.8 * DIFF_CD_MULT)),
 						currentSpell: 0, flash: 0, dots: [],
@@ -25703,13 +26123,12 @@ function update(){
 	if(player.flash>0)player.flash--;
 
 	/* Player sprite animation */
-	if(player.castTimer>0) playerAnimState = 'attack';
-	else if(Math.abs(player.vx) > 0.5 || (!player.onGround && Math.abs(player.vy) > 1)) playerAnimState = 'walk';
-	else playerAnimState = 'idle';
+	playerAnimState = mageAnimStateFor(player.vx, player.vy, player.onGround, player.castTimer > 0);
 	playerAnimTimer++;
+	const _animCols = playerAnimState === 'falling' ? FALLING_SPRITE_COLS : PLAYER_SPRITE_COLS;
 	if(playerAnimTimer >= PLAYER_SPRITE_FPS){
 		playerAnimTimer = 0;
-		playerAnimFrame = (playerAnimFrame + 1) % PLAYER_SPRITE_COLS;
+		playerAnimFrame = (playerAnimFrame + 1) % _animCols;
 	}
 
 	/* Ultimate charge-up */
@@ -25734,26 +26153,10 @@ function update(){
 				spawnPhase(spell,0,uox,uoy,player.ultChargeFacing,1,true,castId,player.ultChargeSlot);
 			}
 			if(IS_COLOSSEUM && window.__pvpNet && window.__pvpNet.sendCast){
-				window.__pvpNet.sendCast({
-					slot: player.ultChargeSlot,
-					ox: uox, oy: uoy,
-					facing: player.ultChargeFacing,
-					aimX: mouseScreenX + camera.x,
-					aimY: mouseScreenY + camera.y,
-					color: player.ultChargeColor,
-					ult: true
-				});
+				window.__pvpNet.sendCast(buildCastPayload(spell, player.ultChargeSlot, uox, uoy, player.ultChargeFacing, player.ultChargeColor, true));
 			}
 			if(IS_COOP && window.__coopNet && window.__coopNet.sendCast){
-				window.__coopNet.sendCast({
-					slot: player.ultChargeSlot,
-					ox: uox, oy: uoy,
-					facing: player.ultChargeFacing,
-					aimX: mouseScreenX + camera.x,
-					aimY: mouseScreenY + camera.y,
-					color: player.ultChargeColor,
-					ult: true
-				});
+				window.__coopNet.sendCast(buildCastPayload(spell, player.ultChargeSlot, uox, uoy, player.ultChargeFacing, player.ultChargeColor, true));
 			}
 			// Ultimate buff: slight speed and health boost (10s)
 			player._ultSpeedBonus = (player._ultSpeedBonus||0) + 0.06;
@@ -35119,47 +35522,14 @@ break;}
 	if((player.iFrames<=0||(player.iFrames%4<2)) && !(IS_ZENITH && zenithBoss && zenithBoss.inIntro)){
 		const ppx=player.x-camera.x,ppy=player.y-camera.y;
 		// Sprite sheet rendering
-		if(PLAYER_SPRITE.complete && PLAYER_SPRITE.naturalWidth > 0){
-			const cols = PLAYER_SPRITE_COLS;
-			const rows = PLAYER_SPRITE_ROWS;
-			const fw = PLAYER_SPRITE.naturalWidth / cols;
-			const fh = PLAYER_SPRITE.naturalHeight / rows;
-			const row = PLAYER_SPRITE_ROW[playerAnimState] || 0;
-			const col = playerAnimFrame % cols;
-			const _fitScale = Math.min(player.w / fw, player.h / fh) * 2 * CAMERA_ZOOM;
-			const dw = fw * _fitScale;
-			const dh = fh * _fitScale;
-			const drawX = ppx + player.w/2 - dw/2;
-			const drawY = ppy + player.h - dh;
-			ctx.save();
-			// Sticky surface orientation — ceiling=vertical flip, walls=rotate sideways
-			if(player.stickyMode==='ceiling'){
-				ctx.translate(ppx+player.w/2, ppy+player.h/2);
-				ctx.scale(1,-1);
-				ctx.translate(-(ppx+player.w/2), -(ppy+player.h/2));
-			} else if(player.stickyMode==='wallLeft'){
-				ctx.translate(ppx+player.w/2,ppy+player.h/2);
-				ctx.rotate(-Math.PI/2);
-				ctx.translate(-(ppx+player.w/2),-(ppy+player.h/2));
-			} else if(player.stickyMode==='wallRight'){
-				ctx.translate(ppx+player.w/2,ppy+player.h/2);
-				ctx.rotate(Math.PI/2);
-				ctx.translate(-(ppx+player.w/2),-(ppy+player.h/2));
-			}
-			if(player.flash > 0){
-				ctx.globalAlpha = 0.7;
-				ctx.filter = 'brightness(2) saturate(0.3) sepia(1) hue-rotate(-30deg)';
-			}
-			if(player.facing === -1){
-				ctx.translate(ppx + player.w/2, 0);
-				ctx.scale(-1, 1);
-				ctx.drawImage(PLAYER_SPRITE, col*fw, row*fh, fw, fh,
-					-dw/2, drawY, dw, dh);
-			} else {
-				ctx.drawImage(PLAYER_SPRITE, col*fw, row*fh, fw, fh,
-					drawX, drawY, dw, dh);
-			}
-			ctx.restore();
+		if(drawMageSprite(ctx, ppx, ppy, player.w, player.h, {
+			colorIdx: MY_COLOR_IDX,
+			facing: player.facing,
+			animState: playerAnimState,
+			animFrame: playerAnimFrame,
+			flash: player.flash,
+			stickyMode: player.stickyMode,
+		})){
 			// Sticky buff active: green web glow overlay
 			if(player.stickyTimer>0){
 				const _sAlpha=0.25*(player.stickyTimer/480);
@@ -38499,16 +38869,19 @@ loop();
 <script src="supabase-config.js?v=3"></script>
 <script src="cloud-save.js?v=4"></script>
 <script src="pvp-net.js?v=6"></script>
-<script src="coop-net.js?v=1"></script>
+<script src="coop-net.js?v=3"></script>
 <script>
 /* ===== Colosseum PvP networking ===== */
 (function(){
 	if(typeof IS_COLOSSEUM === 'undefined' || !IS_COLOSSEUM || !PVP_MATCH) return;
 
+	// Opponent colour is fixed by side so both clients agree: left blue, right red.
+	var OPP_COLOR_IDX = (PVP_SIDE === 'right') ? 0 : 2;
 	var opp = {
-		active:false, x:0, y:0, vx:0, vy:0,
+		active:false, x:0, y:0, vx:0, vy:0, renderX:0, renderY:0,
 		facing:-1, hp:1, maxHp:1, name:'Opponent',
-		castFlash:0, hitFlash:0, castColor:'#ffcc44', left:false
+		castFlash:0, hitFlash:0, castColor:'#ffcc44', left:false,
+		animState:'idle', animFrame:0, animTimer:0, onGround:true,
 	};
 	window.__pvpOpp = opp;
 	var net = null, connecting = false;
@@ -38536,6 +38909,7 @@ loop();
 				opp.name = s.name || 'Opponent';
 				opp.vx = s.vx || 0;
 				opp.vy = s.vy || 0;
+				opp.onGround = !!s.g;
 				pvpStatus = '';
 				snap = { x: s.x, y: s.y, t: performance.now() };
 				if(!oppInit){
@@ -38545,31 +38919,11 @@ loop();
 				}
 			},
 			onCast: function(c){
-				if(!c || c.slot == null) return;
-				var spell = playerData && playerData.spells && playerData.spells[c.slot];
-				if(!spell || !spell.phases || !spell.phases.length) return;
+				if(!c) return;
 				opp.castFlash = 14;
-				opp.castColor = c.color || spell.phases[0]?.color || '#ff8866';
-				var ox = c.ox, oy = c.oy;
-				var facing = c.facing || -1;
-				var aimX = c.aimX, aimY = c.aimY;
-				var castId = nextCastId++;
-				spellHitCounts[castId] = 0;
-				var isUlt = !!c.ult;
-				// Aim remote spells at the caster's cursor, not our local mouse
-				var savedMX = mouseScreenX, savedMY = mouseScreenY;
-				if(aimX != null){ mouseScreenX = aimX - camera.x; mouseScreenY = aimY - camera.y; }
-				if(hasClass('warrior') && !hasClassDisable(spell)){
-					var ph0 = spell.phases[0] || {};
-					spawnWarriorMelee(spell, ph0.shape||'missile', ph0.behavior||'straight', facing, castId, c.slot, ox, oy, isUlt);
-				} else {
-					spawnPhase(spell, 0, ox, oy, facing, isUlt ? 1 : undefined, isUlt, castId, c.slot, aimX, aimY);
-				}
-				mouseScreenX = savedMX; mouseScreenY = savedMY;
-				for(var i = projectiles.length - 1; i >= 0; i--){
-					var p = projectiles[i];
-					if(p && p.castId === castId) p._pvpRemote = true;
-				}
+				opp.castColor = c.color || '#ff8866';
+				// Replays the opponent's own spell from their position.
+				spawnRemoteCast(c, '_pvpRemote');
 			},
 			onHit:   function(h){ if(typeof damagePlayer==='function') damagePlayer((h&&h.dmg)||10, (h&&h.effects)||null); },
 			onLeft:  function(){
@@ -38593,6 +38947,7 @@ loop();
 					x: player.x, y: player.y,
 					vx: player.vx, vy: player.vy,
 					facing: player.facing,
+					g: !!player.onGround,
 					hp: Math.max(0, Math.round(health)),
 					maxHp: Math.round(maxHealth),
 					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
@@ -38638,6 +38993,20 @@ loop();
 			renderY += (targetY - renderY) * 0.42;
 			opp.x = renderX;
 			opp.y = renderY;
+			opp.renderX = renderX;
+			opp.renderY = renderY;
+			opp.animState = mageAnimStateFor(opp.vx, opp.vy, opp.onGround, opp.castFlash > 6);
+			if(opp.animState === 'falling'){
+				if(++opp.animTimer >= PLAYER_SPRITE_FPS){
+					opp.animTimer = 0;
+					opp.animFrame = (opp.animFrame + 1) % FALLING_SPRITE_COLS;
+				}
+			} else if(++opp.animTimer >= PLAYER_SPRITE_FPS){
+				opp.animTimer = 0;
+				opp.animFrame = (opp.animFrame + 1) % PLAYER_SPRITE_COLS;
+			}
+			if(opp.castFlash > 0) opp.castFlash--;
+			if(opp.hitFlash > 0) opp.hitFlash--;
 		}
 		requestAnimationFrame(tick);
 	}
@@ -38656,114 +39025,162 @@ loop();
 			ctx.restore();
 		}
 		if(!opp.active) return;
-
-		var sx = renderX - camera.x, sy = renderY - camera.y;
-		var onScreen = (sx > -120 && sx < cw + 120 && sy > -120 && sy < canvas.height + 120);
-
-		if(onScreen){
-			ctx.save();
-			ctx.fillStyle = 'rgba(0,0,0,0.35)';
-			ctx.beginPath(); ctx.ellipse(sx+oppW/2, sy+oppH, oppW/2, 6, 0, 0, Math.PI*2); ctx.fill();
-			if(opp.hitFlash > 0){ opp.hitFlash--; ctx.globalAlpha = 0.55; ctx.fillStyle = '#ffffff'; ctx.fillRect(sx+2, sy+2, oppW-4, oppH-4); ctx.globalAlpha = 1; }
-			if(opp.castFlash > 0){ opp.castFlash--; ctx.shadowColor = opp.castColor; ctx.shadowBlur = 22; }
-			ctx.fillStyle = '#c62828'; ctx.fillRect(sx+4, sy+16, oppW-8, oppH-16);
-			ctx.fillStyle = '#8b1a1a'; ctx.fillRect(sx+4, sy+oppH-12, oppW-8, 12);
-			ctx.fillStyle = '#ffd7b0'; ctx.fillRect(sx+8, sy, oppW-16, 20);
-			ctx.fillStyle = '#1a1a1a'; ctx.fillRect(sx + (opp.facing>0 ? oppW-16 : 10), sy+8, 5, 5);
-			ctx.fillStyle = '#7a1010';
-			ctx.beginPath();
-			ctx.moveTo(sx+6, sy+4); ctx.lineTo(sx+oppW/2, sy-16); ctx.lineTo(sx+oppW-6, sy+4);
-			ctx.closePath(); ctx.fill();
-			ctx.shadowBlur = 0;
-			ctx.fillStyle = '#ffe0e0'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
-			ctx.fillText(opp.name, sx+oppW/2, sy-22);
-			var pct = Math.max(0, Math.min(1, opp.hp/(opp.maxHp||1)));
-			ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(sx-8, sy-14, oppW+16, 7);
-			ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
-			ctx.fillRect(sx-8, sy-14, (oppW+16)*pct, 7);
-			ctx.restore();
-		} else {
-			var dir = sx < 0 ? -1 : 1;
-			var ax = dir < 0 ? 40 : cw - 40;
-			var ay = Math.max(70, Math.min(canvas.height - 80, sy));
-			var dist = Math.round(Math.abs(renderX - player.x));
-			ctx.save();
-			ctx.fillStyle = 'rgba(198,40,40,0.95)';
-			ctx.beginPath();
-			ctx.moveTo(ax + dir*18, ay);
-			ctx.lineTo(ax - dir*12, ay - 14);
-			ctx.lineTo(ax - dir*12, ay + 14);
-			ctx.closePath(); ctx.fill();
-			ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-			ctx.fillText(opp.name, ax, ay - 22);
-			ctx.fillText(dist + ' away', ax, ay + 30);
-			ctx.restore();
-		}
+		drawNetMage(opp, OPP_COLOR_IDX, oppW, oppH);
 	};
 })();
 </script>
 <script>
-/* ===== Co-op networking (dungeons & raids) ===== */
+/* ===== Co-op networking (dungeons & raids, up to 4 players) =====
+   The host simulates enemies and bosses and broadcasts world snapshots;
+   guests replay them. Every player broadcasts their own position and
+   casts. Colours are derived from the match slot so all clients agree. */
 (function(){
 	if(typeof IS_COOP === 'undefined' || !IS_COOP || !COOP_MATCH) return;
 
-	var ally = {
-		active:false, x:0, y:0, vx:0, vy:0,
-		facing:1, hp:1, maxHp:1, name:'Ally',
-		castFlash:0, left:false
-	};
-	window.__coopAlly = ally;
+	var ALLY_W = 38, ALLY_H = 56;
+	var allies = {};          // id -> ally record
+	window.__coopAllies = allies;
 	var net = null, connecting = false;
-	var allyW = 38, allyH = 56;
 	var coopStatus = 'Connecting to co-op…';
-	var lastSent = 0, lastBossSent = 0;
-	var snap = null, renderX = 0, renderY = 0, allyInit = false;
+	var lastStateSent = 0, lastWorldSent = 0;
+	var nextColorIdx = 0;     // fallback when a peer predates slot reporting
 
+	function allyFor(id, slot){
+		var a = allies[id];
+		if(!a){
+			var idx = (slot != null && slot >= 0)
+				? (slot % PLAYER_COLORS.length)
+				: (function(){ nextColorIdx++; return (COOP_SLOT + nextColorIdx) % PLAYER_COLORS.length; })();
+			a = allies[id] = {
+				id: id, slot: slot, colorIdx: idx,
+				x: 0, y: 0, vx: 0, vy: 0, facing: 1,
+				hp: 1, maxHp: 1, name: 'Ally',
+				castFlash: 0, castColor: PLAYER_COLOR_HEX[idx],
+				animFrame: 0, animTimer: 0, animState: 'idle',
+				renderX: 0, renderY: 0, snap: null, init: false, active: false,
+			};
+		}
+		if(slot != null && slot >= 0 && a.slot !== slot){
+			a.slot = slot;
+			a.colorIdx = slot % PLAYER_COLORS.length;
+		}
+		return a;
+	}
 	function findCoopEnemy(key){
 		if(!key || typeof enemies === 'undefined') return null;
 		for(var i = 0; i < enemies.length; i++){
-			if(enemies[i] && enemies[i]._coopKey === key && !enemies[i].dead) return enemies[i];
+			if(enemies[i] && enemies[i]._coopKey === key) return enemies[i];
 		}
 		return null;
 	}
-	function getCoopBoss(){
-		if(typeof raidBoss !== 'undefined' && raidBoss && !raidBoss.dead) return raidBoss;
-		if(typeof chronoBoss !== 'undefined' && chronoBoss && !chronoBoss.dead) return chronoBoss;
-		if(typeof zenithBoss !== 'undefined' && zenithBoss && !zenithBoss.dead) return zenithBoss;
-		return null;
-	}
-	function applyRemoteBoss(b){
-		if(!b) return;
-		var boss = getCoopBoss();
-		if(!boss) return;
-		if(b.hp != null && b.hp < boss.hp) boss.hp = b.hp;
-		if(b.dead && !boss.dead){ boss.hp = 0; boss.dead = true; }
+	function spawnFromSnapshot(e){
+		if(!e || !e.t || typeof ENEMY_TYPES === 'undefined') return null;
+		var t = ENEMY_TYPES[e.t];
+		if(!t) return null;
+		var en = {
+			type: e.t, typeDef: t,
+			x: e.x, y: e.y, _netX: e.x, _netY: e.y, _coopPlaced: true,
+			_coopKey: e.k,
+			w: e.w || t.w, h: e.h || t.h,
+			vx: 0, vy: 0,
+			hp: e.hp, maxHp: e.mh || t.hp,
+			facing: e.f || 1,
+			patrol: [e.x - 80, e.x + 80], patrolDir: 1,
+			state: 'alert', alertTimer: 180,
+			spellCooldowns: (t.spells || []).map(function(){ return 9999; }),
+			currentSpell: 0, flash: 0, dots: [],
+			stunTimer: 0, slowTimer: 0, animTimer: 0, attackAnimTimer: 0,
+			dead: !!e.d, deathTimer: e.d ? 1 : 0,
+			baseY: e.y, flyOffset: 0,
+			charging: false, chargeVx: 0, chargeVy: 0, chargeTimer: 0, chargeCastDone: false,
+			bossPhase: e.bp || 1, bossPhaseTransition: e.bpt || 0, bossCharging: !!e.ch,
+		};
+		enemies.push(en);
+		return en;
 	}
 
-	function spawnRemoteCast(c){
-		if(!c || c.slot == null) return;
-		var spell = playerData && playerData.spells && playerData.spells[c.slot];
-		if(!spell || !spell.phases || !spell.phases.length) return;
-		ally.castFlash = 14;
-		ally.castColor = c.color || spell.phases[0]?.color || '#66ff88';
-		var ox = c.ox, oy = c.oy, facing = c.facing || 1;
-		var aimX = c.aimX, aimY = c.aimY;
-		var castId = nextCastId++;
-		spellHitCounts[castId] = 0;
-		var isUlt = !!c.ult;
-		var savedMX = mouseScreenX, savedMY = mouseScreenY;
-		if(aimX != null){ mouseScreenX = aimX - camera.x; mouseScreenY = aimY - camera.y; }
-		if(hasClass('warrior') && !hasClassDisable(spell)){
-			var ph0 = spell.phases[0] || {};
-			spawnWarriorMelee(spell, ph0.shape||'missile', ph0.behavior||'straight', facing, castId, c.slot, ox, oy, isUlt);
-		} else {
-			spawnPhase(spell, 0, ox, oy, facing, isUlt ? 1 : undefined, isUlt, castId, c.slot, aimX, aimY);
+	/* ---- guest: apply a world snapshot from the host ---- */
+	function applyWorld(w){
+		if(!w || COOP_HOST) return;
+		if(w.boss){
+			var boss = getCoopBoss();
+			if(boss){
+				boss._netX = w.boss.x; boss._netY = w.boss.y;
+				if(!boss.dead && boss._netX != null && !boss._coopPlaced){
+					boss.x = w.boss.x; boss.y = w.boss.y; boss._coopPlaced = true;
+				}
+				boss.hp = w.boss.hp;
+				boss.maxHp = w.boss.maxHp || boss.maxHp;
+				boss.phase = w.boss.phase != null ? w.boss.phase : boss.phase;
+				boss.facing = w.boss.facing != null ? w.boss.facing : boss.facing;
+				boss.armRaised = w.boss.arm || 0;
+				boss.phaseTransition = w.boss.pt || 0;
+				if(w.boss.laser){
+					boss.laserActive = true;
+					boss.laserPhase = w.boss.laser.ph;
+					boss.laserAngle = w.boss.laser.a;
+					boss.laserTelegraphAngle = w.boss.laser.ta;
+					boss.laserSweepDir = w.boss.laser.d;
+					boss.laserSweepTimer = w.boss.laser.st;
+					boss.laserBeamLen = w.boss.laser.len;
+					boss.laserMaxLen = w.boss.laser.max;
+					boss.laserOriginX = w.boss.laser.ox;
+					boss.laserOriginY = w.boss.laser.oy;
+				} else {
+					boss.laserActive = false; boss.laserBeamLen = 0;
+				}
+				if(w.boss.dead && !boss.dead){ boss.hp = 0; boss.dead = true; boss.deathTimer = 0; }
+			}
 		}
-		mouseScreenX = savedMX; mouseScreenY = savedMY;
-		for(var i = projectiles.length - 1; i >= 0; i--){
-			var p = projectiles[i];
-			if(p && p.castId === castId) p._coopRemote = true;
+		if(w.en){
+			for(var i = 0; i < w.en.length; i++){
+				var e = w.en[i];
+				var en = findCoopEnemy(e.k) || spawnFromSnapshot(e);
+				if(!en) continue;
+				en._netX = e.x; en._netY = e.y;
+				if(!en._coopPlaced){ en.x = e.x; en.y = e.y; en._coopPlaced = true; }
+				en.facing = e.f;
+				en.hp = e.hp;
+				if(e.bp != null){
+					en.bossPhase = e.bp;
+					en.bossPhaseTransition = e.bpt || 0;
+					en.bossCharging = !!e.ch;
+					if(e.at) en.attackAnimTimer = e.at;
+				}
+				if(e.d && !en.dead){ en.dead = true; en.deathTimer = 0; en.hp = 0; }
+				// Only revive on a real host respawn — reviving straight away would
+				// undo a local kill the host has not processed yet and drop loot twice.
+				else if(!e.d && en.dead && en.deathTimer > 150){ en.dead = false; en.deathTimer = 0; }
+			}
 		}
+	}
+
+	/* ---- guest: spawn the enemy/boss projectiles the host created ----
+	   Pushed as-is rather than re-running the spawners, so difficulty and
+	   buff multipliers are not applied a second time. */
+	function applyProjectiles(msg){
+		if(!msg || !msg.list || COOP_HOST) return;
+		for(var i = 0; i < msg.list.length; i++){
+			var p = msg.list[i];
+			if(!p) continue;
+			p.effects = p.effects || [];
+			enemyProjectiles.push(p);
+		}
+	}
+
+	/* ---- guest: replay telegraphs and banner warnings ---- */
+	function applyEvent(msg){
+		if(!msg || COOP_HOST) return;
+		CoopSync.applying = true;
+		try {
+			var list = msg.list || [];
+			for(var i = 0; i < list.length; i++){
+				var ev = list[i], d = ev.data || {};
+				if(ev.type === 'warn') showRaidWarning(d.text, d.duration);
+				else if(ev.type === 'ind') addRaidIndicator(d.x, d.y, d.w, d.h, d.d, d.c, d.t);
+				else if(ev.type === 'beamInd') addRaidBeamIndicator(d.ox, d.oy, d.angle, d.length, d.d, d.c);
+			}
+		} finally { CoopSync.applying = false; }
 	}
 
 	function connect(){
@@ -38773,77 +39190,158 @@ loop();
 		if(!client){ setTimeout(connect, 400); return; }
 		connecting = true;
 		net = CoopNet.connectCoop(COOP_MATCH, {
-			onConnected: function(){ coopStatus = 'Waiting for ally…'; },
-			onReady:     function(){ coopStatus = ''; if(typeof notify==='function') notify('🤝 Ally connected!'); },
+			onConnected: function(){ coopStatus = 'Waiting for your party…'; },
+			onReady:     function(){ coopStatus = ''; },
 			onState: function(s){
-				ally.active = true;
-				ally.facing = s.facing;
-				ally.hp = s.hp;
-				ally.maxHp = s.maxHp;
-				ally.name = s.name || 'Ally';
-				ally.vx = s.vx || 0;
-				ally.vy = s.vy || 0;
+				var a = allyFor(s.from, s.slot);
+				if(!a.active && typeof notify === 'function') notify('🤝 ' + (s.name || 'An ally') + ' joined!');
+				a.active = true;
+				a.facing = s.facing;
+				a.hp = s.hp; a.maxHp = s.maxHp;
+				a.name = s.name || 'Ally';
+				a.vx = s.vx || 0; a.vy = s.vy || 0;
+				a.onGround = !!s.g;
 				coopStatus = '';
-				snap = { x: s.x, y: s.y, t: performance.now() };
-				if(!allyInit){
-					renderX = s.x; renderY = s.y;
-					ally.x = s.x; ally.y = s.y;
-					allyInit = true;
-				}
+				a.snap = { x: s.x, y: s.y, t: performance.now() };
+				if(!a.init){ a.renderX = s.x; a.renderY = s.y; a.x = s.x; a.y = s.y; a.init = true; }
 			},
-			onCast: spawnRemoteCast,
+			onCast: function(c){
+				// The ally record already exists from their 30Hz state updates.
+				var a = allyFor(c.from, c.pslot);
+				a.castFlash = 14;
+				a.castColor = c.color || PLAYER_COLOR_HEX[a.colorIdx];
+				spawnRemoteCast(c, '_coopRemote');
+			},
 			onEnemyDmg: function(d){
-				if(!d || !d.key) return;
-				var en = findCoopEnemy(d.key);
-				if(!en) return;
-				var dmg = d.dmg || 0;
-				if(dmg > 0){
-					en.hp -= dmg;
-					en.flash = 8;
-					dmgNumbers.push({ x: en.x + en.w / 2, y: en.y - 10, text: Math.round(dmg) + '', age: 0, color: '#88ffaa' });
-				}
-				if(d.dead || en.hp <= 0){ en.hp = 0; en.dead = true; }
+				// Only the host applies damage; its snapshot then corrects everyone.
+				if(!COOP_HOST || !d) return;
+				var target = d.boss ? getCoopBoss() : findCoopEnemy(d.key);
+				if(!target || target.dead) return;
+				target.hp -= (d.dmg || 0);
+				target.flash = 8;
+				if(target.hp <= 0 && !isCoopBoss(target)){ target.hp = 0; target.dead = true; target.deathTimer = 0; }
 			},
-			onBoss: applyRemoteBoss,
-			onLeft: function(){
-				ally.active = false; ally.left = true; snap = null;
-				coopStatus = 'Ally left the session';
-				if(typeof notify==='function') notify('🏳️ Ally left the session');
+			onWorld: applyWorld,
+			onProjectiles: applyProjectiles,
+			onEvent: applyEvent,
+			onLeft: function(id){
+				if(id && allies[id]){
+					if(typeof notify === 'function') notify('🏳️ ' + allies[id].name + ' left the session');
+					delete allies[id];
+				}
 			},
 		});
 		window.__coopNet = net;
+		CoopSync.net = net;
 	}
 	if(window.CloudSave) CloudSave.onAuthChange(function(){ if(!net) connect(); });
 	setTimeout(connect, 800);
 
+	/* ---- host: build a compact world snapshot ---- */
+	function buildWorldSnapshot(){
+		var out = {};
+		var boss = getCoopBoss();
+		if(boss){
+			out.boss = {
+				x: Math.round(boss.x), y: Math.round(boss.y),
+				hp: Math.round(boss.hp), maxHp: boss.maxHp,
+				phase: boss.phase, facing: boss.facing,
+				arm: boss.armRaised || 0, pt: boss.phaseTransition || 0,
+				dead: !!boss.dead,
+			};
+			if(boss.laserActive){
+				out.boss.laser = {
+					ph: boss.laserPhase, a: boss.laserAngle, ta: boss.laserTelegraphAngle,
+					d: boss.laserSweepDir, st: boss.laserSweepTimer || 0,
+					len: Math.round(boss.laserBeamLen || 0), max: boss.laserMaxLen || 1600,
+					ox: Math.round(boss.laserOriginX || 0), oy: Math.round(boss.laserOriginY || 0),
+				};
+			}
+		}
+		if(typeof enemies !== 'undefined' && enemies.length){
+			var list = [];
+			for(var i = 0; i < enemies.length && list.length < 60; i++){
+				var en = enemies[i];
+				if(!en || !en._coopKey) continue;
+				// Skip enemies that have been dead a while — resend only near a
+				// respawn so guests pick the revived enemy back up.
+				if(en.dead && en.deathTimer > 300 && en.deathTimer < 3500) continue;
+				var rec = {
+					k: en._coopKey,
+					t: en.type,
+					x: Math.round(en.x), y: Math.round(en.y),
+					f: en.facing, hp: Math.round(en.hp), d: !!en.dead,
+					mh: en.maxHp, w: en.w, h: en.h,
+				};
+				// Dungeon bosses: phase drives their attack set and visuals.
+				if(en.typeDef && en.typeDef.isBoss){
+					rec.bp = en.bossPhase;
+					rec.bpt = en.bossPhaseTransition || 0;
+					rec.ch = !!en.bossCharging;
+					rec.at = en.attackAnimTimer || 0;
+				}
+				list.push(rec);
+			}
+			if(list.length) out.en = list;
+		}
+		return out;
+	}
+
 	function tick(){
 		if(net){
 			var now = performance.now();
-			if(now - lastSent > 33){
-				lastSent = now;
+			if(now - lastStateSent > 33){
+				lastStateSent = now;
 				net.sendState({
-					x: player.x, y: player.y,
+					slot: COOP_SLOT,
+					x: Math.round(player.x), y: Math.round(player.y),
 					vx: player.vx, vy: player.vy,
 					facing: player.facing,
+					g: !!player.onGround,
 					hp: Math.max(0, Math.round(health)),
 					maxHp: Math.round(maxHealth),
 					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
 				});
 			}
-			var boss = getCoopBoss();
-			if(COOP_HOST && boss && now - lastBossSent > 500){
-				lastBossSent = now;
-				net.sendBoss({ hp: boss.hp, maxHp: boss.maxHp, dead: !!boss.dead });
+			if(COOP_HOST){
+				// ~12Hz world snapshot keeps every client on the same fight.
+				if(now - lastWorldSent > 80){
+					lastWorldSent = now;
+					net.sendWorld(buildWorldSnapshot());
+				}
+				// Flush spawns/telegraphs the same frame they happen.
+				if(CoopSync.projQueue.length){
+					var batch = CoopSync.projQueue.splice(0, CoopSync.projQueue.length);
+					net.sendProjectiles({ list: batch.map(function(p){ return CoopSync.serializeProj(p); }) });
+				}
+				if(CoopSync.eventQueue.length){
+					net.sendEvent({ list: CoopSync.eventQueue.splice(0, CoopSync.eventQueue.length) });
+				}
+			} else {
+				// Guests never transmit world data; drop anything that queued up.
+				CoopSync.projQueue.length = 0;
+				CoopSync.eventQueue.length = 0;
 			}
 		}
-		if(ally.active && snap){
-			var dt = Math.min(0.08, (performance.now() - snap.t) / 1000);
-			var targetX = snap.x + (ally.vx || 0) * dt * 60;
-			var targetY = snap.y + (ally.vy || 0) * dt * 60;
-			renderX += (targetX - renderX) * 0.42;
-			renderY += (targetY - renderY) * 0.42;
-			ally.x = renderX;
-			ally.y = renderY;
+		// Smooth every ally toward its latest snapshot with light extrapolation.
+		for(var id in allies){
+			var a = allies[id];
+			if(!a.active || !a.snap) continue;
+			var dt = Math.min(0.08, (performance.now() - a.snap.t) / 1000);
+			a.renderX += ((a.snap.x + (a.vx || 0) * dt * 60) - a.renderX) * 0.42;
+			a.renderY += ((a.snap.y + (a.vy || 0) * dt * 60) - a.renderY) * 0.42;
+			a.x = a.renderX; a.y = a.renderY;
+			a.animState = mageAnimStateFor(a.vx, a.vy, a.onGround, a.castFlash > 6);
+			if(a.animState === 'falling'){
+				if(++a.animTimer >= PLAYER_SPRITE_FPS){
+					a.animTimer = 0;
+					a.animFrame = (a.animFrame + 1) % FALLING_SPRITE_COLS;
+				}
+			} else if(++a.animTimer >= PLAYER_SPRITE_FPS){
+				a.animTimer = 0;
+				a.animFrame = (a.animFrame + 1) % PLAYER_SPRITE_COLS;
+			}
+			if(a.castFlash > 0) a.castFlash--;
 		}
 		requestAnimationFrame(tick);
 	}
@@ -38861,48 +39359,13 @@ loop();
 			ctx.fillText(coopStatus, cw/2, 35);
 			ctx.restore();
 		}
-		if(!ally.active) return;
-		var sx = renderX - camera.x, sy = renderY - camera.y;
-		var onScreen = (sx > -120 && sx < cw + 120 && sy > -120 && sy < canvas.height + 120);
-		if(onScreen){
-			ctx.save();
-			ctx.fillStyle = 'rgba(0,0,0,0.35)';
-			ctx.beginPath(); ctx.ellipse(sx+allyW/2, sy+allyH, allyW/2, 6, 0, 0, Math.PI*2); ctx.fill();
-			if(ally.castFlash > 0){ ally.castFlash--; ctx.shadowColor = ally.castColor || '#66ff88'; ctx.shadowBlur = 22; }
-			ctx.fillStyle = '#2e7d32'; ctx.fillRect(sx+4, sy+16, allyW-8, allyH-16);
-			ctx.fillStyle = '#1b5e20'; ctx.fillRect(sx+4, sy+allyH-12, allyW-8, 12);
-			ctx.fillStyle = '#ffd7b0'; ctx.fillRect(sx+8, sy, allyW-16, 20);
-			ctx.fillStyle = '#1a1a1a'; ctx.fillRect(sx + (ally.facing>0 ? allyW-16 : 10), sy+8, 5, 5);
-			ctx.fillStyle = '#388e3c';
-			ctx.beginPath();
-			ctx.moveTo(sx+6, sy+4); ctx.lineTo(sx+allyW/2, sy-16); ctx.lineTo(sx+allyW-6, sy+4);
-			ctx.closePath(); ctx.fill();
-			ctx.shadowBlur = 0;
-			ctx.fillStyle = '#e0ffe8'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
-			ctx.fillText(ally.name, sx+allyW/2, sy-22);
-			var pct = Math.max(0, Math.min(1, ally.hp/(ally.maxHp||1)));
-			ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(sx-8, sy-14, allyW+16, 7);
-			ctx.fillStyle = pct>0.5 ? '#44ff88' : pct>0.25 ? '#ffaa44' : '#ff4444';
-			ctx.fillRect(sx-8, sy-14, (allyW+16)*pct, 7);
-			ctx.restore();
-		} else {
-			var dir = sx < 0 ? -1 : 1;
-			var ax = dir < 0 ? 40 : cw - 40;
-			var ay = Math.max(70, Math.min(canvas.height - 80, sy));
-			var dist = Math.round(Math.abs(renderX - player.x));
-			ctx.save();
-			ctx.fillStyle = 'rgba(46,125,50,0.95)';
-			ctx.beginPath();
-			ctx.moveTo(ax + dir*18, ay);
-			ctx.lineTo(ax - dir*12, ay - 14);
-			ctx.lineTo(ax - dir*12, ay + 14);
-			ctx.closePath(); ctx.fill();
-			ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-			ctx.fillText(ally.name, ax, ay - 22);
-			ctx.fillText(dist + ' away', ax, ay + 30);
-			ctx.restore();
+		for(var id in allies){
+			var a = allies[id];
+			if(!a.active) continue;
+			drawNetMage(a, a.colorIdx, ALLY_W, ALLY_H);
 		}
 	};
+
 })();
 </script>
 </body>
