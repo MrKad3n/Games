@@ -106,7 +106,30 @@
 		else if(fx==='shield') line = 'Shield +'+Math.round((ph.power||1)*3);
 		else if(fx==='blind') line = 'Blind '+(0.5*(ph.power||1)).toFixed(1)+'s';
 		else if(fx==='mark') line = 'Hit '+hit+' · Slow 3s (25% damage)';
-		else if(fx==='forceJump') line = 'Forces a jump';
+		else if(fx==='forceJump') line = 'Launch up ~'+Math.round(40+(ph.power||1)*15)+'px';
+		else if(fx==='randomDelay'){
+			const n = Math.max(2, ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(ph.count||1));
+			line = n+' projectiles · each waits 0–'+(Number(ph.randomDelayMax||0.5).toFixed(1))+'s';
+		}
+		else if(fx==='evenDelay'){
+			const n = Math.max(2, ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(ph.count||1));
+			line = n+' projectiles spaced over '+(Number(ph.evenDelayDuration||0.5).toFixed(1))+'s';
+		}
+		else if(fx==='phaseThrough') line = 'Hit '+hit+' (–45%) · passes through walls';
+		else if(fx==='timedRelease') line = 'Triggers after '+(Number(ph.timedReleaseDelay||0.5).toFixed(1))+'s';
+		else if(fx==='resetProjectiles') line = 'Next phase spawns fresh (no morph)';
+		else if(fx==='damageStore') line = 'Stores '+Math.round((ph.damageStorePercent||0.5)*100)+'% of hit';
+		else if(fx==='damageRelease') line = 'Consumes stored dmg for bonus hit/size';
+		else if(fx==='damageHeal') line = 'Ally Orb heals 50% of stored dmg';
+		else if(fx==='dispel') line = 'Destroys enemy projectiles on contact';
+		else if(fx==='ricochet') line = 'Bounces off walls up to 5 times';
+		else if(fx==='rotate') line = 'Spins while traveling';
+		else if(fx==='solidify') line = 'Becomes a walkable platform';
+		else if(fx==='awayFromPlayer') line = 'Fires away from you, not toward cursor';
+		else if(fx==='solidObjectBreak') line = 'Shatters all solidify platforms';
+		else if(fx==='sticky') line = 'Sticks targets / enables wall-walk';
+		else if(fx==='gravityWell') line = 'Pull well · radius scales with power '+(ph.power||1).toFixed(1);
+		else if(fx==='shatter') line = 'Hit '+hit+' · 12 shards on hit';
 		else if(info.blast>0) line = 'Hit '+hit+' · Blast ~'+Math.round(info.blast)+' (falloff)';
 		else if(hit>0) line = 'Hit '+hit+(info.count>1?' each':'');
 		if(!line) return '';
