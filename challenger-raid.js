@@ -981,24 +981,6 @@
 		}
 	};
 
-	window.forceChallengerPhase2 = function(){
-		const b = challengerBoss;
-		if(!b || b.dead || b.phase >= 2) return;
-		b.inIntro = false;
-		b.atk = null;
-		b.atkT = 0;
-		b.atkData = {};
-		b.hidden = false;
-		b.hp = Math.min(b.hp, b.maxHp * 0.5);
-		b.phase = 2;
-		b.phaseCut = 1;
-		b.phaseCutT = 0;
-		b.armorOff = true;
-		b.aura = 1.4;
-		b.busyTimer = 0;
-		b.globalCd = 0;
-	};
-
 	function fragmentVerts(p){
 		const j = (n) => (Math.sin(p.x * 0.017 + n * 1.7) * 0.5 + 0.5);
 		return [

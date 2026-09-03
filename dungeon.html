@@ -149,7 +149,6 @@ body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
 
 <!-- Debug Panel -->
 <button id="debugBtn" onclick="document.getElementById('debugPanel').classList.toggle('open')" style="position:fixed;top:50px;left:14px;z-index:60;padding:5px 12px;font:12px Arial,sans-serif;background:rgba(255,255,255,.12);color:#0f0;border:1px solid rgba(0,255,0,.3);border-radius:5px;cursor:pointer">Debug</button>
-<button id="challengerP2Btn" onclick="if(typeof forceChallengerPhase2==='function')forceChallengerPhase2()" title="Skip The Grand Challenger to phase 2" style="display:none;position:fixed;top:50px;left:86px;z-index:60;padding:5px 12px;font:12px Arial,sans-serif;background:rgba(90,212,255,.18);color:#9ad0ff;border:1px solid rgba(154,208,255,.45);border-radius:5px;cursor:pointer">P2</button>
 <div id="debugPanel" style="position:fixed;top:80px;left:14px;z-index:60;width:380px;max-height:70vh;overflow-y:auto;background:rgba(0,0,0,0.92);border:1px solid rgba(0,255,0,.3);border-radius:8px;padding:10px;font:11px monospace;color:#0f0;display:none;user-select:text">
 	<div style="display:flex;justify-content:space-between;margin-bottom:6px"><b>DEBUG INFO</b><button onclick="navigator.clipboard.writeText(document.getElementById('debugContent').innerText)" style="font:10px Arial;background:#333;color:#0f0;border:1px solid #0f0;border-radius:3px;cursor:pointer;padding:2px 8px">Copy All</button></div>
 	<pre id="debugContent" style="white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.4"></pre>
@@ -4782,8 +4781,6 @@ if(IS_SANDBOX){
 } else if(IS_CHALLENGER){
 	document.getElementById('dungeonName').style.display = 'none'; // Title lives on the canvas boss HP bar
 	document.getElementById('backBtn').href = 'raids.html';
-	const p2Btn = document.getElementById('challengerP2Btn');
-	if(p2Btn) p2Btn.style.display = 'block';
 } else if(IS_COLOSSEUM){
 	document.getElementById('dungeonName').innerHTML = 'Colosseum <span style="font-size:12px;color:#e0b85a;">(PvP Duel)</span>';
 	document.getElementById('backBtn').href = 'index.html';
@@ -39600,7 +39597,7 @@ function updateDebugPanel(){
 	document.getElementById('debugContent').textContent=txt;
 }
 </script>
-<script src="challenger-raid.js?v=31"></script>
+<script src="challenger-raid.js?v=32"></script>
 <script>
 function loop(){update();updateDebugPanel();updateHealthHUD();render();requestAnimationFrame(loop);}
 loop();
