@@ -174,6 +174,19 @@
 				<button style="background:linear-gradient(135deg,#3355bb,#aaccff);color:#fff;" onclick="location.href='dungeon.html?mode=zenith'">✦ Face The Convergence</button>
 				<div class="btn-row"><button class="coop-btn" type="button" onclick="openCoop('zenith')">🤝 Co-op Raid</button></div>
 			</div>
+			<div class="boss-card" style="border-color:rgba(154,208,255,0.55);box-shadow:0 0 28px rgba(140,200,255,0.12);">
+				<div class="boss-icon">🌌</div>
+				<h2 style="color:#9ad0ff;">The Grand Challenger</h2>
+				<div class="boss-title">The Warrior Who Needs No Weapon</div>
+				<p>A millennial wanderer who crossed galaxies looking for a real fight. No spells. No excuses. Fists that break planets, and a duel that ends only when someone can no longer stand.</p>
+				<div class="boss-stats">
+					<span>❤️ 90,000 HP</span>
+					<span>⚔️ 11 Attacks</span>
+					<span>📊 3 Phases</span>
+				</div>
+				<button style="background:linear-gradient(135deg,#3a5a7a,#8ec8ff);color:#fff;" onclick="location.href='dungeon.html?mode=challenger'">👊 Challenge Boss</button>
+				<div class="btn-row"><button class="coop-btn" type="button" onclick="openCoop('challenger')">🤝 Co-op Raid</button></div>
+			</div>
 		</section>
 
 		<div class="multiplayer-note">
@@ -207,7 +220,7 @@
 	const COOP_SLOT_NAMES  = ['Blue', 'Green', 'Red', 'Yellow'];
 	let coopSearch = null;
 	let coopMode = null;
-	const RAID_NAMES = { raid:'Void Arbiter', chronoraid:'Chrono Tyrant', zenith:'Zenith' };
+	const RAID_NAMES = { raid:'Void Arbiter', chronoraid:'Chrono Tyrant', zenith:'Zenith', challenger:'Grand Challenger' };
 
 	function escapeHtml(s){
 		return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

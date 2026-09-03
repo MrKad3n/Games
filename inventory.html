@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Magic Battle — Inventory</title>
+<link rel="stylesheet" href="spell-builder.css?v=5"/>
 <script src="auth-gate.js?v=4"></script>
 <style>
 /* ============================================================
@@ -17,7 +18,7 @@
 	--slot-bg:rgba(255,255,255,.04);--slot-hover:rgba(255,255,255,.1);
 	--rarity-common:#aaa;--rarity-uncommon:#2ecc71;--rarity-rare:#3498db;
 	--rarity-epic:#9b59b6;--rarity-legendary:#f39c12;--rarity-mythical:#cc44ff;
-	--rarity-mythic:#ffd700;
+	--rarity-mythic:#ffd700;--rarity-pink:#ff4ec4;
 }
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
@@ -125,6 +126,7 @@ input,select{font-family:inherit}
 .inv-cell[data-rarity=legendary]{border-color:var(--rarity-legendary)}
 .inv-cell[data-rarity=mythical]{border-color:var(--rarity-mythical);box-shadow:0 0 8px rgba(204,68,255,0.4)}
 .inv-cell[data-rarity=mythic]{border-color:var(--rarity-mythic);box-shadow:0 0 10px rgba(255,215,0,0.5),0 0 20px rgba(255,215,0,0.2)}
+.inv-cell[data-rarity=pink]{border-color:var(--rarity-pink);box-shadow:0 0 8px rgba(255,78,196,0.5)}
 
 /* item tooltip */
 .tooltip{
@@ -254,12 +256,6 @@ input,select{font-family:inherit}
 }
 .add-phase-btn:hover{background:rgba(108,92,231,.3)}
 
-/* preview canvas */
-#spellPreview{
-	width:100%;height:80px;background:#0e0c1a;border:1px solid var(--border);
-	border-radius:8px;display:block;
-}
-
 /* modal footer */
 .modal-foot{
 	display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;
@@ -350,6 +346,7 @@ input,select{font-family:inherit}
 .craft-name[data-rarity=epic]{color:var(--rarity-epic)}
 .craft-name[data-rarity=legendary]{color:var(--rarity-legendary)}
 .craft-name[data-rarity=mythical]{color:var(--rarity-mythical);text-shadow:0 0 6px rgba(204,68,255,0.5)}
+.craft-name[data-rarity=pink]{color:var(--rarity-pink);text-shadow:0 0 6px rgba(255,78,196,0.5)}
 .craft-desc{font-size:11px;color:var(--muted);font-style:italic}
 .craft-ingredients{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .craft-ing{
@@ -554,19 +551,19 @@ input,select{font-family:inherit}
 
 <!-- ==================== SPELL BUILDER MODAL ==================== -->
 <div class="modal-overlay" id="spellModal">
-<div class="modal">
+<div class="modal nb-modal">
 	<div class="modal-head">
-		<h2 id="modalTitle">Spell Builder — Slot 1</h2>
+		<div class="spell-meta nb-head-main" id="spellMeta"></div>
 		<button class="close-btn" id="modalClose">✕</button>
 	</div>
 	<div class="modal-body">
-		<div class="spell-meta" id="spellMeta"></div>
-		<div class="spell-desc" id="spellDesc">Configure your spell by adding phases below.</div>
-		<div style="display:flex;align-items:flex-start;gap:12px;overflow-x:auto">
-			<div class="phases-wrap" id="phasesWrap"></div>
-			<button class="add-phase-btn" id="addPhaseBtn">+ Phase</button>
+		<div class="spell-desc" id="spellDesc" style="display:none">Configure your spell by adding phases below.</div>
+		<div class="nb-phase-row">
+			<div class="nb-phase-strip" id="nbPhaseStrip"></div>
+			<button class="nb-add-phase" id="addPhaseBtn" title="Add phase">+</button>
 		</div>
-		<canvas id="spellPreview"></canvas>
+		<div class="nb-editor" id="nbEditor"></div>
+		<div class="phases-wrap" id="phasesWrap" style="display:none"></div>
 	</div>
 	<div class="modal-foot">
 		<button class="btn btn-danger" id="clearSpellBtn">Clear Spell</button>
@@ -580,9 +577,25 @@ input,select{font-family:inherit}
 </div>
 </div>
 
+<!-- ==================== SCROLL SLOT PICKER ==================== -->
+<div class="modal-overlay" id="scrollModal">
+<div class="modal" style="max-width:440px">
+	<div class="modal-head">
+		<h2 id="scrollModalTitle">Scroll</h2>
+		<button class="close-btn" id="scrollModalClose">✕</button>
+	</div>
+	<div class="modal-body" id="scrollModalBody" style="display:flex;flex-direction:column;gap:8px"></div>
+	<div class="modal-foot">
+		<button class="btn btn-ghost" id="scrollModalCancel">Cancel</button>
+	</div>
+</div>
+</div>
+
 <!-- ============================================================
      JAVASCRIPT
      ============================================================ -->
+<script src="scrolls.js?v=1"></script>
+<script src="spell-builder.js?v=7"></script>
 <script>
 /* =============================================================
    DATA DEFINITIONS
@@ -640,7 +653,7 @@ const BEHAVIORS = {
 	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Corkscrews along the aimed path, orbiting the straight trajectory', dmgNote:'' },
 	teleport:     { label:'Teleport',     controlReq:6,  manaCost:7,  desc:'Blinks forward at intervals, hard to dodge', dmgNote:'' },
 	control:      { label:'Control',      controlReq:3,  manaCost:30, desc:'Projectile follows your cursor — starts at player and glides to cursor position. Allows up to 30s duration.', dmgNote:'-85% dmg' },
-	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing. Matching elemental spells buffed. Max 2 phases. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
+	domain:       { label:'Domain Expansion', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Creates massive zone. Next phase attacks from edges with forced homing (max 5 projectiles/wave, 6s). Matching elemental spells buffed. Max 2 phases. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
 	transformation:{ label:'Transformation', controlReq:10, manaCost:1000, desc:'⚡ULTIMATE ONLY⚡ Unleash your true power — transforms you for 60 seconds, switching to your Transformation loadout with enhanced limits (power 15, size 5.5, 4 phases). Spend 5 points on powerful buffs. Customize your aura. Costs 25k mana.', dmgNote:'25k mana', ultimateOnly:true },
 
 };
@@ -670,7 +683,7 @@ stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Brie
 	damageRelease:{ label:'Dmg Release', icon:'💥', controlReq:4, manaCost:6, desc:'Consumes stored damage for bonus dmg & size', category:'store', dmgNote:'+stored dmg' },
 	damageHeal:   { label:'Dmg Heal',   icon:'💗', controlReq:3, manaCost:5, desc:'Ally Orb converts stored damage into health (50%)', category:'store', dmgNote:'' },
 	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:8, desc:'Destroys enemy projectiles and magic walls on contact', category:'utility', dmgNote:'' },
-	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Reduces enemy detection range temporarily', category:'cc', dmgNote:'' },
+	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Blinds the target: enemies lose detection range, players get a darkened screen. Lasts 0.5s at power 1, 5s at power 10', category:'cc', dmgNote:'' },
 	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'Spawns 12 crystal shards on every hit (5-frame cooldown). On enemy death, triggers a full 16-shard burst. Archmage: each shard cascades into 3 micro-shards.', category:'elemental', dmgNote:'on-hit shards + kill burst' },
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
 	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:50,desc:'Creates a powerful pull zone — range and strength scale with spell power. Affects enemies and solidified objects. Closer to centre = much stronger pull.', category:'movement', dmgNote:'' },
@@ -869,6 +882,7 @@ const ITEM_DB = {
 	void_nullification:{ name:'Void Nullification', type:'relic', icon:'🌑', rarity:'mythic', stats:{magicPower:30,magicControl:15,manaRegen:40,magicDefence:12}, desc:'A mythic relic forged from the defeated Void Arbiter\'s essence. Nullifies void energy around the wielder.' },
 	chrono_shard:{ name:'Chrono Shard', type:'relic', icon:'⏳', rarity:'mythic', stats:{magicPower:25,magicControl:20,manaRegen:35,magicDefence:10}, desc:'A fragment of shattered time torn from the Chrono Tyrant. Grants temporal power to your spells.' },
 };
+if(typeof mergeScrollItems === 'function') mergeScrollItems(ITEM_DB);
 
 /* =============================================================
    ITEM BOOSTS — Items boost the power of spells using matching components
@@ -1139,6 +1153,7 @@ function defaultPlayerState(){
 		loadouts: [],      // saved spell loadouts: [{name, spells, type:'standard'|'transformation'}]
 		activeLoadoutIdx: -1, // which loadout is active (-1 = unsaved)
 		transformSpells: new Array(10).fill(null), // transformation loadout spells
+		gold: (typeof SCROLL_STARTING_GOLD === 'number' ? SCROLL_STARTING_GOLD : 350),
 	};
 }
 
@@ -1197,6 +1212,8 @@ function loadState(){
 			if(!s.equipment) s.equipment = { staff:null, robe:null, relic1:null, relic2:null };
 			if(!s.baseStats) s.baseStats = { magicPower:10, magicControl:5, manaRegen:100, magicDefence:8 };
 			if(!s.inventory) s.inventory = [];
+			if(typeof ensurePlayerGold === 'function') ensurePlayerGold(s);
+			else if(s.gold == null) s.gold = 350;
 			return s;
 		}
 	} catch(e){}
@@ -1380,20 +1397,20 @@ const VOW_BOOST_TYPES = {
 
 /* Domain Vow boost types — special buffs only available in the 4th (domain) vow slot */
 const DOMAIN_VOW_BUFFS = {
-	domainSlow:       { label:'Oppressive Field',     icon:'🐌', desc:'Enemies in domain are slowed by 8% per point' },
-	domainRange:      { label:'Expanded Territory',   icon:'🌐', desc:'+12% domain size per point' },
-	domainPower:      { label:'Domain Fury',          icon:'💥', desc:'+15% damage for domain attacks per point' },
-	domainPlayerPow:  { label:'Empowered Caster',     icon:'⚡', desc:'+10% player spell damage while inside domain per point' },
-	domainPlayerSpd:  { label:'Domain Haste',         icon:'🏃', desc:'+10% player movement speed while inside domain per point' },
-	domainSummonPow:  { label:'Empowered Servitors',  icon:'💀', desc:'+20% summon damage inside domain per point' },
-	domainDuration:   { label:'Eternal Domain',       icon:'⏳', desc:'+8% domain duration per point' },
-	domainEnemyPow:   { label:'Hubris Curse',         icon:'👹', desc:'Enemy attacks deal +10% more — but domain attacks gain +18% per point' },
-	domainDotDmg:     { label:'Corrosive Domain',     icon:'☠️', desc:'Enemies in domain take 2% max HP as DoT per second per point' },
-	domainCooldown:   { label:'Quick Expansion',      icon:'🔄', desc:'-6% domain spell cooldown per point' },
-	domainManaRegen:  { label:'Mana Wellspring',      icon:'💧', desc:'+5 flat mana regen per second while domain is active per point' },
-	domainDefense:    { label:'Sanctuary',             icon:'🛡️', desc:'-8% damage taken by player while inside domain per point' },
-	mobileDomain:     { label:'Mobile Domain',        icon:'🚶', desc:'Domain follows the player (platforms are NOT removed)', binary:true, cost:5 },
-	domainTP:         { label:'Domain Warp',          icon:'🌀', desc:'Teleport within your domain using F key (15s cooldown)', binary:true, cost:4 },
+	domainSlow:       { label:'Oppressive Field',     icon:'🐌', desc:'Enemies in domain are slowed by 4% per point (max 5)', max:5 },
+	domainRange:      { label:'Expanded Territory',   icon:'🌐', desc:'+6% domain size per point (max 5)', max:5 },
+	domainPower:      { label:'Domain Fury',          icon:'💥', desc:'+7% damage for domain attacks per point (max 5)', max:5 },
+	domainPlayerPow:  { label:'Empowered Caster',     icon:'⚡', desc:'+5% player spell damage while inside domain per point (max 5)', max:5 },
+	domainPlayerSpd:  { label:'Domain Haste',         icon:'🏃', desc:'+5% player movement speed while inside domain per point (max 5)', max:5 },
+	domainSummonPow:  { label:'Empowered Servitors',  icon:'💀', desc:'+10% summon damage inside domain per point (max 5)', max:5 },
+	domainDuration:   { label:'Eternal Domain',       icon:'⏳', desc:'+4% domain duration per point (max 5)', max:5 },
+	domainEnemyPow:   { label:'Hubris Curse',         icon:'👹', desc:'Enemy attacks deal +5% more — domain attacks gain +8% per point (max 5)', max:5 },
+	domainDotDmg:     { label:'Corrosive Domain',     icon:'☠️', desc:'Enemies in domain take 1% max HP as DoT per second per point (max 5)', max:5 },
+	domainCooldown:   { label:'Quick Expansion',      icon:'🔄', desc:'-3% domain spell cooldown per point (max 5)', max:5 },
+	domainManaRegen:  { label:'Mana Wellspring',      icon:'💧', desc:'+3 flat mana regen per second while domain is active per point (max 5)', max:5 },
+	domainDefense:    { label:'Sanctuary',             icon:'🛡️', desc:'-4% damage taken by player while inside domain per point (max 5)', max:5 },
+	mobileDomain:     { label:'Mobile Domain',        icon:'🚶', desc:'Domain follows the player (platforms are NOT removed)', binary:true, cost:8 },
+	domainTP:         { label:'Domain Warp',          icon:'🌀', desc:'Teleport within your domain using F key (15s cooldown)', binary:true, cost:6 },
 };
 
 /* Domain-specific sacrifices — only affect player while domain is active */
@@ -1513,6 +1530,19 @@ function calcVowBoostsForSlot(slot){
 /* =============================================================
    SPELL COST / CONTROL REQUIREMENT CALCULATORS
    ============================================================= */
+function phaseSpeedMana(ph, powerMax){
+	const s = Math.max(0.1, Number(ph && ph.speed)||1);
+	const t = Math.max(0, Math.min(1, (s - 1) / 9));
+	const isArea = ph && (ph.behavior==='rain'||ph.behavior==='barrage');
+	const ec = ph && ph.behavior==='aroundSelf' ? (ph.aroundSelfCount||4) : ((ph && ph.count)||1);
+	const countMult = 1 + (ec - 1) * (isArea ? 0.1 : 0.4);
+	return (powerMax || 10) * 50 * countMult * t * t;
+}
+function phasePowerCap(spell, phaseIdx){
+	if(spell && spell.phases && spell.phases[0] && spell.phases[0].behavior==='domain' && phaseIdx>0) return 10;
+	return (spell && spell.isUltimate) ? 20 : 10;
+}
+
 function calcSpellManaCost(spell){
 	if(!spell || !spell.phases.length) return 0;
 	let cost = 5;
@@ -1530,7 +1560,7 @@ function calcSpellManaCost(spell){
 		// size, speed, duration scaling (matches dungeon.html calcSpellCost)
 		cost += (ph.width  - 1) * 6 + Math.max(0, ph.width  - 2) * 4;
 		cost += (ph.height - 1) * 6 + Math.max(0, ph.height - 2) * 4;
-		cost += Math.max(0, (ph.speed    || 1) - 1) * 18;
+		cost += phaseSpeedMana(ph, phasePowerCap(spell, spell.phases.indexOf(ph)));
 		cost += Math.max(0, (ph.duration || 1) - 1) * 22;
 		// chain stun costs significant mana
 		if(ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
@@ -1613,7 +1643,7 @@ function renderStats(){
 	];
 	document.getElementById('statsBar').innerHTML = defs.map(d =>
 		`<div class="stat-chip"><span class="stat-icon">${d.icon}</span>${d.label}: <span class="stat-val" style="color:${d.color}">${s[d.key]}</span></div>`
-	).join('');
+	).join('') + `<div class="stat-chip"><span class="stat-icon">🪙</span>Gold: <span class="stat-val" style="color:var(--gold)">${STATE.gold||0}</span></div>`;
 
 	// base stats panel (left col)
 	const base = STATE.baseStats;
@@ -1759,7 +1789,8 @@ function getFilteredInventory(){
 	const q = searchTerm.toLowerCase();
 	return STATE.inventory.filter(entry => {
 		const item = ITEM_DB[entry.itemId];
-		return item && (item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q));
+		const name = (typeof scrollDisplayName === 'function' ? scrollDisplayName(entry, ITEM_DB) : (item && item.name)) || '';
+		return item && (name.toLowerCase().includes(q) || item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q));
 	});
 }
 
@@ -1785,14 +1816,16 @@ function renderInventory(){
 			const entry = pageItems[i];
 			const item = ITEM_DB[entry.itemId];
 			if(item){
-				cell.setAttribute('data-rarity', item.rarity);
+				const shown = (typeof scrollDisplayName === 'function' ? scrollDisplayName(entry, ITEM_DB) : item.name);
+				const rarity = (entry.itemId === 'player_scroll' || entry.spell) ? 'pink' : item.rarity;
+				cell.setAttribute('data-rarity', rarity);
 				cell.setAttribute('data-item-id', entry.itemId);
 				cell.innerHTML = `
 					<span class="cell-icon">${item.icon}</span>
-					<span class="cell-name">${item.name}</span>
+					<span class="cell-name">${shown}</span>
 					${entry.qty > 1 ? `<span class="cell-qty">x${entry.qty}</span>` : ''}
 				`;
-				cell.addEventListener('mouseenter', e => showTooltip(e, item, entry.qty));
+				cell.addEventListener('mouseenter', e => showTooltip(e, item, entry.qty, entry));
 				cell.addEventListener('mousemove', e => moveTooltip(e));
 				cell.addEventListener('mouseleave', hideTooltip);
 				cell.addEventListener('contextmenu', e => { e.preventDefault(); openCtxMenu(e, entry); });
@@ -1807,20 +1840,36 @@ function renderInventory(){
    TOOLTIP
    ============================================================= */
 const tooltipEl = document.getElementById('tooltip');
-function showTooltip(e, item, qty){
-	const statLines = Object.entries(item.stats).map(([k,v])=>{
+function showTooltip(e, item, qty, entry){
+	const shown = (entry && typeof scrollDisplayName === 'function') ? scrollDisplayName(entry, ITEM_DB) : item.name;
+	const rarity = (entry && (entry.itemId === 'player_scroll' || entry.spell)) ? 'pink' : item.rarity;
+	const rarityLabel = rarity === 'pink' ? 'pink · player-made' : rarity;
+	const statLines = Object.entries(item.stats || {}).map(([k,v])=>{
 		const nice = k.replace('magic','Magic ');
 		return `<div class="tt-stat">+${v} ${nice}</div>`;
 	}).join('');
-	// Show item boost if it has one
 	const boostData = ITEM_BOOSTS[item.id];
 	const boostLine = boostData ? `<div class="tt-stat" style="color:#f0c060;font-size:10px">⚡ ${boostData.desc}</div>` : '';
+	let extra = '';
+	if(item.type === 'scroll'){
+		const stored = typeof resolveScrollSpell === 'function' ? resolveScrollSpell(entry, ITEM_DB) : (entry && entry.spell) || item.spell;
+		if(stored){
+			extra = `<div class="tt-stat" style="color:#ffb6e0">Stored: ${escHtml(stored.name||'Spell')}</div>`;
+			if(typeof generateSpellDescription === 'function'){
+				extra += `<div class="tt-desc">${escHtml(generateSpellDescription(stored))}</div>`;
+			}
+			extra += `<div class="tt-desc">Reusable — does not disappear when used.</div>`;
+		} else if(item.blank){
+			extra = `<div class="tt-desc">Engrave one of your spells to create a pink player-made scroll.</div>`;
+		}
+	}
 	tooltipEl.innerHTML = `
-		<div class="tt-name" style="color:var(--rarity-${item.rarity})">${item.name}${qty>1?' x'+qty:''}</div>
-		<div class="tt-type">${item.type} · ${item.rarity}</div>
+		<div class="tt-name" style="color:var(--rarity-${rarity})">${escHtml(shown)}${qty>1?' x'+qty:''}</div>
+		<div class="tt-type">${item.type} · ${rarityLabel}</div>
 		${statLines}
 		${boostLine}
-		<div class="tt-desc">${item.desc}</div>
+		<div class="tt-desc">${item.desc||''}</div>
+		${extra}
 	`;
 	tooltipEl.style.display = 'block';
 	moveTooltip(e);
@@ -1856,6 +1905,23 @@ function openCtxMenu(e, entry){
 			ctxMenu.appendChild(opt);
 		}
 	}
+	if(item.type === 'scroll'){
+		const stored = typeof resolveScrollSpell === 'function' ? resolveScrollSpell(entry, ITEM_DB) : null;
+		const blank = typeof isBlankScroll === 'function' ? isBlankScroll(item, entry) : !!item.blank && !stored;
+		if(blank){
+			const opt = document.createElement('div');
+			opt.className = 'ctx-item';
+			opt.textContent = 'Engrave Spell…';
+			opt.addEventListener('click', () => { closeCtxMenu(); openScrollPicker(entry, 'engrave'); });
+			ctxMenu.appendChild(opt);
+		} else if(stored){
+			const opt = document.createElement('div');
+			opt.className = 'ctx-item';
+			opt.textContent = 'Copy Spell to Slot…';
+			opt.addEventListener('click', () => { closeCtxMenu(); openScrollPicker(entry, 'apply'); });
+			ctxMenu.appendChild(opt);
+		}
+	}
 	// always show cancel
 	const cancel = document.createElement('div');
 	cancel.className = 'ctx-item';
@@ -1887,18 +1953,95 @@ function equipItem(entry, slotKey){
 	saveState(); renderAll();
 }
 
-function addToInventory(itemId, qty){
-	const existing = STATE.inventory.find(e => e.itemId === itemId);
+function addToInventory(itemId, qty, extra){
+	if(itemId === 'player_scroll' || (extra && extra.uid)){
+		STATE.inventory.push(Object.assign({ itemId, qty: qty || 1 }, extra || {}));
+		return;
+	}
+	const existing = STATE.inventory.find(e => e.itemId === itemId && !e.uid);
 	if(existing) existing.qty += qty;
 	else STATE.inventory.push({ itemId, qty });
 }
 
-function removeFromInventory(itemId, qty){
-	const idx = STATE.inventory.findIndex(e => e.itemId === itemId);
+function removeFromInventory(itemId, qty, uid){
+	const idx = STATE.inventory.findIndex(e => e.itemId === itemId && (uid ? e.uid === uid : !e.uid));
 	if(idx === -1) return;
 	STATE.inventory[idx].qty -= qty;
 	if(STATE.inventory[idx].qty <= 0) STATE.inventory.splice(idx, 1);
 }
+
+function writeSpellToSlot(slotIdx, spell){
+	const copy = typeof cloneSpellData === 'function' ? cloneSpellData(spell) : JSON.parse(JSON.stringify(spell));
+	if(slotIdx === 9) copy.isUltimate = true;
+	else delete copy.isUltimate;
+	STATE.spells[slotIdx] = copy;
+	if(STATE.activeLoadoutIdx >= 0 && STATE.activeLoadoutIdx < STATE.loadouts.length){
+		STATE.loadouts[STATE.activeLoadoutIdx].spells[slotIdx] = JSON.parse(JSON.stringify(copy));
+		if(STATE.loadouts[STATE.activeLoadoutIdx].type === 'transformation')
+			STATE.transformSpells[slotIdx] = JSON.parse(JSON.stringify(copy));
+	}
+	saveState();
+	renderSpellSlots();
+	renderInventory();
+}
+
+function closeScrollPicker(){
+	document.getElementById('scrollModal').classList.remove('open');
+}
+
+function openScrollPicker(entry, mode){
+	const title = document.getElementById('scrollModalTitle');
+	const body = document.getElementById('scrollModalBody');
+	title.textContent = mode === 'engrave' ? 'Engrave a Spell' : 'Copy Spell to Slot';
+	body.innerHTML = '';
+	if(mode === 'engrave'){
+		const note = document.createElement('div');
+		note.style.cssText = 'font-size:12px;color:var(--muted)';
+		note.textContent = 'Pick a spell slot to engrave onto this blank scroll. The scroll becomes pink (player-made) and the original spell stays in its slot.';
+		body.appendChild(note);
+	} else {
+		const stored = resolveScrollSpell(entry, ITEM_DB);
+		const note = document.createElement('div');
+		note.style.cssText = 'font-size:12px;color:var(--muted)';
+		note.textContent = 'Copy "' + (stored && stored.name ? stored.name : 'this spell') + '" into a slot. The scroll stays in your inventory.';
+		body.appendChild(note);
+	}
+	for(let i = 0; i < 10; i++){
+		const sp = STATE.spells[i];
+		const btn = document.createElement('button');
+		btn.className = 'btn btn-ghost';
+		btn.style.cssText = 'text-align:left;width:100%';
+		const label = i === 9 ? '⚡ Ultimate' : ('Slot ' + (i + 1));
+		if(mode === 'engrave'){
+			if(!sp){
+				btn.disabled = true;
+				btn.textContent = label + ' — empty';
+			} else {
+				btn.textContent = label + ' — ' + sp.name;
+				btn.addEventListener('click', () => {
+					const made = makePlayerScrollEntry(sp);
+					removeFromInventory('blank_scroll', 1);
+					STATE.inventory.push(made);
+					saveState();
+					closeScrollPicker();
+					renderAll();
+				});
+			}
+		} else {
+			btn.textContent = label + (sp ? ' — replace ' + sp.name : ' — empty');
+			btn.addEventListener('click', () => {
+				const stored = resolveScrollSpell(entry, ITEM_DB);
+				if(!stored) return;
+				writeSpellToSlot(i, stored);
+				closeScrollPicker();
+			});
+		}
+		body.appendChild(btn);
+	}
+	document.getElementById('scrollModal').classList.add('open');
+}
+document.getElementById('scrollModalClose').addEventListener('click', closeScrollPicker);
+document.getElementById('scrollModalCancel').addEventListener('click', closeScrollPicker);
 
 /* =============================================================
    SPELL DICTIONARY SYSTEM
@@ -1918,7 +2061,7 @@ const DICT_SHAPE_DETAILS = {
 	solidify: { phaseNote:'Creates a solid platform you can stand on. Deals no damage.', domainNote:'Random spawn positions with homing (but no damage since platform).', extraNote:'No damage — utility only' },
 	spike:    { phaseNote:'Pointed projectile that faces its movement direction. Pierces through targets.', domainNote:'Spike domain projectiles erupt from the ground upward instead of homing. Uses straight behavior.', extraNote:'Spawns at ground level, shoots upward' },
 	polygon:  { phaseNote:'Customizable polygon — set any number of sides. Visual variety.', domainNote:'Per-frame push effect — enemies inside domain are pushed away from center.', extraNote:'Push strength: 1.2' },
-	allyOrb:  { phaseNote:'Heals you or allies instead of damaging enemies. Works with Damage Heal effect for stored-damage healing.', domainNote:'Random spawn positions with homing (heals instead of damages).', extraNote:'Healing projectile' },
+	allyOrb:  { phaseNote:'Heals you or allies instead of damaging enemies. Self-cast / underfoot / around-self / stationary orbs buff you immediately. Traveling orbs fly to allies (including co-op partners) and apply on contact — they no longer eat themselves on the caster at spawn. Works with Damage Heal for stored-damage healing.', domainNote:'Random spawn positions with homing (heals instead of damages).', extraNote:'Healing / buff projectile. Co-op: traveling Ally Orbs home to and hit allied players.' },
 	summon:   { phaseNote:'Summons minions. Increase range/health/speed sliders for more mana. Minion fires the next spell phase as its attack.', domainNote:'Necromancer class + Summon domain: raises 3 strong defeated enemies from Bestiary over the domain duration.', extraNote:'Summon mana: +4/range, +3/health, +3/speed' },
 	meteor:   { phaseNote:'Blazing comet that gains damage with travel distance (up to +200%). Explodes on impact for 50% splash AoE. Has −25% base damage nerf.', domainNote:'Meteor domain projectiles rain from the top of the domain downward (straight behavior, not homing). Deal +75% damage.', extraNote:'Distance scaling: +1% per 3px, max +200%. Base nerf: ×0.75' },
 	vortex:   { phaseNote:'Slow-moving void (35% speed) that pulls nearby enemies in and deals DoT (30% stored as ongoing). Lasts 2× longer. Customizable duration slider.', domainNote:'Per-frame pull effect — enemies inside domain are pulled toward center.', extraNote:'Speed: ×0.35 | Duration: ×2 × vortexDuration slider | Pull: 1.5 str' },
@@ -1943,14 +2086,14 @@ const DICT_BEHAVIOR_DETAILS = {
 	zigzag:       { phaseNote:'Weaves in a sine wave pattern toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
 	spiral:       { phaseNote:'Corkscrews along the aimed path — orbits around the straight centerline toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
 	teleport:     { phaseNote:'Blinks forward at intervals, making it hard to dodge.', dmgMod:'None (×1.0)', extraNote:'' },
-	domain:       { phaseNote:'ULTIMATE ONLY. Creates a massive zone (1.8× canvas size). Must be in spell slot 0 as Phase 1. Next phases fire from domain edges with forced homing. Matching elemental effects get +50% damage.', dmgMod:'Domain sub-phases capped at power 10 base', extraNote:'Dominion Master class: +30% range, +40% damage. Domain Vows can buff slow, range, power, DoT, mana regen, duration, and more.' },
+	domain:       { phaseNote:'ULTIMATE ONLY. Creates a massive zone (1.8× canvas size). Must be in spell slot 0 as Phase 1. Next phases fire from domain edges with forced homing. Matching elemental effects get +50% damage. Sub-phase waves cap at 5 projectiles and 6 seconds duration.', dmgMod:'Domain sub-phases capped at power 10 base, 5 projectiles/wave, 6s duration', extraNote:'Dominion Master class: +30% range, +40% damage. Domain Vows can buff slow, range, power, DoT, mana regen, duration, and more (max 5 points each).' },
 };
 
 const DICT_EFFECT_DETAILS = {
 	burn:      { phaseNote:'Applies fire DoT — 15% of hit damage stored as burn ticks over time. Domain element: if active domain matches burn, spell gets +50% damage.', extraNote:'DoT: 15% of damage as burn ticks' },
 	freeze:    { phaseNote:'Slows target movement speed. Domain element: if active domain matches freeze, spell gets +50% damage.', extraNote:'' },
 	poison:    { phaseNote:'Applies poison DoT — 10% of hit damage stored as poison ticks. Domain element: matching grants +50% damage.', extraNote:'DoT: 10% of damage as poison ticks' },
-	knockback: { phaseNote:'Pushes target away from the projectile impact point.', extraNote:'' },
+	knockback: { phaseNote:'Pushes target away from the projectile impact point. Self-cast ally orbs dash you toward the cursor. Launch distance scales with Spell Power only — size, speed, and which slot you put it in do not change how far you go. Two dashes with the same Power slider travel the same distance.', extraNote:'Power 1–10 maps linearly to dash distance' },
 	pull:      { phaseNote:'Pulls target toward you (opposite of knockback).', extraNote:'' },
 	forceJump: { phaseNote:'Forces the target to jump upward.', extraNote:'' },
 stun:      { phaseNote:'Briefly stuns the target (prevents movement and attacks). Max ~0.3 seconds — cannot permanently stun an enemy. Enemies build stun resistance with each hit (−25% duration per stack, min 10%). Resistance gradually decays every ~2 seconds when the enemy is not being stunned. Domain element: matching grants +50% damage.', extraNote:'Max: ~0.3s | Resistance: −25% per stun, min 10% | Decay: −1 stack every 2s of no stun' },
@@ -1967,7 +2110,7 @@ stun:      { phaseNote:'Briefly stuns the target (prevents movement and attacks)
 	damageRelease:{ phaseNote:'Consumes all stored damage and adds it as bonus damage and increased projectile size. Formula: ×(1 + stored/500).', extraNote:'Bonus: ×(1 + storedDmg / 500)' },
 	damageHeal:{ phaseNote:'Ally Orb shape + Damage Heal converts 50% of stored damage into healing.', extraNote:'Requires Ally Orb shape' },
 	dispel:    { phaseNote:'Destroys enemy projectiles and magic walls on contact. Compares power — can block projectiles up to its own power level.', extraNote:'Mana cost: 25 (highest of all effects)' },
-	blind:     { phaseNote:'Reduces enemy detection range temporarily, causing them to lose track of the player.', extraNote:'' },
+	blind:     { phaseNote:'Blinds the target. On enemies, detection range drops sharply so they lose track of you. On players (including you, allies, and PvP opponents), vision is darkened for the duration. Lasts 0.5 seconds at Spell Power 1 and 5 seconds at Spell Power 10 (0.5s per power). Shadow Robe: +40% duration.', extraNote:'Duration: 0.5s × Spell Power (0.5s at 1, 5s at 10)' },
 	shatter:   { phaseNote:'Spawns 12 damaging crystal shard projectiles on each enemy hit (5-frame internal cooldown). When the enemy dies, an enhanced 16-shard burst erupts from the corpse. <b>Archmage bonus:</b> each shard itself cascades — when a shard hits an enemy, 3 additional micro-shards spawn, creating a chain reaction of crystal fragments.', extraNote:'On-hit: 12 shards (5-frame cd) | On-death: 16-shard burst | Archmage: +3 micro-shards per shard hit' },
 	mark:      { phaseNote:'Tags an enemy — all attacks deal +30% bonus damage to marked targets for 3 seconds.', extraNote:'+30% damage debuff for 3s' },
 	gravityWell:{ phaseNote:'Creates a gravitational pull zone around the impact point for 2 seconds, pulling enemies inward.', extraNote:'2 second duration' },
@@ -1981,6 +2124,71 @@ function rankName(idx){
 
 function dictTag(cls, text){
 	return '<span class="dict-tag '+cls+'">'+text+'</span>';
+}
+
+function dictEntryHtml(kind, key){
+	if(kind==='shape'){
+		const s = SHAPES[key];
+		if(!s) return '';
+		const rank = SHAPE_RANK_REQ[key] ?? '?';
+		const det = DICT_SHAPE_DETAILS[key] || {};
+		let html = '<div class="dict-card">';
+		html += '<h4>'+s.icon+' '+s.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+key+')</span></h4>';
+		html += '<div class="dict-tags">';
+		html += dictTag('mana', '💧 Mana: '+s.manaCost);
+		html += dictTag('ctrl', '🎮 Control: '+s.controlReq);
+		html += dictTag('rank', '🏅 '+rankName(rank));
+		if(s.dmgNote) html += dictTag(s.dmgNote.includes('-')||s.dmgNote.includes('no')?'dmg-down':'dmg-up', s.dmgNote);
+		html += '</div>';
+		html += '<p class="dict-detail"><b>Description:</b> '+s.desc+'</p>';
+		if(det.phaseNote) html += '<p class="dict-detail"><b>Phase Mechanics:</b> '+det.phaseNote+'</p>';
+		if(det.domainNote) html += '<p class="dict-detail"><b>Domain Effect:</b> '+det.domainNote+'</p>';
+		if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+		html += '</div>';
+		return html;
+	}
+	if(kind==='behavior'){
+		const b = BEHAVIORS[key];
+		if(!b) return '';
+		const rank = BEHAVIOR_RANK_REQ[key] ?? '?';
+		const det = DICT_BEHAVIOR_DETAILS[key] || {};
+		let html = '<div class="dict-card">';
+		html += '<h4>'+b.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+key+')</span>';
+		if(b.ultimateOnly) html += ' <span class="dict-tag ult">⚡ ULTIMATE ONLY</span>';
+		html += '</h4>';
+		html += '<div class="dict-tags">';
+		html += dictTag('mana', '💧 Mana: +'+b.manaCost);
+		html += dictTag('ctrl', '🎮 Control: '+b.controlReq);
+		html += dictTag('rank', '🏅 '+rankName(rank));
+		if(b.dmgNote) html += dictTag(b.dmgNote.includes('-')?'dmg-down':'dmg-up', b.dmgNote);
+		html += '</div>';
+		html += '<p class="dict-detail"><b>Description:</b> '+b.desc+'</p>';
+		if(det.dmgMod) html += '<p class="dict-detail"><b>Damage Modifier:</b> '+det.dmgMod+'</p>';
+		if(det.phaseNote) html += '<p class="dict-detail"><b>Mechanics:</b> '+det.phaseNote+'</p>';
+		if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+		html += '</div>';
+		return html;
+	}
+	if(kind==='effect'){
+		const e = EFFECTS[key];
+		if(!e) return '';
+		const rank = EFFECT_RANK_REQ[key] ?? '?';
+		const det = DICT_EFFECT_DETAILS[key] || {};
+		let html = '<div class="dict-card">';
+		html += '<h4>'+e.icon+' '+e.label+' <span style="font-size:11px;color:var(--muted);font-weight:normal">('+key+')</span></h4>';
+		html += '<div class="dict-tags">';
+		html += dictTag('mana', '💧 Mana: +'+e.manaCost);
+		html += dictTag('ctrl', '🎮 Control: '+e.controlReq);
+		html += dictTag('rank', '🏅 '+rankName(rank));
+		if(e.dmgNote) html += dictTag(e.dmgNote.includes('-')||e.dmgNote.includes('no')?'dmg-down':'dmg-up', e.dmgNote);
+		html += '</div>';
+		html += '<p class="dict-detail"><b>Description:</b> '+e.desc+'</p>';
+		if(det.phaseNote) html += '<p class="dict-detail"><b>Mechanics:</b> '+det.phaseNote+'</p>';
+		if(det.extraNote) html += '<p class="dict-detail"><b>Note:</b> '+det.extraNote+'</p>';
+		html += '</div>';
+		return html;
+	}
+	return '';
 }
 
 function renderDictSection(cat){
@@ -2271,7 +2479,7 @@ function renderDictDomains(){
 	let html = '<div class="dict-section-title">⚡ Domain Expansion — Shape Effects</div>';
 	html += '<p class="dict-detail">Domain Expansion is an <b>Ultimate-only</b> behavior (spell slot 0). It creates a massive zone covering 1.8× the screen. The <b>shape you choose in Phase 1</b> determines the domain\'s special per-frame effect and how sub-phase projectiles spawn.</p>';
 	html += '<p class="dict-detail"><b>Base cost:</b> Capped at <b>25k</b> total mana maximum (regardless of spell complexity). <b>Max phases:</b> 2 (domain + 1 sub-phase).</p>';
-	html += '<p class="dict-detail"><b>Sub-phases:</b> Phases after Phase 1 fire from domain edges with forced homing (except Meteor → straight from top, Spike → straight from ground).</p>';
+	html += '<p class="dict-detail"><b>Sub-phases:</b> Phases after Phase 1 fire from domain edges with forced homing (except Meteor → straight from top, Spike → straight from ground). Each wave is capped at <b>5 projectiles</b>, and that sub-phase cannot last more than <b>6 seconds</b>.</p>';
 
 	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Shape-Specific Domain Effects</div>';
 
@@ -2307,19 +2515,19 @@ function renderDictDomains(){
 	html += '<p class="dict-detail">When you set a <b>Domain Element</b> (burn, freeze, poison, stun, or lifesteal), any spell with a matching elemental effect gets <b>+50% damage</b> while the domain is active.</p>';
 
 	html += '<div class="dict-section-title" style="font-size:14px;margin-top:12px">Domain Vow Buffs</div>';
-	html += '<p class="dict-detail">Vows assigned to domain can grant these buffs (per point):</p>';
+	html += '<p class="dict-detail">Vows assigned to domain can grant these buffs (max <b>5 points</b> each; values below are per point):</p>';
 	const vowBuffList = [
-		['domainSlow','8% slow to enemies per point'],
-		['domainRange','+12% domain range per point'],
-		['domainPower','+damage to domain sub-phases per point'],
-		['domainPlayerPow','+spell damage while domain is active per point'],
-		['domainPlayerSpd','+player speed while domain is active'],
-		['domainSummonPow','+summon power while domain is active'],
-		['domainDuration','+8% duration per point'],
-		['domainDotDmg','2% max HP DoT per second to enemies per point'],
-		['domainCooldown','−6% cooldown per point'],
-		['domainManaRegen','+5 mana per second per point'],
-		['domainDefense','+defence while domain is active'],
+		['domainSlow','4% slow to enemies per point'],
+		['domainRange','+6% domain range per point'],
+		['domainPower','+7% damage to domain sub-phases per point'],
+		['domainPlayerPow','+5% spell damage while domain is active per point'],
+		['domainPlayerSpd','+5% player speed while domain is active'],
+		['domainSummonPow','+10% summon power while domain is active'],
+		['domainDuration','+4% duration per point'],
+		['domainDotDmg','1% max HP DoT per second to enemies per point'],
+		['domainCooldown','−3% cooldown per point'],
+		['domainManaRegen','+3 mana per second per point'],
+		['domainDefense','−4% damage taken while domain is active'],
 		['mobileDomain','Domain follows the player (mobile)'],
 		['domainTP','Teleport to domain center (press key)'],
 	];
@@ -4223,9 +4431,21 @@ function emptyDomainVow(){
 /* Migrate old single-sacrifice format to new multi-sacrifice format */
 function migrateDomainVow(dv){
 	if(!dv) return null;
-	if(dv.sacrifices) return dv; // already new format
+	if(dv.sacrifices){
+		if(dv.domainBuffs){
+			for(const k in dv.domainBuffs){
+				const info = DOMAIN_VOW_BUFFS[k];
+				if(info && !info.binary) dv.domainBuffs[k] = Math.min(info.max || 5, dv.domainBuffs[k] || 0);
+			}
+		}
+		return dv;
+	}
 	const nv = emptyDomainVow();
 	nv.domainBuffs = dv.domainBuffs || {};
+	for(const k in nv.domainBuffs){
+		const info = DOMAIN_VOW_BUFFS[k];
+		if(info && !info.binary) nv.domainBuffs[k] = Math.min(info.max || 5, nv.domainBuffs[k] || 0);
+	}
 	nv.vowUnlocks = dv.vowUnlocks || [];
 	const s = nv.sacrifices;
 	if(dv.sacrifice === 'health') s.health = dv.amount || 10;
@@ -4452,7 +4672,8 @@ function renderDomainVowEditor(){
 				<span style="font-size:9px;color:#888;min-width:120px">${info.desc}</span>
 			</div>`;
 		} else {
-			const maxAlloc = amt + remaining;
+			const maxPts = info.max || 5;
+			const maxAlloc = Math.min(maxPts, amt + remaining);
 			html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
 				<span style="font-size:11px;color:#e74c3c;min-width:22px">${info.icon}</span>
 				<span style="font-size:11px;min-width:140px;color:#ddd">${info.label}: <strong>${amt}</strong></span>
@@ -4565,6 +4786,11 @@ function renderDomainVowEditor(){
 function clampDomainBuffs(){
 	// Block domainRange buff when domRange sacrifice is active
 	if(domainVowEditor.sacrifices.domRange > 0) domainVowEditor.domainBuffs.domainRange = 0;
+	const buffs = domainVowEditor.domainBuffs;
+	for(const k in buffs){
+		const info = DOMAIN_VOW_BUFFS[k];
+		if(info && !info.binary) buffs[k] = Math.min(info.max || 5, buffs[k] || 0);
+	}
 	const pts = calcDomainVowPoints(domainVowEditor);
 	const spent = calcDomainVowSpent(domainVowEditor);
 	if(spent > pts){
@@ -4700,17 +4926,18 @@ function openSpellBuilder(slotIdx){
 	const existing = STATE.spells[slotIdx];
 	builderSpell = existing ? JSON.parse(JSON.stringify(existing)) : { name: slotIdx === 9 ? 'New Ultimate' : 'New Spell', phases:[newPhase()] };
 	const isUlt = (slotIdx === 9);
-	document.getElementById('modalTitle').textContent = isUlt ? `⚡ Ultimate Builder — Slot 0` : `Spell Builder — Slot ${slotIdx+1}`;
+	const titleEl = document.getElementById('modalTitle');
+	if(titleEl) titleEl.textContent = isUlt ? `⚡ Ultimate Builder — Slot 0` : `Spell Builder — Slot ${slotIdx+1}`;
+	if(typeof resetNewSpellBuilder==='function') resetNewSpellBuilder();
 	document.getElementById('spellModal').classList.add('open');
 	renderBuilder();
-	startPreview();
 }
 
 function closeSpellBuilder(){
 	document.getElementById('spellModal').classList.remove('open');
 	editingSlot = -1;
 	builderSpell = null;
-	stopPreview();
+	if(typeof stopNewSpellBuilder==='function') stopNewSpellBuilder();
 }
 
 document.getElementById('modalClose').addEventListener('click', closeSpellBuilder);
@@ -4797,10 +5024,15 @@ document.getElementById('addPhaseBtn').addEventListener('click', () => {
 	const maxPhases = ph0beh === 'domain' ? 2 : ph0beh === 'transformation' ? 4 : ((editingSlot === 9) ? 5 : 3) + vowPhaseBonus;
 	if(builderSpell.phases.length >= maxPhases) return;
 	builderSpell.phases.push(newPhase());
+	if(typeof selectNewSpellPhase==='function') selectNewSpellPhase(builderSpell.phases.length-1);
 	renderBuilder();
 });
 
 function renderBuilder(){
+	if(typeof renderNewSpellBuilder==='function'){
+		renderNewSpellBuilder();
+		return;
+	}
 	const stats = computeStats();
 	const baseCost = calcSpellManaCost(builderSpell);
 	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
@@ -5438,17 +5670,12 @@ function updateBuilderMeta(){
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const meta = document.getElementById('spellMeta');
-	const chips = meta.querySelectorAll('.meta-chip');
-	if(chips[0]) chips[0].innerHTML = `Mana Cost: <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}% discount)</span>` : ''}`;
-	if(chips[1]) chips[1].innerHTML = `Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}`;
-	if(chips[2]) {
-		let total = 1;
-		for(const p of builderSpell.phases) total *= (p.behavior==='aroundSelf' ? (p.aroundSelfCount||4) : (p.count||1));
-		const over = total > 1000;
-		chips[2].innerHTML = `Phases: <b>${builderSpell.phases.length}</b>/5`;
-		if(chips[3]) chips[3].innerHTML = `Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b>${over?' (max 1000!)':''}`;
-	}
-	document.getElementById('spellDesc').textContent = generateSpellDescription(builderSpell);
+	const chips = meta.querySelectorAll('.meta-chip, .nb-chip');
+	if(chips[0]) chips[0].innerHTML = `Mana <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}%)</span>` : ''}`;
+	if(chips[1]) chips[1].innerHTML = `Control <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}`;
+	if(chips[2]) chips[2].innerHTML = `Phases <b>${builderSpell.phases.length}</b>`;
+	const desc = document.getElementById('spellDesc');
+	if(desc) desc.textContent = generateSpellDescription(builderSpell);
 }
 
 /* =============================================================
@@ -5511,517 +5738,6 @@ function generateSpellDescription(spell){
 }
 
 /* =============================================================
-   SPELL PREVIEW (canvas animation)
-   ============================================================= */
-let previewRAF = null;
-const previewCanvas = document.getElementById('spellPreview');
-const pctx = previewCanvas.getContext('2d');
-
-function startPreview(){
-	stopPreview();
-	// Defer one tick so the modal is fully rendered before measuring canvas size
-	setTimeout(() => {
-		resizePreview();
-		previewTime = 0;
-		previewRAF = requestAnimationFrame(previewLoop);
-	}, 0);
-}
-function stopPreview(){ if(previewRAF){ cancelAnimationFrame(previewRAF); previewRAF = null; } }
-function resizePreview(){
-	const rect = previewCanvas.getBoundingClientRect();
-	previewCanvas.width = rect.width;
-	previewCanvas.height = rect.height;
-}
-
-let previewTime = 0;
-function previewLoop(){
-	previewTime += 0.016;
-	drawPreview();
-	previewRAF = requestAnimationFrame(previewLoop);
-}
-
-function drawPreview(){
-	const W = previewCanvas.width, H = previewCanvas.height;
-	if(W === 0 || H === 0){ resizePreview(); return; }
-	pctx.clearRect(0,0,W,H);
-
-	// background
-	pctx.fillStyle = '#0e0c1a';
-	pctx.fillRect(0,0,W,H);
-
-	// ground line
-	const groundY = H - 20;
-	pctx.fillStyle = '#2a2a3d';
-	pctx.fillRect(0, groundY, W, 20);
-	pctx.fillStyle = '#3d3d56';
-	pctx.fillRect(0, groundY, W, 3);
-
-	// caster
-	const cx = 80, cy = groundY - 24;
-	pctx.fillStyle = '#5b7fbf';
-	pctx.fillRect(cx - 8, cy - 24, 16, 24);
-	// hat
-	pctx.fillStyle = '#2e3a6e';
-	pctx.beginPath();
-	pctx.moveTo(cx - 8, cy - 22);
-	pctx.lineTo(cx, cy - 42);
-	pctx.lineTo(cx + 8, cy - 22);
-	pctx.closePath();
-	pctx.fill();
-
-	// target dummy
-	const tx = W - 100, ty = groundY - 24;
-	pctx.fillStyle = '#8b4040';
-	pctx.fillRect(tx - 8, ty - 24, 16, 24);
-	pctx.fillStyle = '#555';
-	pctx.fillRect(tx - 12, ty - 8, 24, 3); // arms
-	pctx.font = '10px Arial';
-	pctx.fillStyle = '#aaa';
-	pctx.textAlign = 'center';
-	pctx.fillText('Target', tx, ty + 14);
-
-	if(!builderSpell || !builderSpell.phases.length) return;
-
-	// animate phases
-	const totalCycle = builderSpell.phases.reduce((s,ph) => s + ph.duration + 0.3, 0) + 0.5;
-	const t = previewTime % totalCycle;
-
-	let elapsed = 0;
-	for(let pi = 0; pi < builderSpell.phases.length; pi++){
-		const ph = builderSpell.phases[pi];
-		const phStart = elapsed;
-		const phEnd = phStart + ph.duration;
-		elapsed = phEnd + 0.3;
-
-		if(t < phStart || t > phEnd + 0.5) continue;
-
-		const localT = Math.min((t - phStart) / ph.duration, 1);
-		const color = ph.color || '#4488ff';
-
-		// draw projectile(s) for this phase
-		for(let ci = 0; ci < ph.count; ci++){
-			const spreadAngle = ph.count > 1 ? ((ci / (ph.count-1)) - 0.5) * (ph.spread * Math.PI / 180) : 0;
-
-			let px, py, size;
-			size = 4 * ph.width;
-
-			switch(ph.behavior){
-				case 'straight': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const originY = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
-					px = originX + (tx - originX) * localT;
-					py = originY + Math.sin(spreadAngle) * 40 + (ty - 12 - originY) * localT;
-					break;
-				}
-				case 'lob': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					px = originX + (tx - originX) * localT;
-					py = cy - 12 - Math.sin(localT * Math.PI) * 80 * ph.height + spreadAngle * 20;
-					break;
-				}
-				case 'homing': {
-					const originX = pi === 0 ? cx + 16 : cx + 60;
-					const startY = cy - 30 + ci * 20;
-					const curve = Math.sin(localT * Math.PI * 0.7) * 30;
-					px = originX + (tx - originX) * localT;
-					py = startY + (ty - 12 - startY) * localT + curve;
-					break;
-				}
-				case 'boomerang': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const dist = (tx - originX) * 0.7;
-					px = originX + Math.sin(localT * Math.PI) * dist;
-					py = cy - 12 - Math.sin(localT * Math.PI * 2) * 20 + spreadAngle * 30;
-					break;
-				}
-				case 'orbit': {
-					const angle = localT * Math.PI * 2 * ph.orbitSpeed + ci * (Math.PI * 2 / ph.count);
-					const r = ph.orbitRadius * 0.4;
-					if(localT < 0.7){
-						px = cx + Math.cos(angle) * r;
-						py = cy - 12 + Math.sin(angle) * r * 0.5;
-					} else {
-						const launchT = (localT - 0.7) / 0.3;
-						const startX = cx + Math.cos(angle) * r;
-						const startY = cy - 12 + Math.sin(angle) * r * 0.5;
-						px = startX + (tx - startX) * launchT;
-						py = startY + (ty - 12 - startY) * launchT;
-					}
-					break;
-				}
-				case 'rain': {
-					const spread2 = (tx - cx) * 0.6;
-					const startX = cx + spread2 * 0.3 + ci * (spread2 / Math.max(ph.count-1,1));
-					px = startX;
-					py = -10 + (groundY + 10) * localT;
-					break;
-				}
-				case 'groundSurge': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					px = originX + (tx - originX) * localT;
-					py = groundY - 6 + Math.sin(localT * 20) * 3;
-					size *= 0.8;
-					break;
-				}
-				case 'ground': {
-					px = tx;
-					const rise = Math.min(localT * 3, 1);
-					py = groundY - rise * 40 * ph.height;
-					const pulse3 = 1 + Math.sin(localT * Math.PI * 6) * 0.15;
-					size *= pulse3;
-					break;
-				}
-				case 'selfCast': {
-					px = cx;
-					py = cy - 12;
-					const pulse2 = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
-					size *= pulse2;
-					break;
-				}
-				case 'aroundSelf': {
-					const asCount = ph.aroundSelfCount || 4;
-					const asR = (ph.aroundSelfRadius || 50) * 0.4;
-					const asAngle = (ci / asCount) * Math.PI * 2 + previewTime * 2;
-					px = cx + Math.cos(asAngle) * asR;
-					py = cy - 12 + Math.sin(asAngle) * asR * 0.5;
-					break;
-				}
-				case 'underfoot': {
-					px = cx;
-					py = groundY - 6;
-					const pulse4 = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
-					size *= pulse4;
-					break;
-				}
-				case 'barrage': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const bSpread = 60 * (ph.height || 1);
-					px = originX + (tx - originX) * localT;
-					py = cy - 12 + (ci - (ph.count-1)/2) * (bSpread / Math.max(ph.count-1,1));
-					break;
-				}
-				case 'zigzag': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const originY2 = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
-					px = originX + (tx - originX) * localT;
-					py = originY2 + Math.sin(localT * 20) * 15 + (ty - 12 - originY2) * localT;
-					break;
-				}
-				case 'spiral': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const originY2 = pi === 0 ? cy - 12 : (cy + ty)/2 - 20;
-					const spiralR = 12;
-					px = originX + (tx - originX) * localT + Math.cos(localT * 24) * spiralR;
-					py = originY2 + Math.sin(localT * 24) * spiralR + (ty - 12 - originY2) * localT;
-					break;
-				}
-				case 'teleport': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					const blinks = 4;
-					const blinkPhase = localT * blinks;
-					const blinkFrac = blinkPhase - Math.floor(blinkPhase);
-					const blinkProg = Math.floor(blinkPhase) / blinks;
-					px = originX + (tx - originX) * blinkProg;
-					py = cy - 12;
-					pctx.globalAlpha = blinkFrac < 0.3 ? 0.3 : 0.9;
-					break;
-				}
-				case 'stationary':
-				default: {
-					px = pi === 0 ? cx + 40 : (cx + tx) / 2;
-					py = cy - 12;
-					const pulse = 1 + Math.sin(localT * Math.PI * 4) * 0.3;
-					size *= pulse;
-					break;
-				}
-			}
-
-			// glow
-			pctx.save();
-			pctx.globalAlpha = 0.3 + 0.3 * (1 - localT);
-			const glow = pctx.createRadialGradient(px, py, 0, px, py, size * 3);
-			glow.addColorStop(0, color);
-			glow.addColorStop(1, 'transparent');
-			pctx.fillStyle = glow;
-			pctx.beginPath();
-			pctx.arc(px, py, size * 3, 0, Math.PI * 2);
-			pctx.fill();
-			pctx.restore();
-
-			// shape body
-			pctx.fillStyle = color;
-			pctx.globalAlpha = 0.9;
-			switch(ph.shape){
-				case 'blade': {
-					pctx.save();
-					pctx.translate(px, py);
-					pctx.rotate(localT * Math.PI * 2);
-					pctx.fillRect(-size*1.5, -size*0.3, size*3, size*0.6);
-					pctx.restore();
-					break;
-				}
-				case 'beam': {
-					const originX = pi === 0 ? cx + 16 : (cx + tx)/2;
-					pctx.fillRect(originX, py - size*0.5, (tx - originX) * localT, size);
-					break;
-				}
-				case 'ring': {
-					pctx.beginPath();
-					pctx.arc(px, py, size * (1 + localT * 4), 0, Math.PI * 2);
-					pctx.strokeStyle = color;
-					pctx.lineWidth = 2;
-					pctx.stroke();
-					break;
-				}
-				case 'cone': {
-					pctx.save();
-					pctx.translate(pi===0?cx+16:(cx+tx)/2, py);
-					pctx.beginPath();
-					pctx.moveTo(0, 0);
-					const coneLen = (tx - cx) * localT * 0.7;
-					pctx.lineTo(coneLen, -coneLen*0.4*ph.width);
-					pctx.lineTo(coneLen, coneLen*0.4*ph.width);
-					pctx.closePath();
-					pctx.globalAlpha = 0.35;
-					pctx.fill();
-					pctx.restore();
-					break;
-				}
-				case 'nova': {
-					pctx.beginPath();
-					pctx.arc(px, py, localT * 60 * ph.width, 0, Math.PI * 2);
-					pctx.globalAlpha = 0.3 * (1 - localT);
-					pctx.fill();
-					pctx.beginPath();
-					pctx.arc(px, py, localT * 60 * ph.width, 0, Math.PI * 2);
-					pctx.strokeStyle = color;
-					pctx.lineWidth = 2;
-					pctx.globalAlpha = 0.6 * (1 - localT);
-					pctx.stroke();
-					break;
-				}
-				case 'wall': {
-					const ww = size * 2 * ph.width;
-					const wh = size * 6 * ph.height;
-					pctx.globalAlpha = 0.5;
-					pctx.fillRect(px - ww/2, py - wh/2, ww, wh);
-					break;
-				}
-				case 'solidify': {
-					const sw = size * 3 * ph.width;
-					const sht = size * 1.5 * ph.height;
-					pctx.globalAlpha = 0.7;
-					pctx.fillRect(px - sw/2, py - sht/2, sw, sht);
-					pctx.strokeStyle = color;
-					pctx.lineWidth = 2;
-					pctx.strokeRect(px - sw/2, py - sht/2, sw, sht);
-					pctx.globalAlpha = 0.25;
-					pctx.fillStyle = '#fff';
-					pctx.fillRect(px - sw/2 + 2, py - sht/2 + 2, sw - 4, 3);
-					break;
-				}
-				case 'spike': {
-					pctx.save();
-					pctx.translate(px, py);
-					const spikeAng = Math.atan2(py - (cy - 12), px - (pi===0?cx+16:(cx+tx)/2)) || 0;
-					pctx.rotate(spikeAng);
-					pctx.beginPath();
-					pctx.moveTo(size * 2, 0);
-					pctx.lineTo(-size, -size * 0.8);
-					pctx.lineTo(-size * 0.3, 0);
-					pctx.lineTo(-size, size * 0.8);
-					pctx.closePath();
-					pctx.fill();
-					pctx.restore();
-					break;
-				}
-				case 'chain': {
-					// draw multiple jump points
-					const jumps = 3;
-					for(let j = 0; j <= Math.floor(localT * jumps); j++){
-						const jx = px + j * 40;
-						const jy = py + (j%2?-1:1)*15;
-						pctx.beginPath();
-						pctx.arc(jx, jy, size, 0, Math.PI*2);
-						pctx.fill();
-						if(j > 0){
-							pctx.strokeStyle = color;
-							pctx.lineWidth = 1;
-							pctx.globalAlpha = 0.4;
-							pctx.beginPath();
-							pctx.moveTo(jx - 40, jy + (j%2?1:-1)*30);
-							pctx.lineTo(jx, jy);
-							pctx.stroke();
-						}
-					}
-					break;
-				}
-				case 'polygon': {
-					pctx.save();
-					pctx.translate(px, py);
-					pctx.rotate(previewTime * 1.5);
-					const pgR = size * 1.2;
-					const pgS = ph.polygonSides || 6;
-					pctx.beginPath();
-					for(let si = 0; si <= pgS; si++){
-						const a = si * Math.PI * 2 / pgS;
-						if(si===0) pctx.moveTo(Math.cos(a)*pgR, Math.sin(a)*pgR);
-						else pctx.lineTo(Math.cos(a)*pgR, Math.sin(a)*pgR);
-					}
-					pctx.closePath();
-					pctx.fill();
-					pctx.strokeStyle = color;
-					pctx.lineWidth = 1.5;
-					pctx.stroke();
-					pctx.restore();
-					break;
-				}
-				case 'meteor': {
-					pctx.save();
-					pctx.translate(px, py);
-					const mR = size * 1.5;
-					// color cycling
-					const mPhase = (previewTime * 1.5) % 3;
-					const mColors = [['#ff4400','#ffcc00'],['#ff00cc','#ff66ff'],['#4488ff','#88ddff']];
-					const mI = Math.floor(mPhase), mN = (mI+1)%3, mF = mPhase - mI;
-					const mCore = `rgb(${Math.round(parseInt(mColors[mI][0].slice(1,3),16)*(1-mF)+parseInt(mColors[mN][0].slice(1,3),16)*mF)},${Math.round(parseInt(mColors[mI][0].slice(3,5),16)*(1-mF)+parseInt(mColors[mN][0].slice(3,5),16)*mF)},${Math.round(parseInt(mColors[mI][0].slice(5,7),16)*(1-mF)+parseInt(mColors[mN][0].slice(5,7),16)*mF)})`;
-					// body
-					pctx.fillStyle = '#553322';
-					pctx.beginPath(); pctx.arc(0,0,mR,0,Math.PI*2); pctx.fill();
-					pctx.fillStyle = mCore; pctx.globalAlpha = 0.8;
-					pctx.beginPath(); pctx.arc(0,0,mR*0.5,0,Math.PI*2); pctx.fill();
-					// glow
-					pctx.globalAlpha = 0.3;
-					const mg = pctx.createRadialGradient(0,0,mR*0.3,0,0,mR*2);
-					mg.addColorStop(0, mCore); mg.addColorStop(1,'transparent');
-					pctx.fillStyle = mg;
-					pctx.beginPath(); pctx.arc(0,0,mR*2,0,Math.PI*2); pctx.fill();
-					pctx.restore();
-					break;
-				}
-				case 'vortex': {
-					pctx.save();
-					pctx.translate(px, py);
-					const vR = size * 2 * (1 + localT * 0.5);
-					// void body
-					const vg = pctx.createRadialGradient(0,0,0,0,0,vR);
-					vg.addColorStop(0,'rgba(10,0,20,0.8)');
-					vg.addColorStop(0.5, color);
-					vg.addColorStop(1,'transparent');
-					pctx.globalAlpha = 0.6;
-					pctx.fillStyle = vg;
-					pctx.beginPath(); pctx.arc(0,0,vR,0,Math.PI*2); pctx.fill();
-					// spiral arms
-					pctx.lineWidth = 1.5; pctx.strokeStyle = color; pctx.globalAlpha = 0.5;
-					for(let arm = 0; arm < 3; arm++){
-						pctx.beginPath();
-						const baseA = arm * Math.PI * 2 / 3 + previewTime * 3;
-						for(let t2 = 0; t2 < 12; t2++){
-							const a2 = baseA + t2 * 0.3;
-							const r2 = vR * 0.1 + vR * 0.8 * (t2/12);
-							pctx.lineTo(Math.cos(a2)*r2, Math.sin(a2)*r2);
-						}
-						pctx.stroke();
-					}
-					pctx.restore();
-					break;
-				}
-				case 'summon': {
-					pctx.save();
-					pctx.translate(px, py);
-					const sR = size * 1.2;
-					pctx.strokeStyle = color;
-					pctx.lineWidth = 2;
-					pctx.globalAlpha = 0.6 + Math.sin(previewTime * 4) * 0.2;
-					pctx.beginPath(); pctx.arc(0,0,sR,0,Math.PI*2); pctx.stroke();
-					pctx.globalAlpha = 0.4;
-					for(let si = 0; si < 5; si++){
-						const a = si * Math.PI * 2 / 5 - Math.PI/2 + previewTime * 2;
-						pctx.beginPath();
-						pctx.moveTo(0,0);
-						pctx.lineTo(Math.cos(a)*sR*0.8, Math.sin(a)*sR*0.8);
-						pctx.stroke();
-					}
-					pctx.restore();
-					break;
-				}
-				case 'allyOrb': {
-					pctx.fillStyle = '#44ff88';
-					pctx.beginPath();
-					pctx.arc(px, py, size * 1.3, 0, Math.PI * 2);
-					pctx.fill();
-					break;
-				}
-				default: {
-					pctx.beginPath();
-					pctx.arc(px, py, size, 0, Math.PI * 2);
-					pctx.fill();
-				}
-			}
-			pctx.globalAlpha = 1;
-
-			// trail particles
-			if(ph.trail !== 'none'){
-				const trailColors = {
-					sparkle:'rgba(200,220,255,',flame:'rgba(255,140,50,',
-					smoke:'rgba(100,100,100,',ice:'rgba(150,220,255,',
-					lightning:'rgba(180,180,255,'
-				};
-				const tc = trailColors[ph.trail] || 'rgba(200,200,200,';
-				for(let tp = 0; tp < 4; tp++){
-					const tpx = px - (ph.behavior==='stationary'?0:6+tp*4) + (Math.random()-0.5)*6;
-					const tpy = py + (Math.random()-0.5)*8;
-					const ta = 0.6 - tp*0.15;
-					pctx.fillStyle = tc + ta +')';
-					pctx.beginPath();
-					pctx.arc(tpx, tpy, 1.5+Math.random()*1.5, 0, Math.PI*2);
-					pctx.fill();
-				}
-			}
-		}
-	}
-
-	// label
-	pctx.font = '10px Arial';
-	pctx.fillStyle = '#666';
-	pctx.textAlign = 'left';
-	pctx.fillText('Preview (looping)', 6, 14);
-
-	// Predicted damage output
-	if(builderSpell && builderSpell.phases.length){
-		const stats = computeStats();
-		pctx.font = '10px Arial';
-		pctx.textAlign = 'right';
-		let yOff = 14;
-		for(let pi = 0; pi < builderSpell.phases.length; pi++){
-			const ph = builderSpell.phases[pi];
-			if(ph.noHit || ph.shape === 'allyOrb' || ph.shape === 'summon' || ph.shape === 'solidify') continue;
-			let baseDmg = (ph.power || 1) * 8;
-			// behavior multipliers
-			if(ph.behavior === 'homing') baseDmg *= 0.5;
-			if(ph.behavior === 'lob') baseDmg *= 1.25;
-			if(ph.behavior === 'orbit') baseDmg *= 0.7;
-			if(ph.behavior === 'rain') baseDmg *= 1.5;
-			if(ph.behavior === 'barrage') baseDmg *= 1.35;
-			if(ph.behavior === 'ground') baseDmg *= 1.4;
-			// shape multipliers
-			if(ph.shape === 'beam') baseDmg *= 0.65;
-			if(ph.shape === 'meteor') baseDmg *= 0.75;
-			// effects
-			const hasElem = ph.effects.includes('burn')||ph.effects.includes('freeze')||ph.effects.includes('poison')||ph.effects.includes('stun');
-			if(hasElem) baseDmg *= 1;
-			if(ph.effects.includes('phaseThrough')) baseDmg *= 0.55;
-			// spread bonus
-			if(ph.spread > 0 && ph.count > 1) baseDmg *= 1 + (ph.spread * 0.0025 * ph.count);
-			const totalPerCast = baseDmg * (ph.count || 1);
-			pctx.fillStyle = ph.color || '#4488ff';
-			pctx.fillText(`P${pi+1}: ~${Math.round(baseDmg)} × ${ph.count||1} = ~${Math.round(totalPerCast)} dmg`, W - 6, yOff);
-			yOff += 13;
-		}
-	}
-}
-
-/* =============================================================
    UTILITY
    ============================================================= */
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -6064,21 +5780,18 @@ document.getElementById('testBtn').addEventListener('click', () => {
 	STATE.equipment = { staff:null, robe:null, relic1:null, relic2:null };
 	// Give one of every item in ITEM_DB (ingredients get extra for crafting)
 	for (const [id, item] of Object.entries(ITEM_DB)) {
-		const qty = item.type === 'ingredient' ? 50 : 1;
+		if(id === 'player_scroll') continue;
+		const qty = item.type === 'ingredient' ? 50 : (id === 'blank_scroll' ? 5 : 1);
 		STATE.inventory.push({ itemId: id, qty });
 	}
 	saveState();
 	renderAll();
 });
 
-// close modal on overlay click
-document.getElementById('spellModal').addEventListener('click', e => {
-	if(e.target === document.getElementById('spellModal')) closeSpellBuilder();
-});
-
 // keyboard shortcut: Escape closes modal
 document.addEventListener('keydown', e => {
 	if(e.key === 'Escape'){
+		if(document.getElementById('scrollModal') && document.getElementById('scrollModal').classList.contains('open')){ closeScrollPicker(); return; }
 		if(document.getElementById('spellModal').classList.contains('open')) closeSpellBuilder();
 	}
 });

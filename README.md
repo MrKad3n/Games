@@ -1806,6 +1806,511 @@ Each prompt below is designed to generate a **horizontal sprite sheet** with 4 a
 
 ---
 
+### The Grand Challenger — Action Sprite Sheets (16:9)
+
+These sheets are **actions**, not whole attacks. Each row is **8 frames** (in the 5–10 range). Attacks are built by playing actions in sequence (crouch → jump → slam → land, etc.). Some rows are the same action with a different **end pose** (stand vs float).
+
+**Shared sheet spec (every Challenger sheet below):**
+- Aspect **16:9** — `2560×1440 px`
+- Grid **8 columns × 4 rows** (32 frames)
+- Fully **transparent** background (no white paper, no canvas color)
+- Side-view facing **right**, even spacing, no crop, no overlap
+- Logical size about **96×132**
+
+**Phase looks (keep consistent inside a sheet):**
+- **P1:** gunmetal skin, cyan vein cracks, tiny white-point eyes, pauldrons / forearm armor / boots / belt-chest, torn cloak, no weapon, calm
+- **P2:** armor gone, brighter cyan-magenta cracks, blazing white eyes, smile, cloak only + boots, overflowing aura
+- **P3:** no aura, dim cracks, scuffed skin, tired but proud, tatters, pure martial
+
+**Style line to append to every prompt:**  
+`Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.`
+
+---
+
+#### Sheet 1 — P1 Idle & Walk
+**File target:** `images/enemies/grand-challenger-p1-idle-walk.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Idle breathe: planted fighting-ready stand, slow chest breathing, cloak sway, vein glow pulse, eyes dim points. Ends standing.
+> Row 2 (8 frames) – Idle weight-shift: same idle but he shifts weight heel-to-heel, rolls one shoulder, glance forward. Ends standing.
+> Row 3 (8 frames) – Walk: heavy deliberate walk cycle right, boots crush lunar dust, cloak trailing, shoulders rolling.
+> Row 4 (8 frames) – Heavy stomp walk: slower, each step a crater pose, more knee bend, cloak hanging heavier.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 2 — P1 Body Mechanics
+**File target:** `images/enemies/grand-challenger-p1-body.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Get up: starts on one knee / one fist in dust, pushes up through a crouch, finishes in a full standing idle.
+> Row 2 (8 frames) – Crouch: from standing, drops into a deep athletic crouch, fists near the ground, cloak pooling. Ends crouched.
+> Row 3 (8 frames) – Stand from crouch: reverse of Row 2, rises and settles standing.
+> Row 4 (8 frames) – Neck crack: standing, rolls head, cracks neck (frames 3–5), shoulders drop. Ends standing.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 3 — P1 Presence
+**File target:** `images/enemies/grand-challenger-p1-presence.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Shoulder roll: rolls both shoulders, cloak toss, veins pulse once. Ends standing.
+> Row 2 (8 frames) – Beckon: raises one hand and slowly curls fingers “come”, eyes a little brighter. Ends standing.
+> Row 3 (8 frames) – Point: extends one arm and points at the viewer (“You. Stand.”), no extra flourish. Ends standing.
+> Row 4 (8 frames) – Fight stance settle: steps into a lower guard, both fists up, eyes brighter white points. Ends in stance (not a casual idle).
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 4 — P1 Jump & Air
+**File target:** `images/enemies/grand-challenger-p1-jump.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Crouch-to-jump: deep crouch coils, then explodes upward, last frames leaving the ground with dust at the boots.
+> Row 2 (8 frames) – Jump ascend: body rising, knees tucked then extending, cloak streaming down, fists ready.
+> Row 3 (8 frames) – Midair float hold: hovers as if gravity forgot him, cloak hanging, small cyan cracks brighter. Loop-friendly, ends still floating.
+> Row 4 (8 frames) – Aerial punch windup: still floating, draws a fist all the way back, body coils. Ends floating with fist charged (does not punch yet).
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 5 — P1 Slam & Land (end-pose variants)
+**File target:** `images/enemies/grand-challenger-p1-slam-land.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Downward slam punch: from air, fist drives straight down, body follows, impact pose on the last frames.
+> Row 2 (8 frames) – Land recover → STAND: crash, one knee and one fist, then rises to a standing idle. Same landing start as Row 3/4.
+> Row 3 (8 frames) – Land recover → CROUCH: identical first 3 landing frames as Row 2, then he stays low and settles crouched instead of standing.
+> Row 4 (8 frames) – Land recover → FLOAT: identical first 3 landing frames, then he pushes off and ends hovering/floating.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 6 — P1 Punch (stand endings)
+**File target:** `images/enemies/grand-challenger-p1-punch-stand.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Charge punch → STAND: plants feet, fist pulls back, veins brighten, then he eases back to a standing idle without throwing.
+> Row 2 (8 frames) – Punch forward: from charged, drives a straight right-hand punch, shock lines at the knuckles, no projectile. Ends in follow-through.
+> Row 3 (8 frames) – Follow-through → STAND: punch recoil, steps, settles standing.
+> Row 4 (8 frames) – Jab: short snap jab cycle, quicker than Row 2, returns to stance.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 7 — P1 Punch (float endings — same charges, different finish)
+**File target:** `images/enemies/grand-challenger-p1-punch-float.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Charge punch → FLOAT: same charge motion as Sheet 6 Row 1, but after the peak he lifts off and ends floating with fist still back.
+> Row 2 (8 frames) – Punch forward from float: throws the punch while airborne, body kicks back slightly. Ends floating.
+> Row 3 (8 frames) – Follow-through → FLOAT: recoil in air, settles into a float idle (not standing).
+> Row 4 (8 frames) – Cross / hook: wide hook from a float or light hop, ends floating.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 8 — P1 Uppercut
+**File target:** `images/enemies/grand-challenger-p1-uppercut.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Crouch under: dashes low, slides into a crouch as if under a flying target, magic circle starting under the boots on later frames.
+> Row 2 (8 frames) – Uppercut launch: from that crouch, circle fully forms, he launches straight up with a rising fist.
+> Row 3 (8 frames) – Aerial rising fist: still going up, arm fully extended, cloak streaming, vertical force suggested in pose only.
+> Row 4 (8 frames) – Crash down: body falls, fist first or feet first, impact crouch on the last frames.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 9 — P1 Space Point & Punch
+**File target:** `images/enemies/grand-challenger-p1-space.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Point at distant planet: plants, raises an arm and points at the sky/horizon. Nothing leaves his hand. Ends pointing, standing.
+> Row 2 (8 frames) – Space punch: from the point, he throws a straight punch into empty air (the spell is the punch). Ends in follow-through.
+> Row 3 (8 frames) – Recover → STAND: lowers the arm, steps, standing idle.
+> Row 4 (8 frames) – Recover → FLOAT: same first 3 recover frames as Row 3, then he lifts into a float instead of standing.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 10 — P1 Arena Body
+**File target:** `images/enemies/grand-challenger-p1-arena.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Gravity compress: standing, body sinks as if gravity tripled, cloak hangs straight, knees bend. Ends in the compressed stance.
+> Row 2 (8 frames) – Heavy crater step: one enormous step forward, crater forming under the boot, shock in the pose. Ends mid-stride / planted.
+> Row 3 (8 frames) – Grab the ground: crouches and both hands sink into the moon crust, fingers hooked.
+> Row 4 (8 frames) – Rip / lift slab: heaves a gigantic chunk of planet up to chest/shoulder height. Ends holding the slab (slab can be suggested as a huge rock mass).
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 11 — P1 Motion
+**File target:** `images/enemies/grand-challenger-p1-motion.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames total) arranged in a perfectly aligned grid with even spacing. 16:9 sheet.
+> Transparent background.
+>
+> Character: The Grand Challenger Phase 1 — 8-foot muscular humanoid alien warrior. Dark gunmetal metallic skin with glowing cyan-white cosmic vein cracks, two tiny white-light eyes (no pupils), minimal armor (heavy pauldrons, armored forearms, boots, belt/chest), torn charcoal cloak, no weapon, fists only. Calm, unimpressed. About 96×132 logical size.
+>
+> Row 1 (8 frames) – Flashstep vanish: not a teleport — he accelerates until he is motion-blur / afterimages, last frames nearly empty streak.
+> Row 2 (8 frames) – Flashstep punch pose: he is already at the impact, mid-punch silhouettes at slightly different offsets, afterimages. Ends in a punch-connect pose.
+> Row 3 (8 frames) – Dash-in: explosive step toward the right, body low, fist leading. Ends planted after the dash.
+> Row 4 (8 frames) – Throw slab: from holding a huge rock (or empty two-handed overhead), hurls it forward, follow-through. Ends standing.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 12 — P2 Awaken / Limit Release
+**File target:** `images/enemies/grand-challenger-p2-awaken.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 — armor REMOVED over this sheet. Start Row 1 still wearing P1 armor and shed it. After Row 1: dark metallic skin, cyan-magenta cracks much brighter, blazing white eyes, smile, torn cloak and boots only, overflowing aura. About 96×132.
+>
+> Row 1 (8 frames) – Armor discard: rolls shoulders, pauldrons and plates crack and fall, markings ignite, he starts to smile.
+> Row 2 (8 frames) – Smile / “Enough testing.”: unarmored, slight laugh-smile, one hand dismissive. Ends standing unarmored.
+> Row 3 (8 frames) – “Now… fight me.”: opens both hands, steps in, aura flares, eyes brightest. Ends in an eager stance.
+> Row 4 (8 frames) – Limit Release slam: fist into the moon, ground shattering, fragments lifting, body at max glow.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 13 — P2 Idle & Move
+**File target:** `images/enemies/grand-challenger-p2-idle-move.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 (unarmored, bright cracks, smile, aura, cloak + boots).
+>
+> Row 1 (8 frames) – Idle aura: standing, aura whipping the cloak, cracks pulsing hard, slight smile. Loop-friendly stand.
+> Row 2 (8 frames) – Float idle: hovering a foot off the ground, relaxed, cloak hanging in his own wind. Ends floating.
+> Row 3 (8 frames) – Fast walk / run: aggressive lean-forward run, afterimage suggested, more speed than P1 walk.
+> Row 4 (8 frames) – Float dash: from hover, he kicks forward through the air as a streak. Ends floating.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 14 — P2 Cataclysm Actions
+**File target:** `images/enemies/grand-challenger-p2-cataclysm.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 (unarmored, smiling, bright aura).
+>
+> Row 1 (8 frames) – Grab planet hunk: reaches “off screen” and hauls a huge irregular rock into frame.
+> Row 2 (8 frames) – Split into 3: both hands tear the hunk into three pieces held / suspended.
+> Row 3 (8 frames) – Punch a piece out: one sharp punch that sends one fragment flying right. Can be replayed three times.
+> Row 4 (8 frames) – Pull pieces back: open hand, the three rocks (suggested) fly back in, he braces for a collision.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 15 — P2 Barrage & Thousand-Fist
+**File target:** `images/enemies/grand-challenger-p2-barrage.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 (unarmored, smiling, bright aura).
+>
+> Row 1 (8 frames) – Leap into space: crouch then jumps so hard he leaves the top of the frame, last frames almost off-sheet.
+> Row 2 (8 frames) – Space punch downward: hanging in space, punching “down” at a distant world. Replayable.
+> Row 3 (8 frames) – Thousand-fist blur: body is almost a smear of fists and afterimages, loop-friendly flurry. Ends still blurred.
+> Row 4 (8 frames) – Silence, fist back: blur STOPS. He stands (or hovers) directly facing right, one fist drawn all the way back, no extra VFX. Stillness is the point.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 16 — P2 One Hit
+**File target:** `images/enemies/grand-challenger-p2-onehit.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 body, but **this sheet has almost no aura** — magic withdrawn on purpose. Unarmored, cracks dimmer than other P2 sheets, tiny white eyes, no giant glow.
+>
+> Row 1 (8 frames) – Still: he simply stands. Tiny breathing only. Terrifying because it is so small.
+> Row 2 (8 frames) – Raise one fist: slowly, no flourish.
+> Row 3 (8 frames) – Tiny magic circle: a small cyan circle appears around the knuckles, nothing else. Ends with fist up + circle.
+> Row 4 (8 frames) – Simple punch: one clean straight punch. No beam, no giant spell. Ends in a short follow-through.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 17 — P2 Living Extras (duplicate actions, different finish)
+**File target:** `images/enemies/grand-challenger-p2-living.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 (unarmored, smile, overflow aura).
+>
+> Row 1 (8 frames) – Look at player, excited: head turns, smile widens, eyes flare, cloak snaps. Ends standing.
+> Row 2 (8 frames) – Fast neck crack → STAND: same idea as P1 neck crack but quicker and smiling. Ends standing.
+> Row 3 (8 frames) – Charge punch → FLOAT (overflow): same charge as P1 Sheet 6 Row 1, but aura overflows and he finishes floating instead of standing.
+> Row 4 (8 frames) – Land from space → FLOAT: crashes in from above, same first landing frames as P1 land, then he bounces into a hover.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 18 — P3 Martial
+**File target:** `images/enemies/grand-challenger-p3-martial.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 3 — ALL magic gone. Dim dark cracks, scuffed/cut metallic skin, exhausted but proud, tiny dim white eyes, no armor, cloak in tatters, no aura. Pure martial artist. About 96×132.
+>
+> Row 1 (8 frames) – Tired idle: breathing hard, fists loose, watching. Loop-friendly.
+> Row 2 (8 frames) – Pure martial idle: more focused, fists up, no glow, small weight shifts. Loop-friendly.
+> Row 3 (8 frames) – Jab-cross combo: jab then cross, no magic trails, just body mechanics. Ends in guard.
+> Row 4 (8 frames) – Dash-in punch: short explosive step and a committed punch. Ends planted.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 19 — P3 End
+**File target:** `images/enemies/grand-challenger-p3-end.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 3 (no magic, damaged, proud).
+>
+> Row 1 (8 frames) – Kneel: from stand, he drops to one knee, head still up.
+> Row 2 (8 frames) – Look up and laugh: from the kneel, looks up and laughs with real joy (“Finally.”). Stays kneeling.
+> Row 3 (8 frames) – Dust crumble: body crumbling into pale cosmic dust from the feet up, still kneeling/laughing at the start.
+> Row 4 (8 frames) – Empty dust fade: last of the dust, then empty frames of fading motes where he stood.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 20 — P1 Multi-Action Combos
+**File target:** `images/enemies/grand-challenger-p1-combos.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 1 (same armored design as Sheet 1). Each row is TWO actions in one 8-frame clip.
+>
+> Row 1 (8 frames) – Walk into crouch: first 4 frames are the heavy walk, last 4 drop into the deep crouch and hold it.
+> Row 2 (8 frames) – Shoulder roll into beckon: rolls both shoulders (1–4), then the “come” hand curl (5–8). Ends standing.
+> Row 3 (8 frames) – Get up into neck crack: from one knee, stands (1–4), then cracks his neck (5–8). Ends standing.
+> Row 4 (8 frames) – Crouch-jump into aerial windup: coils and leaves the ground (1–4), then midair fist-back charge (5–8). Ends floating charged.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+#### Sheet 21 — P2 Multi-Action Combos
+**File target:** `images/enemies/grand-challenger-p2-combos.png`
+
+**Prompt:**
+> Clean 2D pixel-art style sprite sheet for a video game boss enemy.
+> 4 rows and 8 columns (32 frames). 16:9 sheet. Transparent background.
+>
+> Character: The Grand Challenger Phase 2 (unarmored, bright cracks, smile, overflow aura). Each row is TWO actions in one 8-frame clip.
+>
+> Row 1 (8 frames) – Float dash into punch: hover-dash (1–4), then a midair punch (5–8). Ends floating after the punch.
+> Row 2 (8 frames) – Excited look into fast neck crack: smile/eyes flare (1–4), then a quick smiling neck crack (5–8). Ends standing.
+> Row 3 (8 frames) – Fast walk into grab hunk: aggressive run (1–4), then he reaches and hauls a rock into frame (5–8).
+> Row 4 (8 frames) – Charge overflow into float: same punch charge as other charge rows (1–5), but aura overflows and he finishes hovering with the fist still back (6–8). Duplicate of the charge, different end pose.
+>
+> Style: clean digital pixel-art sprite sheet, epic cosmic raid boss style, consistent character proportions across every frame, side-view facing right, clear readable silhouette, evenly spaced animation frames, no cropping, no overlapping frames.
+
+---
+
+### Grand Challenger — Attack choreography (actions → attacks)
+
+Play the named action rows in order. Do not animate a whole attack as a single row.
+
+**Intro:** Walk → Neck crack → Shoulder roll into beckon → Idle  
+**Phase 2 cut:** Armor discard → Smile / Enough testing → Limit Release slam → Now fight me → Idle aura  
+**Phase 3 cut:** Tired idle  
+**Death:** Kneel → Laugh → Dust crumble → Empty dust fade
+
+21 sheets × 4 rows × 8 frames = **672 frames** (Seraphel is ~168). Attacks are sequences of those rows, not single rows.
+
+| Attack | Action sequence |
+|---|---|
+| **Planetbreaker** | Crouch → Crouch-to-jump → Crouch-jump into aerial windup → Aerial punch windup → Downward slam → Land recover → STAND. Then shockwave rings. Then a long rain of **cold rock debris**. |
+| **Celestial Uppercut** | Dash-in → Crouch under → Uppercut launch → Aerial rising fist → Crash down → Land recover → CROUCH → Stand from crouch |
+| **Meteor Punch** | Stance → Point at planet → Charge punch → STAND → Space punch → Follow-through → STAND. Delay. Then a long rain of **burning debris**. |
+| **Gravity Step** | Gravity compress → Heavy stomp walk, with Heavy crater step on each footfall |
+| **Flashstep** | Flashstep vanish (hide) → Flashstep punch poses at the impact slots → Land recover → STAND |
+| **Mortal Challenge** | Point (“You. Stand.” first time only) → Stance → (loop) Charge/Jab/Cross/Punch → Dash-in. If the target stays airborne in Phase 1, branch into **Celestial Uppercut**. Phase 3 uses Jab-cross and Dash-in punch at 110% of the slowed base. |
+| **Worldbreaker** | Crouch → Grab the ground → Rip / lift slab → Throw slab → Follow-through → STAND |
+| **Planetary Cataclysm** | Grab hunk → Split into 3 → Punch a piece ×3 → Pull pieces back → collision |
+| **Starfall Barrage** | Crouch-to-jump → Leap into space (hide) → Space punch downward (repeating, accelerating) → Land from space → FLOAT |
+| **Thousand-Fist** | Float dash → Thousand-fist blur → Silence, fist back → Simple punch (gust, destroys spells) → Follow-through → STAND |
+| **One Hit** | Still (no aura) → Raise one fist → Tiny magic circle → Simple punch |
+
+**Debris rules (combat, not a sprite row):** two types — **cold rock** and **burning rock**. Both behave like a **solidify** projectile while airborne (the player can land on them). They fall slower, last longer, and there are many more of them. On ground contact they **explode and vanish** (do not stay as platforms).
+
+---
+
+### Grand Challenger — Attack VFX (individual assets)
+
+Use these for isolated transparent VFX plates (not sprite sheets). Target roughly 1024×1024 unless noted.
+
+**Planetbreaker traveling wave** — `images/fx/challenger-ring-wave.png` (16:9)  
+> Transparent background. Side-view 2D traveling ground shockwave, wide horizontal crescent of shattered grey lunar rock and compressed pale cyan-white air, low to the ground. Jagged moon-dust spray, concentric force ripples. No characters, no text.
+
+**Mortal Challenge fist pulse** — `images/fx/challenger-fist-pulse.png` (16:9)  
+> Transparent background. Side-view punch pulse: a glowing cyan-white fist-shaped burst of compressed air traveling left to right. Knuckle shock cone, pale force streaks, lunar dust. Not a magic missile or beam. No characters, no text.
+
+**Planetary Cataclysm rock** — `images/fx/challenger-cataclysm-rock.png`  
+> Transparent background. A large irregular hunk of ripped planetary crust, grey-brown rock with icy-blue mineral veins and cyan-white impact cracks, jagged underside spikes. Isolated flying boulder. No characters, no text.
+
+**Cataclysm shard** — `images/fx/challenger-shard.png`  
+> Transparent background. A single sharp irregular rock shard, grey lunar stone with glowing cyan-white fracture edges and a faint dust trail. Isolated. No characters, no text.
+
+**Starfall chunk** — `images/fx/challenger-starfall.png`  
+> Transparent background. A burning celestial debris chunk falling from space, jagged rocky meteor with molten orange-gold fire cracks and a trailing flame tail. Not a cartoon fireball. No characters, no text.
+
+**Gravity Step field** — `images/fx/challenger-gravity-field.png`  
+> Transparent background. Gravity-field distortion: concentric warped rings of compressed space, downward-pulling cyan-white force lines, dust falling toward the center. No characters, no text.
+
+**Punch impact burst** — `images/fx/challenger-punch-impact.png`  
+> Transparent background. Close-range fist impact: white-cyan starburst with a knuckle-shaped air cavity, shattered moon dust, short shockwave ring. No character body, no text.
+
+**Planetbreaker shockwave** — `images/fx/challenger-shockwave.png`  
+> Transparent background. A massive circular planetary shockwave ring, shattered grey moon rock and cyan-white compressed air, concentric rings, empty center so it can scale as an expanding blast. No characters, no text.
+
+**Celestial uppercut column** — `images/fx/challenger-uppercut-column.png` (9:16)  
+> Transparent background. A tall vertical column of compressed air and pale cyan force, as if a fist launched through the sky, dust and moon rock rising with it. No characters, no text.
+
+**Cold rock debris** — `images/fx/challenger-rock-debris.png`  
+> Transparent background. A jagged grey lunar rock chunk, no fire, icy-blue mineral veins and pale dust. Isolated falling boulder, about the size of a solidify platform. No characters, no text.
+
+**Burning rock debris** — `images/fx/challenger-debris.png`  
+> Transparent background. The same kind of irregular planet rock as the cold debris, but ON FIRE: molten orange-gold cracks, trailing flame, glowing underside. Isolated flying boulder. No characters, no text.
+
+**Rock debris ground explosion** — `images/fx/challenger-rock-explode.png`  
+> Transparent background. A grey moon-rock impact burst at ground level: shattered stone spray, dust dome, short shock ring, no fire. Empty-ish center so it can sit on the floor. No characters, no text.
+
+**Fire debris ground explosion** — `images/fx/challenger-fire-explode.png`  
+> Transparent background. A burning rock hitting the ground and detonating: orange-white fireball, flying embers, cracked stone, short shock ring. Isolated. No characters, no text.
+
+**Gravity crater** — `images/fx/challenger-crater.png`  
+> Transparent background. A circular moon-crater stamp from a giant footstep, radial fractures, lifted dust, faint cyan energy in the cracks. No characters, no text.
+
+**Flashstep impact** — `images/fx/challenger-flash-impact.png`  
+> Transparent background. A white-cyan starburst punch impact with a shockwave ring and fist-shaped air compression. Isolated. No characters, no text.
+
+**Worldbreaker chunk** — `images/fx/challenger-worldchunk.png` (16:9)  
+> Transparent background. A gigantic irregular slab of torn lunar crust, hanging dirt, underside stone spikes, cratered top. Isolated side view. No characters, no text.
+
+**One Hit gust** — `images/fx/challenger-gust.png` (16:9)  
+> Transparent background. A giant horizontal gust of pure physical force traveling left to right, compressed air ripples, pale white-cyan streaks, dust, a sharp leading edge. Not a magic beam — air split by a fist. No characters, no text.
+
+**Magic circle** — `images/fx/challenger-magic-circle.png`  
+> Transparent background. A simple but ornate cyan-white martial-magic circle, concentric rings and tick marks, as if forming under a warrior's feet. Top-down. No characters, no text.
+
+**Background planets (destroyable)** — `images/fx/challenger-planet-orange.png`, `images/fx/challenger-planet-ice.png`  
+> Transparent background. Isolated planet sprites (orange-rust rocky world; icy blue world with faint rings) for a 2D space backdrop, 3/4 view, no characters, no text.
+
+**Moon arena backdrop** — `images/backgrounds/challenger-moon-bg.png` (16:9)  
+> Cinematic 2D side-view lunar fighting plateau, cracked grey regolith, black starfield, Earth, a gas giant, and a distant nebula. No characters, no UI, no text.
+
+---
+
 ## Player Sprite Sheet
 
 #### 21) Player Character — Battle Mage
