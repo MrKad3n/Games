@@ -224,3 +224,111 @@ function syncCatalogueCosts(){
 		for(const k in FX_CTRL) if(EFFECTS[k]) EFFECTS[k].controlReq = FX_CTRL[k];
 	}
 }
+
+/* =============================================================
+   Spell rule migration — clamp saved spells to current caps
+   (projectile product, domain waves, ultimate slot flag).
+   Called on local load and before every cloud push.
+   ============================================================= */
+const SPELL_RULE_NORMAL_CAP = 50;
+const SPELL_RULE_ULT_CAP = 200;
+const SPELL_RULE_DOMAIN_WAVE_CAP = 5;
+
+function spellProjCapForSlot(slotIdx){
+	return slotIdx === 9 ? SPELL_RULE_ULT_CAP : SPELL_RULE_NORMAL_CAP;
+}
+
+function spellProjectileProduct(spell){
+	if(!spell || !Array.isArray(spell.phases) || !spell.phases.length) return 1;
+	let total = 1;
+	for(const ph of spell.phases) total *= phaseEffectiveCount(ph);
+	return total;
+}
+
+function setPhaseEffectiveCount(ph, n){
+	n = Math.max(1, n | 0);
+	if(ph.behavior === 'aroundSelf') ph.aroundSelfCount = n;
+	else ph.count = n;
+}
+
+function enforceSpellRulesOnSpell(spell, slotIdx){
+	if(!spell || !Array.isArray(spell.phases) || !spell.phases.length) return false;
+	let changed = false;
+	const isUlt = slotIdx === 9;
+	if(isUlt){
+		if(!spell.isUltimate){ spell.isUltimate = true; changed = true; }
+	} else if(spell.isUltimate){
+		delete spell.isUltimate;
+		changed = true;
+	}
+	const hasDomain = !!(spell.phases[0] && spell.phases[0].behavior === 'domain');
+	for(let i = 0; i < spell.phases.length; i++){
+		const ph = spell.phases[i];
+		if(!ph) continue;
+		if(ph.shape === 'same' && (ph.count || 1) !== 1){
+			ph.count = 1;
+			changed = true;
+		}
+		if(hasDomain && i > 0){
+			const c = phaseEffectiveCount(ph);
+			if(c > SPELL_RULE_DOMAIN_WAVE_CAP){
+				setPhaseEffectiveCount(ph, SPELL_RULE_DOMAIN_WAVE_CAP);
+				changed = true;
+			}
+		}
+	}
+	const cap = spellProjCapForSlot(slotIdx);
+	while(spellProjectileProduct(spell) > cap){
+		let idx = -1;
+		for(let i = spell.phases.length - 1; i >= 0; i--){
+			const ph = spell.phases[i];
+			if(!ph || ph.shape === 'same') continue;
+			if(phaseEffectiveCount(ph) > 1){ idx = i; break; }
+		}
+		if(idx < 0) break;
+		setPhaseEffectiveCount(spell.phases[idx], phaseEffectiveCount(spell.phases[idx]) - 1);
+		changed = true;
+	}
+	return changed;
+}
+
+function enforceSpellRulesOnData(playerData){
+	if(!playerData || typeof playerData !== 'object') return false;
+	let changed = false;
+	const walk = arr => {
+		if(!Array.isArray(arr)) return;
+		for(let i = 0; i < arr.length; i++){
+			if(arr[i] && enforceSpellRulesOnSpell(arr[i], i)) changed = true;
+		}
+	};
+	walk(playerData.spells);
+	walk(playerData.transformSpells);
+	if(Array.isArray(playerData.loadouts)){
+		for(const ld of playerData.loadouts){
+			if(ld) walk(ld.spells);
+		}
+	}
+	return changed;
+}
+
+function enforceSpellRulesInStorage(){
+	try {
+		const raw = localStorage.getItem('magicBattle_playerData');
+		if(!raw) return false;
+		const data = JSON.parse(raw);
+		if(!enforceSpellRulesOnData(data)) return false;
+		localStorage.setItem('magicBattle_playerData', JSON.stringify(data));
+		return true;
+	} catch(e){
+		console.warn('[spell-rules] migrate failed:', e);
+		return false;
+	}
+}
+
+if(typeof window !== 'undefined'){
+	window.SPELL_RULE_NORMAL_CAP = SPELL_RULE_NORMAL_CAP;
+	window.SPELL_RULE_ULT_CAP = SPELL_RULE_ULT_CAP;
+	window.enforceSpellRulesOnSpell = enforceSpellRulesOnSpell;
+	window.enforceSpellRulesOnData = enforceSpellRulesOnData;
+	window.enforceSpellRulesInStorage = enforceSpellRulesInStorage;
+}

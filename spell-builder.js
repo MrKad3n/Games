@@ -789,7 +789,7 @@
 		return Math.max(1, ph.count||1);
 	}
 	function spellProjCap(){
-		return editingSlot===9 ? 500 : 100;
+		return editingSlot===9 ? 200 : 50;
 	}
 	function spellTotalProjectiles(exceptIdx){
 		if(!builderSpell||!builderSpell.phases) return 1;

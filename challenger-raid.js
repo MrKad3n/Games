@@ -1343,8 +1343,8 @@
 		if(d.mode === 'startup'){
 			b.vx = 0;
 			chaseY(0.12);
-			if(t === F(22)) setAct(b.phase >= 3 ? 'pureIdle' : 'stance');
-			if(t >= F(86)){
+			if(t === F(16)) setAct(b.phase >= 3 ? 'pureIdle' : 'stance');
+			if(t >= F(64)){
 				d.mode = 'dash';
 				markTarget();
 				facePlayer();
@@ -1357,7 +1357,7 @@
 			markTarget();
 			const cx = b.x + b.w / 2;
 			b.facing = d.targetX >= cx ? 1 : -1;
-			b.vx = b.facing * 36 * spd;
+			b.vx = b.facing * 45 * spd;
 			b.x = Math.max(A_L + 20, Math.min(A_R - b.w - 20, b.x));
 			chaseY(0.28);
 			const ncx = b.x + b.w / 2;
@@ -1380,7 +1380,7 @@
 			chaseY(0.2);
 			d.wait++;
 			if(d.wait === 1) setAct(b.phase >= 3 ? 'dashPunch' : 'chargeStand');
-			if(d.wait >= F(52)){
+			if(d.wait >= F(39)){
 				d.mode = 'punch';
 			}
 			return;
@@ -1419,7 +1419,7 @@
 		if(d.mode === 'done'){
 			b.vx = 0;
 			d.wait++;
-			if(d.wait > F(22)) endAtk();
+			if(d.wait > F(16)) endAtk();
 		}
 	}
 

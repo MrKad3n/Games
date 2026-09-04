@@ -35,7 +35,118 @@
 	let user = null;
 	let ready = false;
 	let pushTimer = null;
+	let suppressAutoPush = false;
 	const authListeners = [];
+
+	/* Clamp saved spells to current rules (projectile caps, domain waves, ult flag)
+	   before every cloud upload. Full helper lives in spell-cost.js when that
+	   script is loaded; hub pages get a self-contained fallback here. */
+	function installSpellRuleFallback() {
+		if (typeof global.enforceSpellRulesOnData === 'function' &&
+			typeof global.enforceSpellRulesInStorage === 'function') return;
+
+		const NORMAL_CAP = 50;
+		const ULT_CAP = 200;
+		const DOMAIN_WAVE_CAP = 5;
+
+		function phaseCount(ph) {
+			if (!ph) return 1;
+			if (ph.behavior === 'aroundSelf') return Math.max(1, ph.aroundSelfCount || 4);
+			if (ph.shape === 'same') return 1;
+			return Math.max(1, ph.count || 1);
+		}
+		function setCount(ph, n) {
+			n = Math.max(1, n | 0);
+			if (ph.behavior === 'aroundSelf') ph.aroundSelfCount = n;
+			else ph.count = n;
+		}
+		function product(spell) {
+			if (!spell || !Array.isArray(spell.phases) || !spell.phases.length) return 1;
+			let t = 1;
+			for (const ph of spell.phases) t *= phaseCount(ph);
+			return t;
+		}
+		function enforceSpell(spell, slotIdx) {
+			if (!spell || !Array.isArray(spell.phases) || !spell.phases.length) return false;
+			let changed = false;
+			const isUlt = slotIdx === 9;
+			if (isUlt) {
+				if (!spell.isUltimate) { spell.isUltimate = true; changed = true; }
+			} else if (spell.isUltimate) {
+				delete spell.isUltimate;
+				changed = true;
+			}
+			const hasDomain = !!(spell.phases[0] && spell.phases[0].behavior === 'domain');
+			for (let i = 0; i < spell.phases.length; i++) {
+				const ph = spell.phases[i];
+				if (!ph) continue;
+				if (ph.shape === 'same' && (ph.count || 1) !== 1) {
+					ph.count = 1;
+					changed = true;
+				}
+				if (hasDomain && i > 0 && phaseCount(ph) > DOMAIN_WAVE_CAP) {
+					setCount(ph, DOMAIN_WAVE_CAP);
+					changed = true;
+				}
+			}
+			const cap = isUlt ? ULT_CAP : NORMAL_CAP;
+			while (product(spell) > cap) {
+				let idx = -1;
+				for (let i = spell.phases.length - 1; i >= 0; i--) {
+					const ph = spell.phases[i];
+					if (!ph || ph.shape === 'same') continue;
+					if (phaseCount(ph) > 1) { idx = i; break; }
+				}
+				if (idx < 0) break;
+				setCount(spell.phases[idx], phaseCount(spell.phases[idx]) - 1);
+				changed = true;
+			}
+			return changed;
+		}
+		function enforceData(playerData) {
+			if (!playerData || typeof playerData !== 'object') return false;
+			let changed = false;
+			const walk = arr => {
+				if (!Array.isArray(arr)) return;
+				for (let i = 0; i < arr.length; i++) {
+					if (arr[i] && enforceSpell(arr[i], i)) changed = true;
+				}
+			};
+			walk(playerData.spells);
+			walk(playerData.transformSpells);
+			if (Array.isArray(playerData.loadouts)) {
+				for (const ld of playerData.loadouts) {
+					if (ld) walk(ld.spells);
+				}
+			}
+			return changed;
+		}
+		function enforceStorage() {
+			try {
+				const raw = localStorage.getItem(PREFIX + 'playerData');
+				if (!raw) return false;
+				const data = JSON.parse(raw);
+				if (!enforceData(data)) return false;
+				localStorage.setItem(PREFIX + 'playerData', JSON.stringify(data));
+				return true;
+			} catch (e) {
+				console.warn('[cloud-save] spell rule migrate failed:', e);
+				return false;
+			}
+		}
+		if (typeof global.enforceSpellRulesOnData !== 'function') {
+			global.enforceSpellRulesOnData = enforceData;
+		}
+		if (typeof global.enforceSpellRulesInStorage !== 'function') {
+			global.enforceSpellRulesInStorage = enforceStorage;
+		}
+	}
+
+	function migrateSpellsForCloud() {
+		installSpellRuleFallback();
+		if (typeof global.enforceSpellRulesInStorage !== 'function') return false;
+		return !!global.enforceSpellRulesInStorage();
+	}
 
 	function emitAuth() {
 		authListeners.forEach(fn => { try { fn(user); } catch (e) {} });
@@ -62,6 +173,9 @@
 	/* ---- cloud push / pull ---- */
 	async function push() {
 		if (!ENABLED || !sb || !user) return;
+		suppressAutoPush = true;
+		try { migrateSpellsForCloud(); }
+		finally { suppressAutoPush = false; }
 		const payload = {
 			id: user.id,
 			email: user.email,
@@ -78,7 +192,13 @@
 			.from('profiles').select('save_data').eq('id', user.id).maybeSingle();
 		if (error) { console.warn('[cloud-save] pull failed:', error.message); return false; }
 		if (data && data.save_data && Object.keys(data.save_data).length) {
-			applySave(data.save_data);
+			let migrated = false;
+			suppressAutoPush = true;
+			try {
+				applySave(data.save_data);
+				migrated = migrateSpellsForCloud();
+			} finally { suppressAutoPush = false; }
+			if (migrated) await push();
 			return true;
 		}
 		// No cloud save yet -> seed it from whatever is local now.
@@ -100,6 +220,7 @@
 		const orig = localStorage.setItem.bind(localStorage);
 		localStorage.setItem = function (key, val) {
 			orig(key, val);
+			if (suppressAutoPush) return;
 			if (typeof key === 'string' && key.indexOf(PREFIX) === 0) schedulePush();
 		};
 		// flush on tab hide / navigation

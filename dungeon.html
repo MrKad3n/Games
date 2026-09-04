@@ -244,14 +244,15 @@ body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
 <script src="conversational-npc.js"></script>
 <script src="npc-profiles.js"></script>
 <script src="scrolls.js?v=1"></script>
-<script src="spell-cost.js?v=1"></script>
+<script src="spell-cost.js?v=2"></script>
 <script>
 /* =========================================================
    Magic Battle — Unified Spell Battle Engine
    ========================================================= */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const CAMERA_ZOOM = 1.4;
+let CAMERA_ZOOM = 1.4;
+const CAMERA_ZOOM_SOLO = 1.4;
 function resize(){canvas.width=Math.round(innerWidth*CAMERA_ZOOM);canvas.height=Math.round(innerHeight*CAMERA_ZOOM);canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px'}
 addEventListener('resize',resize);resize();
 
@@ -921,6 +922,9 @@ if(playerData.loadouts && playerData.activeLoadoutIdx >= 0){
 		const _stdIdx = playerData.loadouts.findIndex(l => l.type !== 'transformation');
 		if(_stdIdx >= 0) playerData.spells = JSON.parse(JSON.stringify(playerData.loadouts[_stdIdx].spells));
 	}
+}
+if(typeof enforceSpellRulesOnData === 'function' && enforceSpellRulesOnData(playerData)){
+	try { localStorage.setItem('magicBattle_playerData', JSON.stringify(playerData)); } catch(e){}
 }
 
 /* Active mage class for quick access — read live from playerData so class changes take effect immediately */
@@ -4558,6 +4562,77 @@ const COOP_HOST = COOP_SLOT === 0;
 const COOP_GUEST = IS_COOP && !COOP_HOST;
 
 function isOnlineMatch(){ return !!(IS_COOP || IS_COLOSSEUM); }
+
+/* Online fight budget: 4 players spawn 4× projectiles and 4× net traffic.
+   Scale VFX, canvas resolution, and live-projectile caps with party size
+   and recent frame cost so the fight stays real-time. */
+let _onlineLite = false;
+let _onlineParty = 1;
+let _frameCostEma = 16;
+let _hudFrame = 0;
+function refreshOnlinePerf(){
+	const party = IS_COLOSSEUM ? 2 : (IS_COOP ? coopPartySize() : 1);
+	_onlineParty = party;
+	_onlineLite = !!(IS_COOP || IS_COLOSSEUM);
+	if(!_onlineLite){
+		MAX_PARTICLES = 400;
+		MAX_TRAIL = 8;
+		if(CAMERA_ZOOM !== CAMERA_ZOOM_SOLO){ CAMERA_ZOOM = CAMERA_ZOOM_SOLO; resize(); }
+		return;
+	}
+	const stressed = _frameCostEma > 19;
+	if(party >= 4 || (stressed && party >= 3)){
+		MAX_PARTICLES = stressed ? 40 : 56;
+		MAX_TRAIL = 0;
+	} else if(party >= 3){
+		MAX_PARTICLES = 72;
+		MAX_TRAIL = 2;
+	} else {
+		MAX_PARTICLES = 96;
+		MAX_TRAIL = 2;
+	}
+	const wantZoom = party >= 4 ? 1.05 : party >= 3 ? 1.12 : 1.18;
+	if(Math.abs(CAMERA_ZOOM - wantZoom) > 0.02){
+		CAMERA_ZOOM = wantZoom;
+		resize();
+	}
+}
+function onlineProjCap(){
+	if(!_onlineLite) return 9999;
+	if(_onlineParty >= 4) return 64;
+	if(_onlineParty >= 3) return 80;
+	return 100;
+}
+function cullOnlineProjectiles(){
+	const cap = onlineProjCap();
+	if(projectiles.length <= cap) return;
+	let extra = projectiles.length - cap;
+	for(let pass = 0; pass < 3 && extra > 0; pass++){
+		for(let i = 0; i < projectiles.length && extra > 0; i++){
+			const p = projectiles[i];
+			if(!p || p._held || p.isSolidPlatform || p.shape === 'summon') continue;
+			if(pass === 0 && !p.hasHit) continue;
+			if(pass === 1 && !p._coopRemote && !p._pvpRemote) continue;
+			projectiles.splice(i, 1);
+			i--;
+			extra--;
+		}
+	}
+}
+function cullOnlineEnemyProjectiles(){
+	if(!_onlineLite) return;
+	const cap = _onlineParty >= 4 ? 48 : 70;
+	if(enemyProjectiles.length > cap) enemyProjectiles.splice(0, enemyProjectiles.length - cap);
+}
+function recordProjTrail(p){
+	if(MAX_TRAIL <= 0){
+		if(p.trailParts && p.trailParts.length) p.trailParts.length = 0;
+		return;
+	}
+	p.trailParts.push({x:p.x, y:p.y, age:0});
+	if(p.trailParts.length > MAX_TRAIL) p.trailParts.shift();
+}
+
 function spellUsesControl(spell){
 	if(!spell || !spell.phases) return false;
 	for(let i=0;i<spell.phases.length;i++){
@@ -4643,13 +4718,15 @@ const CoopSync = {
 	   attacks tweak the projectile (homing, speed) right after spawning it. */
 	queueProj(p){
 		if(!COOP_HOST || this.applying || !this.net || !p) return;
-		if(this.projQueue.length > 120) return; // hard cap on a single burst
+		const cap = (typeof coopPartySize==='function' && coopPartySize()>=3) ? 36 : 80;
+		if(this.projQueue.length > cap) return; // hard cap on a single burst
 		this.projQueue.push(p);
 	},
 	/* Flatten to primitives — object references and trail buffers don't travel. */
 	serializeProj(p){
 		const o = {};
 		for(const k in p){
+			if(k==='trailParts' || k==='hitTargets' || k==='spell' || k==='phase') continue;
 			const v = p[k];
 			if(v === undefined || v === null || typeof v === 'function') continue;
 			if(Array.isArray(v)){
@@ -5098,6 +5175,10 @@ for(let r=0;r<MAP_ROWS;r++){
    ============================================================= */
 const camera = { x:0, y:0, shakeX:0, shakeY:0, shakeDur:0, shakeIntensity:0 };
 function shakeScreen(intensity, duration){
+	if(_onlineLite){
+		intensity = Math.min(intensity, 6);
+		duration = Math.min(duration, 10);
+	}
 	camera.shakeIntensity = intensity;
 	camera.shakeDur = duration;
 }
@@ -12366,25 +12447,26 @@ function applyGroundSpawn(proj, ph, ox, oy, tgt, isUlt){
 
 /* Get visual hitbox for target (for spray-based hit detection, simplified for dummies/raidBoss) */
 function getTargetHitRect(target){
+	if(target._hrTick === _simTick && target._hr) return target._hr;
+	let r;
 	if(IS_SANDBOX){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else if(IS_RAID && target === raidBoss){
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else if(IS_CHRONORAID && target === chronoBoss){
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else if(IS_ZENITH && target === zenithBoss){
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else if(IS_CHALLENGER && target === challengerBoss){
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else if(IS_OPENWORLD || IS_CITY || IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS || IS_ARCANERUINS){
+		r = { x: target.x, y: target.y, w: target.w, h: target.h };
+	} else {
+		r = getVisualHitRect(target);
 	}
-	if(IS_RAID && target === raidBoss){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
-	}
-	if(IS_CHRONORAID && target === chronoBoss){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
-	}
-	if(IS_ZENITH && target === zenithBoss){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
-	}
-	if(IS_CHALLENGER && target === challengerBoss){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
-	}
-	if(IS_OPENWORLD || IS_CITY || IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS || IS_ARCANERUINS){
-		return { x: target.x, y: target.y, w: target.w, h: target.h };
-	}
-	return getVisualHitRect(target);
+	target._hr = r;
+	target._hrTick = _simTick;
+	return r;
 }
 
 /* Tilemap collision for an entity — stepped to prevent tunneling */
@@ -13455,8 +13537,9 @@ function castSpell(){
 function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,castId,sourceSlot,targetOriginX,targetOriginY,_overrideAngle){
 	if(phaseIdx>=spell.phases.length)return;
 	let totalProj=1;
-	for(const p of spell.phases)totalProj*=(p.behavior==='aroundSelf'?(p.aroundSelfCount||4):(p.count||1));
-	if(totalProj>(isUltimate||spell.isUltimate?500:100))return;
+	for(const p of spell.phases)totalProj*=(p.behavior==='aroundSelf'?(p.aroundSelfCount||4):(p.shape==='same'?1:(p.count||1)));
+	if(totalProj>(isUltimate||spell.isUltimate?200:50))return;
+	if(_onlineLite && !(isUltimate||spell.isUltimate) && projectiles.length>=onlineProjCap())return;
 	const ph=spell.phases[phaseIdx];
 
 
@@ -13475,7 +13558,8 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		const domainW = canvas.width * 1.8 * domainSizeMult * wallMult * dvRangeMult * dvRangeSacMult;
 		const domainH = canvas.height * 1.8 * domainSizeMult * wallMult * dvRangeMult * dvRangeSacMult;
 		const particles = [];
-		for(let i=0;i<60;i++){
+		const _domSpark = _onlineLite ? 16 : 60;
+		for(let i=0;i<_domSpark;i++){
 			particles.push({
 				x: Math.random() * domainW - domainW/2,
 				y: Math.random() * domainH - domainH/2,
@@ -13640,7 +13724,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	// Damage release size bonus
 	const releaseSizeMult=(ph.effects&&ph.effects.includes('damageRelease')&&damageStored>0)?(1+damageStored/1000):1;
 
-	const spawnCap = isDomainSubPhase ? 5 : ((isUltimate||spell.isUltimate) ? 500 : 100);
+	const spawnCap = isDomainSubPhase ? 5 : ((isUltimate||spell.isUltimate) ? 200 : 50);
 	const effectiveCount=isSameShape?1:Math.min(count+vowCountBonus, spawnCap);
 	for(let i=0;i<effectiveCount;i++){
 		let spreadAngle=0;
@@ -13892,7 +13976,7 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 	const resolvedShape=(ph.shape==='same'&&phaseIdx>0)?spell.phases[phaseIdx-1].shape:(ph.shape||'missile');
 	const isSameShapeM=ph.shape==='same'&&phaseIdx>0;
 	const prevPhM=isSameShapeM?spell.phases[phaseIdx-1]:null;
-	const count=Math.min(ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(isSameShapeM?1:(ph.count||1)), proj._fromDomain?5:500);
+	const count=Math.min(ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(isSameShapeM?1:(ph.count||1)), proj._fromDomain?5:200);
 	const powerMult=dmgMult||1;
 	const selfBehaviors=['underfoot','selfCast','aroundSelf','stationary'];
 	const selfPB=ph.behavior==='stationary'?2.0:selfBehaviors.includes(ph.behavior)?1.0:0;
@@ -18444,6 +18528,7 @@ const CAST_FNS = {
    UPDATE PLAYER PROJECTILES (hits enemies)
    ============================================================= */
 function updateProjectiles(){
+	if(_onlineLite){ cullOnlineProjectiles(); cullOnlineEnemyProjectiles(); }
 	for(let i=projectiles.length-1;i>=0;i--){
 		const p=projectiles[i];
 		if(p.randomDelay>0){
@@ -18537,15 +18622,11 @@ function updateProjectiles(){
 			}
 			p.startX=p.x; p.startY=p.y;
 			// still trail + hit check below, but don't age or move
-			p.trailParts.push({x:p.x,y:p.y,age:0});
-			if(p.trailParts.length>MAX_TRAIL)p.trailParts.shift();
-			for(const tp of p.trailParts)tp.age++;
+			recordProjTrail(p);
 			// skip to hit detection (below behavior movement)
 		} else {
 		p.age++;
-		p.trailParts.push({x:p.x,y:p.y,age:0});
-		if(p.trailParts.length>MAX_TRAIL)p.trailParts.shift();
-		for(const tp of p.trailParts)tp.age++;
+		recordProjTrail(p);
 
 		/* behavior movement */
 		// Warrior vortex: stays on player instead of moving away
@@ -19065,10 +19146,12 @@ function updateProjectiles(){
 				if(PIERCE_SET.has(p.shape)){p.hitTargets.add(en);
 					/* Vortex: pull enemies toward center + damage over time */
 					if(p.shape==='vortex'){
-						const dx4=p.x-(en.x+en.w/2), dy4=p.y-(en.y+en.h/2);
-						const d4=Math.sqrt(dx4*dx4+dy4*dy4)||1;
-						const pullStr=3.5;
-						en.x+=dx4/d4*pullStr; en.y+=dy4/d4*pullStr;
+						if(!resistsForcedMove(en)){
+							const dx4=p.x-(en.x+en.w/2), dy4=p.y-(en.y+en.h/2);
+							const d4=Math.sqrt(dx4*dx4+dy4*dy4)||1;
+							const pullStr=3.5;
+							en.x+=dx4/d4*pullStr; en.y+=dy4/d4*pullStr;
+						}
 						// DoT: deal damage every 20 frames
 						if(!p._vortexDotTimer)p._vortexDotTimer=0;
 						if(p.age%20===0){
@@ -20504,6 +20587,7 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 	// Initialize boss effect immunity tracking
 	if(_isBossTarget){ if(!en._effectHits) en._effectHits = {}; if(!en._immuneEffects) en._immuneEffects = new Set(); }
 	for(const fx of proj.effects){
+		if(resistsForcedMove(en) && (fx==='knockback'||fx==='pull'||fx==='forceJump')) continue;
 		// Boss immunity to repeated impair effects (utility effects: burn/poison/lifesteal/mark are NOT blocked)
 		if(_isBossTarget && (fx==='stun'||fx==='knockback'||fx==='pull'||fx==='freeze')){
 			if(en._immuneEffects.has(fx)){
@@ -20549,8 +20633,8 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 				}
 				break;
 			}
-			case'knockback':if(!(en.knockbackCooldown>0)){const _kbSlider=Math.max(0.5,Number(proj.phase&&proj.phase.power)||1);const _kbF=_kbSlider*(_isBossTarget?3.0:1.5);en._kbVx=proj.facing*_kbF;en._kbVy=-_kbF*0.4;en._kbTimer=20;en.stunTimer=Math.max(en.stunTimer,20);en.knockbackCooldown=15;}break;
-			case'pull':{const dx2=player.x+player.w/2-(en.x+en.w/2);const dy2=player.y+player.h/2-(en.y+en.h/2);const d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;const _pd=_isBossTarget?120:50;en.x+=dx2/d2*_pd*ePow*ultMult;en.y+=dy2/d2*(_pd*0.6)*ePow*ultMult;break;}
+			case'knockback':if(resistsForcedMove(en))break;if(!(en.knockbackCooldown>0)){const _kbSlider=Math.max(0.5,Number(proj.phase&&proj.phase.power)||1);const _kbF=_kbSlider*(_isBossTarget?3.0:1.5);en._kbVx=proj.facing*_kbF;en._kbVy=-_kbF*0.4;en._kbTimer=20;en.stunTimer=Math.max(en.stunTimer,20);en.knockbackCooldown=15;}break;
+			case'pull':{if(resistsForcedMove(en))break;const dx2=player.x+player.w/2-(en.x+en.w/2);const dy2=player.y+player.h/2-(en.y+en.h/2);const d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;const _pd=_isBossTarget?120:50;en.x+=dx2/d2*_pd*ePow*ultMult;en.y+=dy2/d2*(_pd*0.6)*ePow*ultMult;break;}
 			case'stun':{
 				if(_isBossTarget){
 					// Bosses: longer stun (up to 70 frames), no stun resistance
@@ -20559,7 +20643,7 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 				}else{const sr=en._stunResist||0;const sd=Math.min(30,Math.round(18*eDur*ultMult*Math.max(0.1,1-sr*0.25)));en.stunTimer=Math.max(en.stunTimer,sd);en._stunResist=sr+1;}
 				break;}
 
-			case'forceJump':{const _fjPow2=proj.phase?.power||1;en.y-=Math.min(300,40+_fjPow2*15)*ultMult;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:'🚀 Launched!',age:0,color:'#ff8800'});break;}
+			case'forceJump':{if(resistsForcedMove(en))break;const _fjPow2=proj.phase?.power||1;en.y-=Math.min(300,40+_fjPow2*15)*ultMult;dmgNumbers.push({x:en.x+en.w/2,y:en.y-10,text:'🚀 Launched!',age:0,color:'#ff8800'});break;}
 			case'lifesteal':{
 				// Health Call Back — block lifesteal in phase 3
 				if(IS_CHRONORAID && chronoBoss && !chronoBoss.dead && chronoBoss.phase >= 3){
@@ -20733,8 +20817,10 @@ function spawnShatterShards(cx, cy, color, spellPow, phWidth, phHeight, isBurst,
 
 function spawnImpact(x,y,color){
 	if(particles.length>MAX_PARTICLES)return;
+	if(_onlineLite && particles.length>MAX_PARTICLES*0.55)return;
 	const rgb=hexToRgb(color);
-	const count=particles.length>MAX_PARTICLES*0.7?4:8;
+	let count=particles.length>MAX_PARTICLES*0.7?4:8;
+	if(_onlineLite) count = _onlineParty>=3 ? 2 : 3;
 	for(let i=0;i<count;i++){
 		const ang=Math.random()*Math.PI*2;const spd=1.5+Math.random()*3.5;
 		particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:18+Math.random()*12|0,maxLife:30,r:2+Math.random()*2.5,color:rgb});
@@ -20748,8 +20834,9 @@ function triggerExplosion(proj, excludeTarget){
 	shakeScreen(10,14);
 	activeExplosions.push({x:proj.x,y:proj.y,maxR:expR,age:0,maxAge:36,color:proj.color});
 	// Burst particles — tinted toward spell color
+	if(_onlineLite && activeExplosions.length>3) activeExplosions.shift();
 	const _eRgb=hexToRgb(proj.color)||{r:255,g:100,b:0};
-	const _burstN=particles.length>MAX_PARTICLES*0.55?8:24;
+	const _burstN=_onlineLite?(particles.length>MAX_PARTICLES*0.5?0:6):(particles.length>MAX_PARTICLES*0.55?8:24);
 	for(let _pi=0;_pi<_burstN;_pi++){
 		const _ang=Math.random()*Math.PI*2,_spd=(3+Math.random()*9)*(expR/80);
 		const _pcol=_pi%3===0?{r:255,g:255,b:220}:_pi%3===1?{r:Math.min(255,_eRgb.r+80),g:Math.min(255,_eRgb.g+80),b:Math.min(255,_eRgb.b+80)}:{r:_eRgb.r,g:_eRgb.g,b:_eRgb.b};
@@ -20834,7 +20921,7 @@ function applyGravityWellWorld(wx, wy, radius, str, srcProj){
 	const guest = typeof COOP_GUEST !== 'undefined' && COOP_GUEST;
 	if(!guest){
 		for(const en of getAllTargets()){
-			if(en.dead) continue;
+			if(en.dead || resistsForcedMove(en)) continue;
 			const off=gravityPullDelta(wx,wy,en.x+en.w/2,en.y+en.h/2,radius,str);
 			if(off){ en.x+=off.x; en.y+=off.y; }
 		}
@@ -20881,7 +20968,7 @@ function updateGravityWells(){
 		const _gwStr=(3.15+Math.sqrt(gw.power||1)*0.63)*_gwDecay;
 		const _gwRad=gw.radius*(1+Math.sqrt(gw.power||1)*0.16);
 		for(const en of getAllTargets()){
-			if(en.dead) continue;
+			if(en.dead || resistsForcedMove(en)) continue;
 			const dx=gw.x-(en.x+en.w/2), dy=gw.y-(en.y+en.h/2);
 			const d=Math.sqrt(dx*dx+dy*dy)||1;
 			if(d<_gwRad){
@@ -22489,6 +22576,9 @@ function updateRaidIndicators(){
    position the host last broadcast and keep purely cosmetic timers
    ticking, so animations stay smooth between the ~12Hz snapshots.
    ============================================================= */
+function resistsForcedMove(en){
+	return !!(typeof challengerBoss !== 'undefined' && challengerBoss && en === challengerBoss);
+}
 function isCoopBoss(en){
 	if(!en) return false;
 	if(typeof raidBoss !== 'undefined' && raidBoss && en === raidBoss) return true;
@@ -26288,15 +26378,7 @@ function renderSeraphelDialog(){
 let castPressed = false;
 function update(){
 	_simTick++;
-	if(IS_COOP && (IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_CHALLENGER)){
-		MAX_PARTICLES=140; MAX_TRAIL=3;
-	} else if(IS_COOP || IS_COLOSSEUM){
-		MAX_PARTICLES=220; MAX_TRAIL=4;
-	} else if(IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_CHALLENGER){
-		MAX_PARTICLES=240; MAX_TRAIL=5;
-	} else {
-		MAX_PARTICLES=400; MAX_TRAIL=8;
-	}
+	refreshOnlinePerf();
 
 	/* Necromancer summon selection — open overlay but don't freeze gameplay */
 	if(pendingNecroSummon && !necroSelectOpen){
@@ -27935,7 +28017,8 @@ function update(){
 			}
 		}
 	}
-	if(dmgNumbers.length>48) dmgNumbers.splice(0, dmgNumbers.length-48);
+	if(_onlineLite && dmgNumbers.length>24) dmgNumbers.splice(0, dmgNumbers.length-24);
+	else if(dmgNumbers.length>48) dmgNumbers.splice(0, dmgNumbers.length-48);
 
 	/* Dmg numbers */
 	for(let i=dmgNumbers.length-1;i>=0;i--){
@@ -28036,6 +28119,7 @@ function drawColosseumWall(wallBottom){
 
 function render(){
 	ctx.clearRect(0,0,canvas.width,canvas.height);
+	if(_onlineLite) ctx.imageSmoothingEnabled = _onlineParty < 3;
 	
 	// Apply screen shake
 	ctx.save();
@@ -35223,7 +35307,7 @@ break;}
 			}
 		}
 		/* Gravity well: pulsing pull-radius indicator drawn on the projectile itself */
-		if(p.effects&&p.effects.includes('gravityWell')&&!p.hasHit){
+		if(p.effects&&p.effects.includes('gravityWell')&&!p.hasHit&&!(_onlineLite&&_onlineParty>=3)){
 			const _gwSize=Math.max(p.width,p.height);
 			const _gwActualR=_gwSize*3.2*(1+Math.sqrt(p.power||1)*0.44);
 			const _gwPulse=0.35+Math.sin((p.age||0)*0.14)*0.2;
@@ -35251,6 +35335,13 @@ break;}
 		let _er,_ealpha;
 		if(_t<=0.35){_er=_exp.maxR*(_t/0.35);_ealpha=0.92;}
 		else{_er=_exp.maxR*(1+(_t-0.35)*0.2);_ealpha=0.92*(1-(_t-0.35)/0.65);}
+		if(_onlineLite){
+			ctx.globalAlpha=_ealpha*0.75;
+			ctx.fillStyle=_exp.color||'#ff8800';
+			ctx.beginPath();ctx.arc(_ecx,_ecy,_er,0,Math.PI*2);ctx.fill();
+			ctx.globalAlpha=1;
+			continue;
+		}
 		const _expRgb=hexToRgb(_exp.color)||{r:255,g:100,b:0};
 		ctx.save();
 		// Radial gradient fill — white core → spell color tinted
@@ -35582,6 +35673,7 @@ break;}
 	ctx.globalAlpha=1;
 
 	/* Gravity wells */
+	if(!_onlineLite){
 	for(const gw of gravityWells){
 		const gwx=gw.x-camera.x, gwy=gw.y-camera.y;
 		const progress=gw.age/gw.life;
@@ -35608,6 +35700,7 @@ break;}
 		ctx.beginPath();ctx.arc(0,0,_gwActualR,0,Math.PI*2);ctx.stroke();
 		ctx.setLineDash([]);
 		ctx.restore();
+	}
 	}
 
 	/* Kitten chain door — visible gate in start room ceiling */
@@ -36489,13 +36582,16 @@ break;}
 	}
 	if(player.blindTimer>0){
 		const bw=canvas.width, bh=canvas.height;
-		const hole=Math.max(70, Math.min(bw,bh)*0.18);
-		const vig=ctx.createRadialGradient(bw/2,bh/2,hole*0.35,bw/2,bh/2,Math.max(bw,bh)*0.72);
+		const hole=Math.max(48, Math.min(bw,bh)*0.10);
+		const vig=ctx.createRadialGradient(bw/2,bh/2,hole*0.18,bw/2,bh/2,Math.max(bw,bh)*0.52);
 		vig.addColorStop(0,'rgba(0,0,0,0)');
-		vig.addColorStop(0.45,'rgba(4,0,10,0.45)');
-		vig.addColorStop(1,'rgba(0,0,0,0.92)');
+		vig.addColorStop(0.28,'rgba(4,0,12,0.72)');
+		vig.addColorStop(0.58,'rgba(0,0,0,0.94)');
+		vig.addColorStop(1,'rgba(0,0,0,0.985)');
 		ctx.save();
 		ctx.setTransform(1,0,0,1,0,0);
+		ctx.fillStyle='rgba(0,0,0,0.32)';
+		ctx.fillRect(0,0,bw,bh);
 		ctx.fillStyle=vig;
 		ctx.fillRect(0,0,bw,bh);
 		ctx.restore();
@@ -37160,7 +37256,7 @@ break;}
    DRAW TRAIL (same as sandbox)
    ============================================================= */
 function drawTrail(proj){
-	if(proj.trail==='none'||proj.trailParts.length<2)return;
+	if(MAX_TRAIL<=0||proj.trail==='none'||proj.trailParts.length<2)return;
 	const trailColors={sparkle:{r:200,g:220,b:255},flame:{r:255,g:140,b:50},smoke:{r:100,g:100,b:100},ice:{r:150,g:220,b:255},lightning:{r:180,g:180,b:255}};
 	const rgb=trailColors[proj.trail]||hexToRgb(proj.color);
 	for(let t=0;t<proj.trailParts.length;t++){
@@ -39640,16 +39736,26 @@ function updateDebugPanel(){
 	document.getElementById('debugContent').textContent=txt;
 }
 </script>
-<script src="challenger-raid.js?v=32"></script>
+<script src="challenger-raid.js?v=33"></script>
 <script>
-function loop(){update();updateDebugPanel();updateHealthHUD();render();requestAnimationFrame(loop);}
+function loop(){
+	const t0=performance.now();
+	update();
+	updateDebugPanel();
+	if(++_hudFrame%(_onlineLite?3:1)===0) updateHealthHUD();
+	if(typeof window.__coopNetTick==='function') window.__coopNetTick();
+	if(typeof window.__pvpNetTick==='function') window.__pvpNetTick();
+	render();
+	_frameCostEma=_frameCostEma*0.88+(performance.now()-t0)*0.12;
+	requestAnimationFrame(loop);
+}
 loop();
 </script>
 
 <!-- Accounts + cloud save + PvP networking -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=3"></script>
-<script src="cloud-save.js?v=4"></script>
+<script src="cloud-save.js?v=5"></script>
 <script src="pvp-net.js?v=7"></script>
 <script src="coop-net.js?v=3"></script>
 <script>
@@ -39755,7 +39861,7 @@ loop();
 		if(net){
 			var now = performance.now();
 			// 30Hz position sync (faster than before for smoother combat)
-			if(now - lastSent > 33){
+			if(now - lastSent > 45){
 				lastSent = now;
 				var st = {
 					x: player.x, y: player.y,
@@ -39766,7 +39872,6 @@ loop();
 					maxHp: Math.round(maxHealth),
 					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
 				};
-				if(lastOutgoingCast && now < lastOutgoingUntil) st.cast = lastOutgoingCast;
 				net.sendState(st);
 			}
 			// Local projectiles hitting the interpolated opponent position
@@ -39822,9 +39927,8 @@ loop();
 			if(opp.castFlash > 0) opp.castFlash--;
 			if(opp.hitFlash > 0) opp.hitFlash--;
 		}
-		requestAnimationFrame(tick);
 	}
-	requestAnimationFrame(tick);
+	window.__pvpNetTick = tick;
 
 	window.drawPvpOpponent = function(){
 		var cw = canvas.width;
@@ -40147,7 +40251,9 @@ loop();
 	function tick(){
 		if(net){
 			var now = performance.now();
-			if(now - lastStateSent > 33){
+			var party = (typeof coopPartySize === 'function') ? coopPartySize() : 2;
+			var stateMs = party >= 4 ? 55 : party >= 3 ? 48 : 42;
+			if(now - lastStateSent > stateMs){
 				lastStateSent = now;
 				var cst = {
 					slot: COOP_SLOT,
@@ -40159,18 +40265,17 @@ loop();
 					maxHp: Math.round(maxHealth),
 					name: (window.CloudSave && CloudSave.displayName) || 'Mage'
 				};
-				if(lastOutgoingCast && now < lastOutgoingUntil) cst.cast = lastOutgoingCast;
 				net.sendState(cst);
 			}
 			if(COOP_HOST){
-				// ~12Hz world snapshot keeps every client on the same fight.
-				if(now - lastWorldSent > 80){
+				var worldMs = party >= 4 ? 110 : party >= 3 ? 95 : 85;
+				if(now - lastWorldSent > worldMs){
 					lastWorldSent = now;
 					net.sendWorld(buildWorldSnapshot());
 				}
 				// Flush spawns/telegraphs the same frame they happen.
 				if(CoopSync.projQueue.length){
-					var batch = CoopSync.projQueue.splice(0, CoopSync.projQueue.length);
+					var batch = CoopSync.projQueue.splice(0, party >= 3 ? 18 : 32);
 					net.sendProjectiles({ list: batch.map(function(p){ return CoopSync.serializeProj(p); }) });
 				}
 				if(CoopSync.eventQueue.length){
@@ -40198,9 +40303,8 @@ loop();
 			}
 			if(a.castFlash > 0) a.castFlash--;
 		}
-		requestAnimationFrame(tick);
 	}
-	requestAnimationFrame(tick);
+	window.__coopNetTick = tick;
 
 	window.drawCoopAlly = function(){
 		var cw = canvas.width;

@@ -595,8 +595,8 @@ input,select{font-family:inherit}
      JAVASCRIPT
      ============================================================ -->
 <script src="scrolls.js?v=1"></script>
-<script src="spell-cost.js?v=1"></script>
-<script src="spell-builder.js?v=11"></script>
+<script src="spell-cost.js?v=2"></script>
+<script src="spell-builder.js?v=12"></script>
 <script>
 /* =============================================================
    DATA DEFINITIONS
@@ -1218,6 +1218,9 @@ function loadState(){
 			if(!s.inventory) s.inventory = [];
 			if(typeof ensurePlayerGold === 'function') ensurePlayerGold(s);
 			else if(s.gold == null) s.gold = 350;
+			if(typeof enforceSpellRulesOnData === 'function' && enforceSpellRulesOnData(s)){
+				try { localStorage.setItem('magicBattle_playerData', JSON.stringify(s)); } catch(e){}
+			}
 			return s;
 		}
 	} catch(e){}
@@ -1241,6 +1244,7 @@ function updateSpellBoosts(){
 
 function saveState(){
 	updateSpellBoosts();
+	if(typeof enforceSpellRulesOnData === 'function') enforceSpellRulesOnData(STATE);
 	localStorage.setItem('magicBattle_playerData', JSON.stringify(STATE));
 }
 
@@ -2550,7 +2554,7 @@ function renderDictPhases(){
 	html += '<h4>💰 Mana Cost Formula</h4>';
 	html += '<p class="dict-detail">Per phase: <b>base 5</b> + shape mana + behavior mana + (power × 50 × countMult) + (count − 1) × 4 + (width − 1) × 2 + (height − 1) × 2 + effect mana costs.</p>';
 	html += '<p class="dict-detail"><b>Count multiplier:</b> 1 + (count − 1) × 0.4 for most behaviors. Rain/Barrage use 0.1 instead of 0.4.</p>';
-	html += '<p class="dict-detail"><b>Projectile cap:</b> total chained projectiles (phase counts multiply) max 100, or 500 on ultimates. Domain wave phases stay at 5 per wave.</p>';
+	html += '<p class="dict-detail"><b>Projectile cap:</b> total chained projectiles (phase counts multiply) max 50, or 200 on ultimates. Domain wave phases stay at 5 per wave.</p>';
 	html += '<p class="dict-detail"><b>Chain stun:</b> +25 mana per stun-second. <b>Ground radius:</b> cubic extra mana above 200px (far lock-on is very expensive). <b>Summon:</b> +4/range, +3/health, +3/speed.</p>';
 	html += '<p class="dict-detail"><b>Phase Fork repeats:</b> +35 mana per repeat.</p>';
 	html += '<p class="dict-detail"><b>Final multiplier:</b> total × (0.6 + phases × 0.25).</p>';
@@ -4980,7 +4984,7 @@ function renderBuilder(){
 		${(() => {
 			let total = 1;
 			for(const p of builderSpell.phases) total *= (p.behavior==='aroundSelf' ? (p.aroundSelfCount||4) : (p.count||1));
-			const cap = isUlt ? 500 : 100;
+			const cap = isUlt ? 200 : 50;
 			const over = total > cap;
 			return `<div class="meta-chip">Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b> / ${cap}${over?' (over cap!)':''}</div>`;
 		})()}
@@ -5201,7 +5205,7 @@ function renderBuilder(){
 
 		// count
 		html += `<div class="prow"><label>Projectile Count</label>
-			<input type="number" min="1" max="${isUlt?500:100}" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:72px"/></div>`;
+			<input type="number" min="1" max="${isUlt?200:50}" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:72px"/></div>`;
 
 		// spread (if count > 1)
 		if(ph.count > 1){
@@ -5540,7 +5544,7 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('input[type=number][data-prop]').forEach(el => {
 		el.addEventListener('change', () => {
-			const _cMax = (editingSlot === 9) ? 500 : 100;
+			const _cMax = (editingSlot === 9) ? 200 : 50;
 			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(_cMax,+el.value));
 			renderBuilder();
 		});
@@ -5777,6 +5781,6 @@ renderAll();
 <!-- Cloud save: keeps spells, loadouts and stats synced to the player's account -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=3"></script>
-<script src="cloud-save.js?v=4"></script>
+<script src="cloud-save.js?v=5"></script>
 </body>
 </html>
