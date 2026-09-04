@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Magic Battle — Inventory</title>
-<link rel="stylesheet" href="spell-builder.css?v=5"/>
+<link rel="stylesheet" href="spell-builder.css?v=8"/>
 <script src="auth-gate.js?v=4"></script>
 <style>
 /* ============================================================
@@ -595,7 +595,8 @@ input,select{font-family:inherit}
      JAVASCRIPT
      ============================================================ -->
 <script src="scrolls.js?v=1"></script>
-<script src="spell-builder.js?v=7"></script>
+<script src="spell-cost.js?v=1"></script>
+<script src="spell-builder.js?v=11"></script>
 <script>
 /* =============================================================
    DATA DEFINITIONS
@@ -618,6 +619,7 @@ const SHAPES = {
 	summon:   { label:'Summon',   icon:'👾', controlReq:8,  manaCost:20, desc:'Summons minions — increase range/health/speed for mana. Fires next spell phase.', dmgNote:'indirect' },
 	meteor:   { label:'Meteor',   icon:'☄️', controlReq:6,  manaCost:16, desc:'Blazing comet: +distance dmg, AoE explosion on impact/expire (50% splash)', dmgNote:'-25% dmg' },
 	slash:    { label:'Slash',    icon:'🌙', controlReq:2,  manaCost:7,  desc:'Curved crescent arc projectile', dmgNote:'' },
+	vortex:   { label:'Vortex',   icon:'🌀', controlReq:7,  manaCost:18, desc:'Slow-moving void that pulls enemies in', dmgNote:'' },
 	explosion:{ label:'Explosion',icon:'💣', controlReq:5,  manaCost:14, desc:'Detonates on hit, expire, wall, enemy projectile, or dispel contact — AoE damage. Width/Height scale explosion radius; projectile visual is fixed size. Self-damages player at 30% if close.', dmgNote:'AoE ×14' },
 	same:     { label:'Same',     icon:'🔄', controlReq:0,  manaCost:0,  desc:'Re-uses the previous phase shape — allows different behavior on same projectile', dmgNote:'' },
 
@@ -647,7 +649,7 @@ const BEHAVIORS = {
 	stationary:   { label:'Stationary',   controlReq:0,  manaCost:0,  desc:'Stays in place', dmgNote:'' },
 	underfoot:    { label:'Underfoot',    controlReq:2,  manaCost:3,  desc:'Spawns below your feet', dmgNote:'' },
 	selfCast:     { label:'Self Cast',    controlReq:1,  manaCost:2,  desc:'Spawns at the caster position', dmgNote:'' },
-	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:6,  desc:'Projectiles around you in a circle (uses Around Self Count slider)', dmgNote:'' },
+	aroundSelf:   { label:'Around Self',  controlReq:3,  manaCost:6,  desc:'Projectiles around you in a circle (uses Around Self Count)', dmgNote:'' },
 	ground:       { label:'Ground',       controlReq:3,  manaCost:4,  desc:'Erupts from ground at nearest enemy within radius. Expand radius for mana.', dmgNote:'+40% dmg' },
 	zigzag:       { label:'Zigzag',       controlReq:4,  manaCost:5,  desc:'Weaves in a sine wave pattern', dmgNote:'' },
 	spiral:       { label:'Spiral',       controlReq:5,  manaCost:6,  desc:'Corkscrews along the aimed path, orbiting the straight trajectory', dmgNote:'' },
@@ -663,40 +665,42 @@ const DOMAIN_ELEMENTS = ['burn','freeze','poison','stun','lifesteal'];
 
 /* -- Effects catalogue -- */
 const EFFECTS = {
-	burn:      { label:'Burn',      icon:'🔥', controlReq:2, manaCost:5, desc:'+fire DoT', category:'elemental', dmgNote:'50% as DoT' },
-	freeze:    { label:'Freeze',    icon:'❄️', controlReq:2, manaCost:5, desc:'Slows target', category:'elemental', dmgNote:'' },
-	poison:    { label:'Poison',    icon:'☠️', controlReq:3, manaCost:5, desc:'+poison DoT', category:'elemental', dmgNote:'40% as DoT' },
-	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:3, desc:'Pushes target away', category:'movement', dmgNote:'' },
-	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:4, desc:'Pulls target toward you', category:'movement', dmgNote:'' },
-	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:4, desc:'Forces target to jump', category:'movement', dmgNote:'' },
-stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:7, desc:'Briefly stuns target (max ~0.3s, resistance stacks up quickly)', category:'elemental', dmgNote:'' },
-	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:6, desc:'Heals you on hit', category:'support', dmgNote:'' },
-	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:6, desc:'Temp. defence boost', category:'support', dmgNote:'' },
-	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:6, manaCost:6, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
-	randomDelay:{ label:'Random Delay',icon:'🎲', controlReq:1, manaCost:2, desc:'Each projectile spawns after a random delay', category:'utility', dmgNote:'' },
-	evenDelay:   { label:'Even Delay',  icon:'⏳', controlReq:1, manaCost:2, desc:'Projectiles spawn at equal intervals across a set duration', category:'utility', dmgNote:'' },
-	phaseThrough:{ label:'Phase',   icon:'👻', controlReq:6, manaCost:20, desc:'Projectile passes through walls', category:'utility', dmgNote:'-45% dmg' },
-	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:3, desc:'Auto-triggers effects after a delay', category:'utility', dmgNote:'' },
+	burn:      { label:'Burn',      icon:'🔥', controlReq:2, manaCost:36, desc:'+fire DoT', category:'elemental', dmgNote:'50% as DoT' },
+	freeze:    { label:'Freeze',    icon:'❄️', controlReq:2, manaCost:36, desc:'Slows target', category:'elemental', dmgNote:'' },
+	poison:    { label:'Poison',    icon:'☠️', controlReq:3, manaCost:36, desc:'+poison DoT', category:'elemental', dmgNote:'40% as DoT' },
+	knockback: { label:'Knockback', icon:'💨', controlReq:1, manaCost:8, desc:'Pushes target away', category:'movement', dmgNote:'' },
+	pull:      { label:'Pull',      icon:'🧲', controlReq:3, manaCost:10, desc:'Pulls target toward you', category:'movement', dmgNote:'' },
+	forceJump:{ label:'Force Jump',icon:'🚀', controlReq:2, manaCost:10, desc:'Forces target to jump', category:'movement', dmgNote:'' },
+	stun:      { label:'Stun',      icon:'⚡', controlReq:5, manaCost:54, desc:'Briefly stuns target (max ~0.3s, resistance stacks up quickly)', category:'elemental', dmgNote:'' },
+	healSelf:  { label:'Heal Self', icon:'💚', controlReq:4, manaCost:15, desc:'Heals you on hit', category:'support', dmgNote:'' },
+	shield:    { label:'Shield',    icon:'🛡️', controlReq:4, manaCost:15, desc:'Temp. defence boost', category:'support', dmgNote:'' },
+	lifesteal:  { label:'Lifesteal',   icon:'🩸', controlReq:3, manaCost:48, desc:'Heals you for 20% of damage dealt', category:'elemental', dmgNote:'20% as heal' },
+	randomDelay:{ label:'Random Delay',icon:'🎲', controlReq:1, manaCost:5, desc:'Each projectile spawns after a random delay', category:'utility', dmgNote:'' },
+	evenDelay:   { label:'Even Delay',  icon:'⏳', controlReq:1, manaCost:5, desc:'Projectiles spawn at equal intervals across a set duration', category:'utility', dmgNote:'' },
+	phaseThrough:{ label:'Phase',   icon:'👻', controlReq:6, manaCost:35, desc:'Projectile passes through walls', category:'overall', dmgNote:'-45% dmg' },
+	timedRelease:{ label:'Timed Release',icon:'⏱️', controlReq:2, manaCost:8, desc:'Auto-triggers effects after a delay', category:'utility', dmgNote:'' },
 	phaseFork:  { label:'Phase Fork',  icon:'🔀', controlReq:5, manaCost:6, desc:'Triggers next phase after delay without ending current', category:'utility', dmgNote:'' },
 	resetProjectiles:{ label:'Reset Projectiles',icon:'🔄', controlReq:0, manaCost:0, desc:'Next phase spawns fresh instead of morphing (free)', category:'utility', dmgNote:'' },
-	damageStore:  { label:'Dmg Store',  icon:'🗃️', controlReq:2, manaCost:4, desc:'Stores a % of damage dealt for later use (customizable)', category:'store', dmgNote:'' },
-	damageRelease:{ label:'Dmg Release', icon:'💥', controlReq:4, manaCost:6, desc:'Consumes stored damage for bonus dmg & size', category:'store', dmgNote:'+stored dmg' },
-	damageHeal:   { label:'Dmg Heal',   icon:'💗', controlReq:3, manaCost:5, desc:'Ally Orb converts stored damage into health (50%)', category:'store', dmgNote:'' },
-	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:8, desc:'Destroys enemy projectiles and magic walls on contact', category:'utility', dmgNote:'' },
+	damageStore:  { label:'Dmg Store',  icon:'🗃️', controlReq:2, manaCost:10, desc:'Stores a % of damage dealt for later use (customizable)', category:'store', dmgNote:'' },
+	damageRelease:{ label:'Dmg Release', icon:'💥', controlReq:4, manaCost:15, desc:'Consumes stored damage for bonus dmg & size', category:'store', dmgNote:'+stored dmg' },
+	damageHeal:   { label:'Dmg Heal',   icon:'💗', controlReq:3, manaCost:12, desc:'Ally Orb converts stored damage into health (50%)', category:'store', dmgNote:'' },
+	dispel:       { label:'Dispel',     icon:'🚫', controlReq:4, manaCost:45, desc:'Destroys enemy projectiles and magic walls on contact', category:'overall', dmgNote:'' },
 	blind:        { label:'Blind',      icon:'🌑', controlReq:5, manaCost:6, desc:'Blinds the target: enemies lose detection range, players get a darkened screen. Lasts 0.5s at power 1, 5s at power 10', category:'cc', dmgNote:'' },
-	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:8, desc:'Spawns 12 crystal shards on every hit (5-frame cooldown). On enemy death, triggers a full 16-shard burst. Archmage: each shard cascades into 3 micro-shards.', category:'elemental', dmgNote:'on-hit shards + kill burst' },
+	shatter:      { label:'Shatter',    icon:'💎', controlReq:6, manaCost:60, desc:'Spawns 12 crystal shards on every hit (5-frame cooldown). On enemy death, triggers a full 16-shard burst. Archmage: each shard cascades into 3 micro-shards.', category:'elemental', dmgNote:'on-hit shards + kill burst' },
 	mark:         { label:'Mark',       icon:'🎯', controlReq:4, manaCost:5, desc:'Tags enemy — all attacks deal +30% bonus damage for 3s', category:'cc', dmgNote:'+30% (debuff)' },
-	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:50,desc:'Creates a powerful pull zone — range and strength scale with spell power. Affects enemies and solidified objects. Closer to centre = much stronger pull.', category:'movement', dmgNote:'' },
-	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:18,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
-	rotate:       { label:'Rotate',      icon:'🔃', controlReq:1, manaCost:4, desc:'Spins the projectile around its own center as it travels', category:'utility', dmgNote:'' },
-	solidify:     { label:'Solidify',    icon:'🟩', controlReq:4, manaCost:10, desc:'Turns projectile into a solid platform — blocks projectiles, walkable. Moving solidified objects push enemies with momentum. 10 mana (stationary) / 100 mana (moving). Phase bypasses.', category:'utility', dmgNote:'momentum dmg' },
-	awayFromPlayer:{ label:'Away From Player', icon:'↗️', controlReq:2, manaCost:4, desc:'Projectiles shoot away from the player instead of toward the cursor', category:'utility', dmgNote:'' },
-	solidObjectBreak:{ label:'Solid Object Break', icon:'💥', controlReq:1, manaCost:100, desc:'Destroys all solidify projectiles when cast. Costs 100 mana but breaks any number of solid objects at once.', category:'utility', dmgNote:'' },
-	sticky:{ label:'Sticky', icon:'🕸', controlReq:4, manaCost:12, desc:'On solidify: enemies, player, and other solidify that touch it stick to the surface. On normal projectile: applies sticky debuff to enemy (slows them and causes contact-chain to other enemies). On player contact with sticky solidify: grants wall/ceiling walking for 8s.', category:'utility', dmgNote:'' },
+	gravityWell:  { label:'Gravity Well',icon:'🕳️', controlReq:7, manaCost:120,desc:'Creates a powerful pull zone — range and strength scale with spell power. Affects enemies and solidified objects. Closer to centre = much stronger pull.', category:'movement', dmgNote:'' },
+	ricochet:     { label:'Ricochet',    icon:'🔁', controlReq:6, manaCost:35,desc:'Bounces off walls up to 5 times (works with homing, lob, etc.)', category:'utility', dmgNote:'' },
+	rotate:       { label:'Rotate',      icon:'🔃', controlReq:2, manaCost:8, desc:'Spins the projectile around its own center as it travels', category:'utility', dmgNote:'' },
+	solidify:     { label:'Solidify',    icon:'🟩', controlReq:4, manaCost:0, desc:'Turns projectile into a solid platform — blocks projectiles, walkable. Moving solidified objects push enemies with momentum. 10 mana (stationary) / 100 mana (moving). Phase bypasses.', category:'overall', dmgNote:'momentum dmg' },
+	awayFromPlayer:{ label:'Away From Player', icon:'↗️', controlReq:2, manaCost:5, desc:'Projectiles shoot away from the player instead of toward the cursor', category:'utility', dmgNote:'' },
+	solidObjectBreak:{ label:'Solid Object Break', icon:'💥', controlReq:1, manaCost:100, desc:'Destroys all solidify projectiles when cast. Costs 100 mana but breaks any number of solid objects at once.', category:'overall', dmgNote:'' },
+	sticky:{ label:'Sticky', icon:'🕸', controlReq:5, manaCost:35, desc:'On solidify: enemies, player, and other solidify that touch it stick to the surface. On normal projectile: applies sticky debuff to enemy (slows them and causes contact-chain to other enemies). On player contact with sticky solidify: grants wall/ceiling walking for 8s.', category:'cc', dmgNote:'' },
 };
+syncCatalogueCosts();
 
 /* Effect category rules: 'exclusive' means only one per phase */
 const EFFECT_CATEGORIES = {
+	overall:   { label:'🌐 Overall', exclusive:false },
 	elemental: { label:'🔥 Elemental', exclusive:true },
 	movement:  { label:'💨 Forced Movement', exclusive:true },
 	cc:        { label:'⚡ Crowd Control', exclusive:false },
@@ -744,9 +748,9 @@ const MAGE_CLASSES = [
 
 const SHAPE_RANK_REQ = {
 	missile:0, orb:0, allyOrb:0, same:0,
-	blade:1, spike:1, polygon:1,
+	blade:1, spike:1, polygon:1, slash:1,
 	beam:2, cone:2, wall:2,
-	ring:3, nova:3, meteor:3,
+	ring:3, nova:3, meteor:3, vortex:3,
 	chain:4, summon:4, explosion:4,
 };
 const BEHAVIOR_RANK_REQ = {
@@ -1527,107 +1531,16 @@ function calcVowBoostsForSlot(slot){
 	return b;
 }
 
-/* =============================================================
-   SPELL COST / CONTROL REQUIREMENT CALCULATORS
-   ============================================================= */
-function phaseSpeedMana(ph, powerMax){
-	const s = Math.max(0.1, Number(ph && ph.speed)||1);
-	const t = Math.max(0, Math.min(1, (s - 1) / 9));
-	const isArea = ph && (ph.behavior==='rain'||ph.behavior==='barrage');
-	const ec = ph && ph.behavior==='aroundSelf' ? (ph.aroundSelfCount||4) : ((ph && ph.count)||1);
-	const countMult = 1 + (ec - 1) * (isArea ? 0.1 : 0.4);
-	return (powerMax || 10) * 50 * countMult * t * t;
-}
-function phasePowerCap(spell, phaseIdx){
-	if(spell && spell.phases && spell.phases[0] && spell.phases[0].behavior==='domain' && phaseIdx>0) return 10;
-	return (spell && spell.isUltimate) ? 20 : 10;
-}
-
-function calcSpellManaCost(spell){
-	if(!spell || !spell.phases.length) return 0;
-	let cost = 5;
-	for(const ph of spell.phases){
-		cost += (SHAPES[ph.shape]?.manaCost||0);
-		cost += (ph.behavior === 'aroundSelf'
-			? (BEHAVIORS[ph.behavior]?.manaCost||0) * (ph.aroundSelfCount || 4)
-			: (BEHAVIORS[ph.behavior]?.manaCost||0));
-		// power costs scale — count multiplies power cost (rain/barrage much cheaper)
-		const isAreaBeh = ph.behavior === 'rain' || ph.behavior === 'barrage';
-		const effectiveCount = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount || 4) : ph.count;
-		const countMult = 1 + (effectiveCount - 1) * (isAreaBeh ? 0.1 : 0.4);
-		cost += ph.power * 50 * countMult;
-		cost += (effectiveCount - 1) * (isAreaBeh ? 1 : 4);
-		// size, speed, duration scaling (matches dungeon.html calcSpellCost)
-		cost += (ph.width  - 1) * 6 + Math.max(0, ph.width  - 2) * 4;
-		cost += (ph.height - 1) * 6 + Math.max(0, ph.height - 2) * 4;
-		cost += phaseSpeedMana(ph, phasePowerCap(spell, spell.phases.indexOf(ph)));
-		cost += Math.max(0, (ph.duration || 1) - 1) * 22;
-		// chain stun costs significant mana
-		if(ph.shape === 'chain' && ph.chainStunTime > 0) cost += ph.chainStunTime * 25;
-		// ground radius upcharge
-		if(ph.behavior === 'ground' && ph.groundRadius > 200) cost += Math.floor((ph.groundRadius - 200) / 50) * 3;
-		// summon stat costs
-		if(ph.shape === 'summon') cost += (ph.summonRange||0)*4 + (ph.summonHealth||0)*3 + (ph.summonSpeed||0)*3;
-		for(const fx of ph.effects) cost += (EFFECTS[fx]?.manaCost||0);
-		// effect intensity scaling: higher power/duration = much more mana
-		// burn/poison only scale with duration (not power)
-		const tunableFx = ['burn','poison','freeze','stun'];
-		const hasTunable = ph.effects.some(fx => tunableFx.includes(fx));
-		if(hasTunable){
-			const onlyBurnPoison = ph.effects.filter(fx => tunableFx.includes(fx)).every(fx => fx==='burn'||fx==='poison');
-			const ep = onlyBurnPoison ? 1 : (ph.effectPower || 1);
-			const ed = (ph.effectDuration || 1);
-			cost += (ep * ep * 12) + (ed * ed * 8);
-		}
-		// solidify costs extra for non-outward behaviors; beam solidify costs heavily more
-		if(ph.effects.includes('solidify')){
-			const _solNonOutward = new Set(['stationary','underfoot','selfCast','aroundSelf','ground']);
-			cost += _solNonOutward.has(ph.behavior) ? 10 : 100;
-			if(ph.shape === 'beam') cost += 180;
-		}
-		// stacked rain
-		if(ph.behavior === 'rain' && ph.stackedRain) cost += 50;
-		// phase fork: significant upfront mana cost (beam costs 2.5× more)
-		if(ph.effects.includes('phaseFork')){
-			const _bfm = ph.shape === 'beam' ? 2.5 : 1;
-			cost += (ph.phaseForkRepeats || 1) * 35 * _bfm;
-		}
-		// gravity well: extra cost based on power and size (range = size * power)
-		if(ph.effects.includes('gravityWell'))
-			cost += (ph.power||1)*14 + Math.max(0,(ph.width||1)-1)*10 + Math.max(0,(ph.height||1)-1)*10;
-	}
-	cost *= (0.6 + spell.phases.length * 0.25);
-	// Additional phase cost scales with first-phase projectile count
-	if(spell.phases.length > 1){
-		const _fp0 = spell.phases[0];
-		const _fp0c = _fp0.behavior==='aroundSelf' ? (_fp0.aroundSelfCount||4) : (_fp0.count||1);
-		const _fp0fork = (_fp0.effects||[]).includes('phaseFork') ? (1+(_fp0.phaseForkRepeats||1)) : 1;
-		const _fp0tot = _fp0c * _fp0fork;
-		const _phCountCost = _fp0tot * Math.pow(Math.max(1,_fp0tot)/10, 0.65) * 0.15;
-		cost += (spell.phases.length - 1) * _phCountCost;
-	}
-	// Cross-phase scaling: total projectiles (multiplicative) × highest power → exponential cost
-	// Single-shot spells: negligible. 1000 total proj × high power = very expensive.
-	const _totalProj = spell.phases.reduce((prod, ph) => {
-		const ec = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount||4) : (ph.count||1);
-		const forkMult = (ph.effects||[]).includes('phaseFork') ? (1 + (ph.phaseForkRepeats||1)) : 1;
-		return prod * ec * forkMult;
-	}, 1);
-	const _maxPow = Math.max(...spell.phases.map(ph => ph.power || 1));
-	cost += _totalProj * _totalProj * _maxPow * 0.02;
-	return Math.round(cost);
-}
-
-function calcSpellControlReq(spell){
-	if(!spell || !spell.phases.length) return 0;
-	let req = 0;
-	for(const ph of spell.phases){
-		req = Math.max(req, SHAPES[ph.shape]?.controlReq||0);
-		req = Math.max(req, BEHAVIORS[ph.behavior]?.controlReq||0);
-		for(const fx of ph.effects) req = Math.max(req, EFFECTS[fx]?.controlReq||0);
-	}
-	req += (spell.phases.length - 1) * 3;
-	return req;
+function inventoryManaOpts(slot, spell){
+	const vb = calcVowBoostsForSlot(slot);
+	return {
+		stats: computeStats(),
+		slotManaCost: vb.manaCost||0,
+		manaEfficiency: vb.manaEfficiency||0,
+		slot,
+		isUltimate: !!(spell && spell.isUltimate && slot===9),
+		mageClass: STATE.mageClass
+	};
 }
 
 /* =============================================================
@@ -2082,7 +1995,7 @@ const DICT_BEHAVIOR_DETAILS = {
 	underfoot:    { phaseNote:'Spawns directly below your feet.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
 	selfCast:     { phaseNote:'Spawns at your exact position.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
 	aroundSelf:   { phaseNote:'Spawns projectiles in a circle around you. Uses the Around Self Count slider for count.', dmgMod:'None (×1.0)', extraNote:'Inherits ×1.0 self-behavior power bonus' },
-	ground:       { phaseNote:'Erupts from the ground at the nearest enemy (within customizable radius). If no enemy in range, spawns at your feet. Expand radius costs +3 mana per 50px above 200.', dmgMod:'+40% (×1.4)', extraNote:'Auto-locks nearest enemy. Duration ×3' },
+	ground:       { phaseNote:'Erupts from the ground at the nearest enemy (within customizable radius). If no enemy in range, spawns at your feet. Farther lock-on radius costs much more mana (cubic: ~95 at 300px, ~280 at 400px, ~2520 at 800px).', dmgMod:'+40% (×1.4)', extraNote:'Auto-locks nearest enemy. Duration ×3' },
 	zigzag:       { phaseNote:'Weaves in a sine wave pattern toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
 	spiral:       { phaseNote:'Corkscrews along the aimed path — orbits around the straight centerline toward the cursor.', dmgMod:'None (×1.0)', extraNote:'' },
 	teleport:     { phaseNote:'Blinks forward at intervals, making it hard to dodge.', dmgMod:'None (×1.0)', extraNote:'' },
@@ -2637,7 +2550,8 @@ function renderDictPhases(){
 	html += '<h4>💰 Mana Cost Formula</h4>';
 	html += '<p class="dict-detail">Per phase: <b>base 5</b> + shape mana + behavior mana + (power × 50 × countMult) + (count − 1) × 4 + (width − 1) × 2 + (height − 1) × 2 + effect mana costs.</p>';
 	html += '<p class="dict-detail"><b>Count multiplier:</b> 1 + (count − 1) × 0.4 for most behaviors. Rain/Barrage use 0.1 instead of 0.4.</p>';
-	html += '<p class="dict-detail"><b>Chain stun:</b> +25 mana per stun-second. <b>Ground radius:</b> +3 mana per 50px over 200. <b>Summon:</b> +4/range, +3/health, +3/speed.</p>';
+	html += '<p class="dict-detail"><b>Projectile cap:</b> total chained projectiles (phase counts multiply) max 100, or 500 on ultimates. Domain wave phases stay at 5 per wave.</p>';
+	html += '<p class="dict-detail"><b>Chain stun:</b> +25 mana per stun-second. <b>Ground radius:</b> cubic extra mana above 200px (far lock-on is very expensive). <b>Summon:</b> +4/range, +3/health, +3/speed.</p>';
 	html += '<p class="dict-detail"><b>Phase Fork repeats:</b> +35 mana per repeat.</p>';
 	html += '<p class="dict-detail"><b>Final multiplier:</b> total × (0.6 + phases × 0.25).</p>';
 	html += '</div>';
@@ -3868,18 +3782,14 @@ function renderSpellSlots(){
 		el.style.cssText = 'display:flex;align-items:center;gap:4px';
 		const kbKey = keybinds[i] || '';
 		if(sp){
-			const baseCost = calcSpellManaCost(sp);
-			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-			const _vbSlot = calcVowBoostsForSlot(i);
-			const vowManaSlot = Math.max(0.1, 1 - (_vbSlot.manaCost||0) * 0.05);
-			const cost = Math.round(baseCost * controlDiscount * vowManaSlot);
+			const cost = displayedSpellMana(sp, inventoryManaOpts(i, sp));
 			const req  = calcSpellControlReq(sp);
 			const canUse = stats.magicControl >= req;
 			el.innerHTML = `
 				<span class="sp-num">${isUlt ? '⚡0' : (i+1)}</span>
 				<span class="sp-color" style="background:${sp.phases[0]?.color||'#888'}"></span>
 				<span class="sp-name" style="${canUse?'':'color:var(--red);text-decoration:line-through'}">${sp.name}</span>
-				<span class="sp-mana">${isUlt ? (cost*10)+' ⚡' : cost+' 💧'}</span>
+				<span class="sp-mana">${isUlt ? cost+' ⚡' : cost+' 💧'}</span>
 				<button class="kb-btn" data-slot="${i}" title="Click to set keybind for this spell" style="margin-left:auto;padding:1px 6px;font-size:.75em;background:var(--panel2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text);flex-shrink:0">${kbKey ? '🔑 '+kbKey : '🔑 —'}</button>
 			`;
 			if(!canUse) el.title = `Requires ${req} Control (you have ${stats.magicControl})`;
@@ -4925,6 +4835,8 @@ function openSpellBuilder(slotIdx){
 	editingSlot = slotIdx;
 	const existing = STATE.spells[slotIdx];
 	builderSpell = existing ? JSON.parse(JSON.stringify(existing)) : { name: slotIdx === 9 ? 'New Ultimate' : 'New Spell', phases:[newPhase()] };
+	if(slotIdx === 9) builderSpell.isUltimate = true;
+	else delete builderSpell.isUltimate;
 	const isUlt = (slotIdx === 9);
 	const titleEl = document.getElementById('modalTitle');
 	if(titleEl) titleEl.textContent = isUlt ? `⚡ Ultimate Builder — Slot 0` : `Spell Builder — Slot ${slotIdx+1}`;
@@ -5034,12 +4946,10 @@ function renderBuilder(){
 		return;
 	}
 	const stats = computeStats();
-	const baseCost = calcSpellManaCost(builderSpell);
-	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
 	const _vbBuilder = calcVowBoostsForSlot(editingSlot);
-	const vowManaMult = Math.max(0.1, 1 - (_vbBuilder.manaCost||0) * 0.05);
-	const cost = Math.round(baseCost * controlDiscount * vowManaMult);
-	const totalDiscountPct = Math.round((1 - controlDiscount * vowManaMult) * 100);
+	const cost = displayedSpellMana(builderSpell, inventoryManaOpts(editingSlot, builderSpell));
+	const discMult = spellManaDiscountMult(inventoryManaOpts(editingSlot, builderSpell));
+	const totalDiscountPct = Math.round((1 - discMult) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const isUlt = (editingSlot === 9);
@@ -5063,15 +4973,16 @@ function renderBuilder(){
 			<label>${isUlt ? '⚡ Ultimate Name' : 'Spell Name'}</label>
 			<input type="text" id="spellNameInput" value="${escHtml(builderSpell.name)}" maxlength="30"/>
 		</div>
-		${isUlt ? `<div class="meta-chip" style="background:rgba(255,170,0,.15);color:#ffaa00">⚡ ULTIMATE — Costs Total Mana (${cost*10}⚡)</div>` : `<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}% discount)</span>` : ''}</div>`}
+		${isUlt ? `<div class="meta-chip" style="background:rgba(255,170,0,.15);color:#ffaa00">⚡ ULTIMATE — Costs Total Mana (${cost}⚡)</div>` : `<div class="meta-chip">Mana Cost: <b style="color:var(--blue)">${cost}</b>${totalDiscountPct > 0 ? ` <span style="color:var(--green);font-size:.85em">(-${totalDiscountPct}% discount)</span>` : ''}</div>`}
 		<div class="meta-chip">Control Req: <b style="color:${canUse?'var(--green)':'var(--red)'}">${req}</b> / ${stats.magicControl}</div>
 		<div class="meta-chip">Phases: <b>${builderSpell.phases.length}</b>/${maxPhases}</div>
 		${isUlt ? '<div class="meta-chip" style="color:#ffaa00">Max Power: 10 · Larger Size · Longer Effects</div>' : ''}
 		${(() => {
 			let total = 1;
 			for(const p of builderSpell.phases) total *= (p.behavior==='aroundSelf' ? (p.aroundSelfCount||4) : (p.count||1));
-			const over = total > 1000;
-			return `<div class="meta-chip">Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b>${over?' (max 1000!)':''}</div>`;
+			const cap = isUlt ? 500 : 100;
+			const over = total > cap;
+			return `<div class="meta-chip">Total Projectiles: <b style="color:${over?'var(--red)':'var(--green)'}">${total}</b> / ${cap}${over?' (over cap!)':''}</div>`;
 		})()}
 	`;
 	document.getElementById('spellNameInput').addEventListener('input', e => {
@@ -5290,7 +5201,7 @@ function renderBuilder(){
 
 		// count
 		html += `<div class="prow"><label>Projectile Count</label>
-			<input type="number" min="1" max="${isUlt?50:10}" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:60px"/></div>`;
+			<input type="number" min="1" max="${isUlt?500:100}" value="${ph.count}" data-idx="${idx}" data-prop="count" style="width:72px"/></div>`;
 
 		// spread (if count > 1)
 		if(ph.count > 1){
@@ -5388,7 +5299,7 @@ function renderBuilder(){
 		// effects — grouped by category (domain/transformation phase shows no effects)
 		if(!isDomainPhase && !isTransformPhase){
 		html += `<div class="prow"><label>Effects</label></div>`;
-		const catOrder = ['elemental','movement','cc','support','buff','utility','store'];
+		const catOrder = ['overall','elemental','movement','cc','support','buff','utility','store'];
 		for(const cat of catOrder){
 			const catInfo = EFFECT_CATEGORIES[cat];
 			const catEffects = Object.entries(EFFECTS).filter(([k,v])=>v.category===cat).sort((a,b)=>(EFFECT_RANK_REQ[a[0]]??99)-(EFFECT_RANK_REQ[b[0]]??99)||a[1].controlReq-b[1].controlReq);
@@ -5629,7 +5540,7 @@ function renderBuilder(){
 	});
 	wrap.querySelectorAll('input[type=number][data-prop]').forEach(el => {
 		el.addEventListener('change', () => {
-			const _cMax = builderSpell.isUltimate ? 50 : 10;
+			const _cMax = (editingSlot === 9) ? 500 : 100;
 			builderSpell.phases[+el.dataset.idx][el.dataset.prop] = Math.max(1,Math.min(_cMax,+el.value));
 			renderBuilder();
 		});
@@ -5661,12 +5572,9 @@ function renderBuilder(){
 
 function updateBuilderMeta(){
 	const stats = computeStats();
-	const baseCost = calcSpellManaCost(builderSpell);
-	const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-	const _vbMeta = calcVowBoostsForSlot(editingSlot);
-	const vowManaMeta = Math.max(0.1, 1 - (_vbMeta.manaCost||0) * 0.05);
-	const cost = Math.round(baseCost * controlDiscount * vowManaMeta);
-	const totalDiscountPct = Math.round((1 - controlDiscount * vowManaMeta) * 100);
+	const cost = displayedSpellMana(builderSpell, inventoryManaOpts(editingSlot, builderSpell));
+	const discMult = spellManaDiscountMult(inventoryManaOpts(editingSlot, builderSpell));
+	const totalDiscountPct = Math.round((1 - discMult) * 100);
 	const req  = calcSpellControlReq(builderSpell);
 	const canUse = stats.magicControl >= req;
 	const meta = document.getElementById('spellMeta');

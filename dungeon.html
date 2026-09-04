@@ -83,7 +83,7 @@ body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
 /* === INVENTORY OVERLAY === */
 #inventoryOverlay{position:fixed;inset:0;z-index:9999;display:none;background:rgba(0,0,0,0.75);align-items:center;justify-content:center}
 #inventoryOverlay.open{display:flex}
-#invFrame{width:min(960px,94vw);height:min(700px,90vh);border:2px solid #6c5ce7;border-radius:10px;background:#1a1a2e}
+#invFrame{width:min(1380px,96vw);height:min(920px,92vh);border:2px solid #6c5ce7;border-radius:10px;background:#1a1a2e}
 #invCloseBtn{position:fixed;top:12px;right:18px;font-size:28px;color:#fff;cursor:pointer;z-index:10000;background:rgba(0,0,0,0.5);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
 #invCloseBtn:hover{background:#6c5ce7}
 
@@ -244,6 +244,7 @@ body.ai-chat-open #hud{pointer-events:none;opacity:0.45}
 <script src="conversational-npc.js"></script>
 <script src="npc-profiles.js"></script>
 <script src="scrolls.js?v=1"></script>
+<script src="spell-cost.js?v=1"></script>
 <script>
 /* =========================================================
    Magic Battle — Unified Spell Battle Engine
@@ -1161,64 +1162,16 @@ function computeStats(){
 }
 const stats=computeStats();
 
-/* --- Spell cost helpers --- */
-const SHAPE_MANA={missile:5,orb:8,blade:7,beam:10,ring:12,cone:10,nova:15,chain:18,wall:12,spike:8,allyOrb:6,polygon:9,meteor:16,vortex:18,same:0,explosion:14};
-const SHAPE_CTRL={missile:0,orb:1,blade:2,beam:4,ring:5,cone:4,nova:7,chain:9,wall:6,spike:3,allyOrb:1,polygon:3,meteor:6,vortex:7,same:0,explosion:5};
-const BEH_MANA={straight:0,lob:2,homing:5,boomerang:4,groundSurge:5,orbit:8,rain:8,barrage:8,stationary:0,underfoot:3,selfCast:2,aroundSelf:6,ground:4,zigzag:5,spiral:6,teleport:7,control:30,domain:1000};
-const BEH_CTRL={straight:0,lob:1,homing:3,boomerang:3,groundSurge:4,orbit:6,spiral:5,rain:7,barrage:7,stationary:0,underfoot:2,selfCast:1,aroundSelf:3,ground:3,zigzag:4,teleport:6,control:3,domain:10};
-const FX_MANA={burn:36,freeze:36,knockback:8,pull:10,poison:36,stun:54,healSelf:15,shield:15,lifesteal:48,timedRelease:8,phaseFork:6,resetProjectiles:0,forceJump:10,randomDelay:5,evenDelay:5,phaseThrough:35,damageStore:10,damageRelease:15,damageHeal:12,dispel:45,ricochet:35,shatter:60,gravityWell:120,classDisable:0,rotate:8,solidify:0,awayFromPlayer:5,solidObjectBreak:100,sticky:35,blind:6};
-const FX_CTRL={burn:2,freeze:2,knockback:1,pull:3,poison:3,stun:5,healSelf:4,shield:4,lifesteal:3,timedRelease:2,phaseFork:5,resetProjectiles:0,forceJump:2,randomDelay:1,evenDelay:1,phaseThrough:6,damageStore:2,damageRelease:4,damageHeal:3,dispel:4,ricochet:6,shatter:6,gravityWell:7,classDisable:0,rotate:2,solidify:4,awayFromPlayer:2,solidObjectBreak:1,sticky:5,blind:5};
-
-function calcSpellCost(spell){
-	if(!spell||!spell.phases.length)return 0;
-	let cost=5;
-	for(const ph of spell.phases){
-		cost+=(SHAPE_MANA[ph.shape]||0)+(ph.behavior==='aroundSelf'?(BEH_MANA.aroundSelf*(ph.aroundSelfCount||4)):(BEH_MANA[ph.behavior]||0));
-		const isAreaBeh=ph.behavior==='rain'||ph.behavior==='barrage';
-		const _isSameC=ph.shape==='same';
-		const effectiveCount=ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(_isSameC?1:ph.count);
-		const countMult=1+(effectiveCount-1)*(isAreaBeh?0.1:0.4);
-		const _cW=_isSameC?1:(ph.width||1);const _cH=_isSameC?1:(ph.height||1);
-		cost+=ph.power*50*countMult+(effectiveCount-1)*(isAreaBeh?1:4)+(_cW-1)*6+Math.max(0,_cW-2)*4+(_cH-1)*6+Math.max(0,_cH-2)*4+phaseSpeedMana(ph, phasePowerCap(spell, spell.phases.indexOf(ph)))+Math.max(0,(ph.duration||1)-1)*22;
-		if(ph.shape==='chain'&&ph.chainStunTime>0)cost+=ph.chainStunTime*25;
-		if(ph.behavior==='ground'&&ph.groundRadius>200)cost+=Math.floor((ph.groundRadius-200)/50)*3;
-		if(ph.shape==='summon'){cost+=(ph.summonRange||0)*4+(ph.summonHealth||0)*3+(ph.summonSpeed||0)*3;}
-		for(const fx of ph.effects)cost+=(FX_MANA[fx]||0);
-		if(ph.effects.includes('solidify')){const _solNonOutward=new Set(['stationary','underfoot','selfCast','aroundSelf','ground']);cost+=_solNonOutward.has(ph.behavior)?10:100;if(ph.shape==='beam')cost+=180;}
-		if(ph.behavior==='rain'&&ph.stackedRain)cost+=50;
-		if(ph.effects.includes('phaseFork')){const _bfm=ph.shape==='beam'?2.5:1;cost+=(ph.phaseForkRepeats||1)*35*_bfm;}
-		if(ph.effects.includes('gravityWell'))cost+=(ph.power||1)*14+Math.max(0,(ph.width||1)-1)*10+Math.max(0,(ph.height||1)-1)*10;
-	}
-	cost*=(0.6+spell.phases.length*0.25);
-	// Additional phase cost scales with first-phase projectile count: cheap for 1 projectile, very expensive for 300
-	if(spell.phases.length>1){
-		const _fp0=spell.phases[0];
-		const _fp0c=_fp0.behavior==='aroundSelf'?(_fp0.aroundSelfCount||4):(_fp0.shape==='same'?1:(_fp0.count||1));
-		const _fp0fork=(_fp0.effects||[]).includes('phaseFork')?(1+(_fp0.phaseForkRepeats||1)):1;
-		const _fp0tot=_fp0c*_fp0fork;
-		const _phCountCost=_fp0tot*Math.pow(Math.max(1,_fp0tot)/10,0.65)*0.15;
-		cost+=(spell.phases.length-1)*_phCountCost;
-	}
-	// Cross-phase scaling: total projectiles (multiplicative chain across phases) × highest power → exponential cost
-	// Single-shot spells: negligible. 1000 total proj × power 20 → astronomically high.
-	const _totalProj = spell.phases.reduce((prod, ph) => {
-		const ec = ph.behavior === 'aroundSelf' ? (ph.aroundSelfCount||4) : (ph.shape==='same'?1:(ph.count||1));
-		const forkMult = (ph.effects||[]).includes('phaseFork') ? (1 + (ph.phaseForkRepeats||1)) : 1;
-		return prod * ec * forkMult;
-	}, 1);
-	const _maxPow = Math.max(...spell.phases.map(ph => ph.power || 1));
-	cost += _totalProj * _totalProj * _maxPow * 0.02;
-	return Math.round(cost);
-}
-function calcSpellCtrl(spell){
-	if(!spell||!spell.phases.length)return 0;
-	let req=0;
-	for(const ph of spell.phases){
-		req=Math.max(req,SHAPE_CTRL[ph.shape]||0,BEH_CTRL[ph.behavior]||0);
-		for(const fx of ph.effects)req=Math.max(req,FX_CTRL[fx]||0);
-	}
-	req+=(spell.phases.length-1)*3;
-	return req;
+function dungeonManaOpts(slot, spell){
+	const vb = getVowBoostsForSlot(slot);
+	return {
+		stats,
+		slotManaCost: vb.manaCost||0,
+		manaEfficiency: vowManaEfficiency,
+		slot,
+		isUltimate: !!(spell && spell.isUltimate && slot===9),
+		mageClass: activeMageClass
+	};
 }
 
 /* =============================================================
@@ -4604,6 +4557,15 @@ const COOP_HOST = COOP_SLOT === 0;
 // Guests never run enemy/boss AI — the host simulates and broadcasts it.
 const COOP_GUEST = IS_COOP && !COOP_HOST;
 
+function isOnlineMatch(){ return !!(IS_COOP || IS_COLOSSEUM); }
+function spellUsesControl(spell){
+	if(!spell || !spell.phases) return false;
+	for(let i=0;i<spell.phases.length;i++){
+		if(spell.phases[i] && spell.phases[i].behavior==='control') return true;
+	}
+	return false;
+}
+
 /* Co-op raid/dungeon bosses: +50% HP and +20% damage per player above 1. */
 let _coopBossDmg = false;
 function coopPartySize(){
@@ -5045,18 +5007,6 @@ function phaseSpeedUnits(speed, isUlt){
 }
 function phaseSpeedPx(speed, isUlt, vowMult){
 	return phaseSpeedUnits(speed, isUlt) * 7 * (vowMult || 1);
-}
-function phaseSpeedMana(ph, powerMax){
-	const s = Math.max(0.1, Number(ph && ph.speed)||1);
-	const t = Math.max(0, Math.min(1, (s - 1) / 9));
-	const isArea = ph && (ph.behavior==='rain'||ph.behavior==='barrage');
-	const ec = ph && ph.behavior==='aroundSelf' ? (ph.aroundSelfCount||4) : ((ph && ph.count)||1);
-	const countMult = 1 + (ec - 1) * (isArea ? 0.1 : 0.4);
-	return (powerMax || 10) * 50 * countMult * t * t;
-}
-function phasePowerCap(spell, phaseIdx){
-	if(spell && spell.phases && spell.phases[0] && spell.phases[0].behavior==='domain' && phaseIdx>0) return 10;
-	return (spell && spell.isUltimate) ? 20 : 10;
 }
 
 // Platform collision for open-sky modes
@@ -10148,11 +10098,7 @@ function updateTotalManaHUD(){
 	}
 	const spells = playerData.spells || [];
 	const ultSpell = spells[9];
-	let ultCost = ultSpell ? calcSpellCost(ultSpell) * 10 : 999999;
-	// Domain/Transformation always flat 25k; necromancer domain 50k
-	if(ultSpell && ultSpell.phases.some(p=>p.behavior==='domain'||p.behavior==='transformation')){
-		ultCost = (activeMageClass==='necromancer' && ultSpell.phases.some(p=>p.behavior==='domain')) ? 50000 : 25000;
-	}
+	const ultCost = ultSpell ? displayedSpellMana(ultSpell, dungeonManaOpts(9, ultSpell)) : 999999;
 	const pct = ultCost > 0 ? Math.max(0, Math.min(100, (totalMana / ultCost) * 100)) : 0;
 	document.getElementById('totalManaBarFill').style.width = pct + '%';
 	document.getElementById('totalManaText').textContent = `⚡ Total Mana: ${Math.floor(totalMana)}` + (ultSpell ? ` / ${ultCost}` : '');
@@ -10187,34 +10133,20 @@ function renderHotbar(){
 			el.style.opacity='0.35';
 			el.innerHTML = `<span class="hb-key">${keyLabel}</span><div class="hb-name" style="color:#ff4444">🔒 Vowed</div>`;
 		} else if(sp){
-			const cost = calcSpellCost(sp);
-			const controlDiscount = Math.max(0.3, 1 - stats.magicControl * 0.015);
-			const _vbHud = getVowBoostsForSlot(i);
-			const vowManaHud = Math.max(0.1, 1 - (_vbHud.manaCost||0) * 0.05);
-			const vowGlobalHud = Math.max(0.1, 1 - vowManaEfficiency * 0.025);
-			const displayCost = Math.round(cost * controlDiscount * vowManaHud * vowGlobalHud);
+			const displayCost = displayedSpellMana(sp, dungeonManaOpts(i, sp));
 			const req = calcSpellCtrl(sp);
-			const usable = stats.magicControl >= req;
+			const onlineBlocked = isOnlineMatch() && spellUsesControl(sp);
+			const usable = !onlineBlocked && stats.magicControl >= req;
 			const color = sp.phases[0]?.color || '#888';
 			let cdHtml = '';
 			if(spellCooldowns[i] > 0){
 				const pct = (spellCooldowns[i] / spellMaxCooldowns[i]) * 100;
 				cdHtml = `<div class="hb-cd-overlay" style="height:${pct}%"></div>`;
 			}
-			let ultDisplayCost;
-			if(isUlt){
-				// Transformation and domain are always flat cost — show the real number, not discounted × 10
-				if(sp.phases.some(p => p.behavior === 'domain' || p.behavior === 'transformation')){
-					ultDisplayCost = (activeMageClass === 'necromancer' && sp.phases.some(p => p.behavior === 'domain')) ? 50000 : 25000;
-				} else {
-					const _ucMult = (activeMageClass === 'necromancer' && sp.phases.some(p => p.behavior === 'domain')) ? 20 : 10;
-					ultDisplayCost = displayCost * _ucMult;
-				}
-			}
-			const costLabel = isUlt ? `${ultDisplayCost}⚡` : `${displayCost}💧`;
+			const costLabel = isUlt ? `${displayCost}⚡` : `${displayCost}💧`;
 			el.innerHTML = `<span class="hb-key">${keyLabel}</span>
 				<div class="hb-dot" style="background:${usable?color:'#555'}"></div>
-				<div class="hb-name" style="${usable?'':'color:#666;text-decoration:line-through'}">${sp.name}</div>
+				<div class="hb-name" style="${usable?'':'color:#666;text-decoration:line-through'}">${onlineBlocked?'🔒 '+sp.name:sp.name}</div>
 				<div class="hb-mana" style="${isUlt?'color:#ffaa00':''}">${costLabel}</div>${cdHtml}`;
 		} else {
 			el.innerHTML = `<span class="hb-key">${keyLabel}</span><div class="hb-name" style="color:#555">—</div>`;
@@ -10233,8 +10165,8 @@ const trZones = [];          // timed-release zone effects (burn/freeze/poison/h
 const particles = [];
 const dmgNumbers = [];
 const frozenWaterPlatforms = []; // Storm Islands: ice-created temporary platforms on water
-const MAX_PARTICLES = 400;
-const MAX_TRAIL = 8;
+let MAX_PARTICLES = 400;
+let MAX_TRAIL = 8;
 const PIERCE_SET = new Set(['nova','ring','beam','cone','wall','spike','summon','vortex']);
 const warriorSlashes = []; // Warrior class melee slash effects
 
@@ -12390,15 +12322,46 @@ function _beamOBBPush(ex,ey,ew,eh,sp){
 }
 
 /* Get all hittable targets — enemies for dungeon, dummies for sandbox, raidBoss for raid, slimes+dummies for openworld */
+let _targetsTick = -1;
+let _targetsCache = null;
+let _simTick = 0;
 function getAllTargets(){
-	if(IS_SANDBOX) return dummies;
-	if(IS_RAID && raidBoss && !raidBoss.dead) return [raidBoss];
-	if(IS_CHRONORAID && chronoBoss && !chronoBoss.dead) return [chronoBoss, ...enemies.filter(e => !e.dead)];
-	if(IS_ZENITH && zenithBoss && !zenithBoss.dead) return [zenithBoss];
-	if(IS_CHALLENGER && challengerBoss && !challengerBoss.dead) return [challengerBoss];
-	if(IS_OPENWORLD || IS_CITY) return [...dummies.filter(d => !d.dead), ...slimes.filter(s => !s.dead)];
-	if(IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS) return [...enemies.filter(e => !e.dead), ...dummies.filter(d => !d.dead), ...slimes.filter(s => !s.dead)];
-	return enemies;
+	if(_targetsCache && _targetsTick === _simTick) return _targetsCache;
+	_targetsTick = _simTick;
+	let list;
+	if(IS_SANDBOX) list = dummies;
+	else if(IS_RAID && raidBoss && !raidBoss.dead) list = [raidBoss];
+	else if(IS_CHRONORAID && chronoBoss && !chronoBoss.dead) list = [chronoBoss, ...enemies.filter(e => !e.dead)];
+	else if(IS_ZENITH && zenithBoss && !zenithBoss.dead) list = [zenithBoss];
+	else if(IS_CHALLENGER && challengerBoss && !challengerBoss.dead) list = [challengerBoss];
+	else if(IS_OPENWORLD || IS_CITY) list = [...dummies.filter(d => !d.dead), ...slimes.filter(s => !s.dead)];
+	else if(IS_SYLVARIS || IS_OBSERVATORY || IS_DRAGONGRAVEYARD || IS_STORMISLANDS || IS_BLACKSANDS) list = [...enemies.filter(e => !e.dead), ...dummies.filter(d => !d.dead), ...slimes.filter(s => !s.dead)];
+	else list = enemies;
+	_targetsCache = list;
+	return list;
+}
+function nearestGroundTarget(ox, oy, radius){
+	let tgt=null, td=radius||200;
+	const list=typeof getAllTargets==='function'?getAllTargets():enemies;
+	for(let i=0;i<list.length;i++){
+		const en=list[i];
+		if(!en||en.dead) continue;
+		const cx=en.x+(en.w||0)/2, cy=en.y+(en.h||0)/2;
+		const dd=Math.hypot(cx-ox, cy-oy);
+		if(dd<td){ td=dd; tgt=en; }
+	}
+	return tgt;
+}
+function applyGroundSpawn(proj, ph, ox, oy, tgt, isUlt){
+	const emerge=28;
+	if(tgt){ proj.x=tgt.x+tgt.w/2; proj.y=tgt.y+tgt.h+emerge; }
+	else { proj.x=ox; proj.y=oy+emerge; }
+	proj.vx=0;
+	proj.vy=-(phaseSpeedUnits(ph.speed, isUlt)*2);
+	proj.maxAge*=3;
+	proj.power*=1.4;
+	proj._groundTarget=tgt;
+	proj._groundEmerge=16;
 }
 
 /* Get visual hitbox for target (for spray-based hit detection, simplified for dummies/raidBoss) */
@@ -13361,6 +13324,7 @@ function spawnRemoteCast(c, remoteFlag){
 	// that is what made the opponent appear to fire *your* spells.
 	const spell = c.spell;
 	if(!spell || !spell.phases || !spell.phases.length) return;
+	if(typeof spellUsesControl==='function' && spellUsesControl(spell)) return;
 
 	const ox = c.ox, oy = c.oy;
 	const facing = c.facing || 1;
@@ -13429,24 +13393,20 @@ function castSpell(){
 	if(!spell||!spell.phases||!spell.phases.length)return;
 	// Block casting from vow-locked spell slots
 	if(vowLockedSlots.has(activeSlot))return;
-	const controlDiscount=Math.max(0.3,1-stats.magicControl*0.015);
+	if(isOnlineMatch() && spellUsesControl(spell)){
+		dmgNumbers.push({x:player.x+player.w/2,y:player.y-30,text:'Control is disabled online',age:0,color:'#ff8844'});
+		return;
+	}
 	const _vbCast=getVowBoostsForSlot(activeSlot);
-	const vowManaCostMult=Math.max(0.1,1-(_vbCast.manaCost||0)*0.05);
-	const vowGlobalManaMult=Math.max(0.1,1-vowManaEfficiency*0.025); // global mana efficiency: -2.5% per point
 	const vowCdMult=Math.max(0.1,1-(_vbCast.cooldown||0)*0.08);
-	const cost=Math.round(calcSpellCost(spell)*controlDiscount*vowManaCostMult*vowGlobalManaMult);
-	const req=calcSpellCtrl(spell);
 	const isUlt=(activeSlot===9&&spell.isUltimate);
+	const cost=displayedSpellMana(spell, dungeonManaOpts(activeSlot, spell));
+	const req=calcSpellCtrl(spell);
 
 	const rawCost=calcSpellCost(spell);
 	const avgPower=spell.phases.reduce((s,p)=>s+(p.power||1),0)/spell.phases.length;
 	if(isUlt){
-		// Ultimate: costs totalMana instead of regular mana — starts charge-up
-		let ultCost=cost*10;
-		// Domain Expansion and Transformation always cost exactly 25k — no discounts, no phase scaling
-		if(spell.phases.some(p=>p.behavior==='domain'||p.behavior==='transformation')) ultCost=25000;
-		// Necromancer domain expansion always costs exactly 50k
-		if(activeMageClass === 'necromancer' && spell.phases.some(p => p.behavior === 'domain')) ultCost=50000;
+		const ultCost=cost;
 		// Provide feedback for failed ultimate casts
 		if(spellCooldowns[activeSlot]>0) return; // silently fail - on cooldown is obvious
 		if(stats.magicControl<req){
@@ -13496,7 +13456,7 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	if(phaseIdx>=spell.phases.length)return;
 	let totalProj=1;
 	for(const p of spell.phases)totalProj*=(p.behavior==='aroundSelf'?(p.aroundSelfCount||4):(p.count||1));
-	if(totalProj>(isUltimate||spell.isUltimate?1000:100))return;
+	if(totalProj>(isUltimate||spell.isUltimate?500:100))return;
 	const ph=spell.phases[phaseIdx];
 
 
@@ -13680,7 +13640,8 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 	// Damage release size bonus
 	const releaseSizeMult=(ph.effects&&ph.effects.includes('damageRelease')&&damageStored>0)?(1+damageStored/1000):1;
 
-	const effectiveCount=isSameShape?1:Math.min(count+vowCountBonus, isDomainSubPhase?5:20);
+	const spawnCap = isDomainSubPhase ? 5 : ((isUltimate||spell.isUltimate) ? 500 : 100);
+	const effectiveCount=isSameShape?1:Math.min(count+vowCountBonus, spawnCap);
 	for(let i=0;i<effectiveCount;i++){
 		let spreadAngle=0;
 		if(effectiveCount>1){const sr=(ph.spread||0)*Math.PI/180;spreadAngle=((i/(effectiveCount-1))-0.5)*sr;}
@@ -13781,15 +13742,12 @@ function spawnPhase(spell,phaseIdx,originX,originY,facing,dmgMult,isUltimate,cas
 		if(effectiveBehavior==='selfCast'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;proj.x=toX;proj.y=toY;proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='aroundSelf'){const toX=targetOriginX!==undefined?targetOriginX:player.x+player.w/2;const toY=targetOriginY!==undefined?targetOriginY:player.y+player.h/2;const radius=ph.aroundSelfRadius||50;const sa=(i/count)*Math.PI*2;proj.x=toX+Math.cos(sa)*radius;proj.y=toY+Math.sin(sa)*radius;proj.vx=0;proj.vy=0;}
 		if(effectiveBehavior==='ground'){
-			// Ground: spawns at nearest enemy within radius (if auto-lock on), +40% damage bonus
 			const groundRadius=ph.groundRadius||200;
 			let tgt=null;
 			if(ph.groundAutoLock!==false){
-				let td=groundRadius;
-				for(const en of enemies){if(en.dead)continue;const dd=Math.hypot(en.x+en.w/2-player.x-player.w/2,en.y+en.h/2-player.y-player.h/2);if(dd<td){td=dd;tgt=en;}}
+				tgt=nearestGroundTarget(player.x+player.w/2, player.y+player.h/2, groundRadius);
 			}
-			if(tgt){proj.x=tgt.x+tgt.w/2;proj.y=tgt.y+tgt.h+4;}else{proj.x=player.x+player.w/2;proj.y=player.y+player.h+4;}
-			proj.vx=0;proj.vy=-(phaseSpeedUnits(ph.speed, ultFlag)*2);proj.maxAge*=3;proj.power*=1.4;proj._groundTarget=tgt;
+			applyGroundSpawn(proj, ph, player.x+player.w/2, player.y+player.h, tgt, ultFlag);
 		}
 		// Hold Down: keep projectile at player, save velocity for release
 		if(proj._held){
@@ -13934,7 +13892,7 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 	const resolvedShape=(ph.shape==='same'&&phaseIdx>0)?spell.phases[phaseIdx-1].shape:(ph.shape||'missile');
 	const isSameShapeM=ph.shape==='same'&&phaseIdx>0;
 	const prevPhM=isSameShapeM?spell.phases[phaseIdx-1]:null;
-	const count=Math.min(ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(isSameShapeM?1:(ph.count||1)), proj._fromDomain?5:99);
+	const count=Math.min(ph.behavior==='aroundSelf'?(ph.aroundSelfCount||4):(isSameShapeM?1:(ph.count||1)), proj._fromDomain?5:500);
 	const powerMult=dmgMult||1;
 	const selfBehaviors=['underfoot','selfCast','aroundSelf','stationary'];
 	const selfPB=ph.behavior==='stationary'?2.0:selfBehaviors.includes(ph.behavior)?1.0:0;
@@ -13981,11 +13939,9 @@ function morphProjectile(proj,phaseIdx,dmgMult){
 			const groundRadius=ph.groundRadius||200;
 			let tgt=null;
 			if(ph.groundAutoLock!==false){
-				let td=groundRadius;
-				for(const en of enemies){if(en.dead)continue;const dd=Math.hypot(en.x+en.w/2-ox,en.y+en.h/2-oy);if(dd<td){td=dd;tgt=en;}}
+				tgt=nearestGroundTarget(ox, oy, groundRadius);
 			}
-			if(tgt){p.x=tgt.x+tgt.w/2;p.y=tgt.y+tgt.h+4;}else{p.x=ox;p.y=oy+4;}
-			p.vx=0;p.vy=-(phaseSpeedUnits(ph.speed, proj.isUltimate)*2);p.maxAge*=3;p.power*=1.4;p._groundTarget=tgt;
+			applyGroundSpawn(p, ph, ox, oy, tgt, proj.isUltimate);
 		}
 		// Solidify spawn offset for morphed projectiles
 		if(p.isSolidPlatform && (p.vx!==0||p.vy!==0)){
@@ -18620,12 +18576,13 @@ function updateProjectiles(){
 				if(pvpPrey){
 					cl = pvpPrey;
 				} else {
-					for(const e of enemies){if(e.dead)continue;const dd=dist(p.x,p.y,e.x+e.w/2,e.y+e.h/2);if(dd<cd2){cd2=dd;cl=e;}}
-					for(const d of dummies){if(d.dead)continue;const dd=dist(p.x,p.y,d.x+d.w/2,d.y+d.h/2);if(dd<cd2){cd2=dd;cl=d;}}
-					for(const s of slimes){if(s.dead)continue;const dd=dist(p.x,p.y,s.x+s.w/2,s.y+s.h/2);if(dd<cd2){cd2=dd;cl=s;}}
-					if(raidBoss&&!raidBoss.dead){const dd=dist(p.x,p.y,raidBoss.x+raidBoss.w/2,raidBoss.y+raidBoss.h/2);if(dd<cd2){cd2=dd;cl=raidBoss;}}
-					if(chronoBoss&&!chronoBoss.dead){const dd=dist(p.x,p.y,chronoBoss.x+chronoBoss.w/2,chronoBoss.y+chronoBoss.h/2);if(dd<cd2){cd2=dd;cl=chronoBoss;}}
-					if(challengerBoss&&!challengerBoss.dead){const dd=dist(p.x,p.y,challengerBoss.x+challengerBoss.w/2,challengerBoss.y+challengerBoss.h/2);if(dd<cd2){cd2=dd;cl=challengerBoss;}}
+					const _hList=getAllTargets();
+					for(let hi=0;hi<_hList.length;hi++){
+						const e=_hList[hi];
+						if(!e||e.dead)continue;
+						const dd=dist(p.x,p.y,e.x+e.w/2,e.y+e.h/2);
+						if(dd<cd2){cd2=dd;cl=e;}
+					}
 				}
 				}
 				if(cl){
@@ -18673,9 +18630,33 @@ function updateProjectiles(){
 			case'selfCast':break;
 			case'aroundSelf':break;
 			case'ground':{
-				// Stay locked onto target enemy if alive
-				if(p._groundTarget&&!p._groundTarget.dead){const tgt=p._groundTarget;p.x=tgt.x+tgt.w/2;}
-				const fc2=Math.floor(p.x/TILE);const fr2=Math.floor((p.y-4)/TILE);if(isSolid(fc2,fr2)){p.vy=0;p.y=fr2*TILE+TILE+4;}if(p.vy<0)p.vy*=0.97;if(Math.abs(p.vy)<0.3)p.vy=0;break;
+				if(p._groundTarget&&!p._groundTarget.dead){p.x=p._groundTarget.x+p._groundTarget.w/2;}
+				const emergeMax=p._groundEmerge||16;
+				const tgt=p._groundTarget;
+				let buried=false;
+				if(tgt&&!tgt.dead){
+					buried=p.y>tgt.y+tgt.h-2;
+				} else if(projectileUsesTileWalls(p.x,p.y)){
+					buried=isSolid(Math.floor(p.x/TILE),Math.floor(p.y/TILE));
+				} else {
+					buried=p.y>GROUND_Y-4;
+				}
+				const emerging=(p.age||0)<emergeMax || (buried && (p.age||0)<40);
+				if(!emerging){
+					if(projectileUsesTileWalls(p.x,p.y)){
+						const fc2=Math.floor(p.x/TILE), fr2=Math.floor(p.y/TILE);
+						if(isSolid(fc2,fr2)){
+							p.y=fr2*TILE-4;
+							if(p.vy>0)p.vy=0;
+						}
+					} else if(p.y>GROUND_Y-4){
+						p.y=GROUND_Y-4;
+						if(p.vy>0)p.vy=0;
+					}
+				}
+				if(p.vy<0)p.vy*=0.97;
+				if(Math.abs(p.vy)<0.3)p.vy=0;
+				break;
 			}
 			case'zigzag':{
 				const spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||phaseSpeedPx(p.phase.speed, p.isUltimate, 1);
@@ -18689,15 +18670,16 @@ function updateProjectiles(){
 				break;
 			}
 			case'spiral':{
-				const spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||phaseSpeedPx(p.phase.speed, p.isUltimate, 1);
+				if(p._spiralBaseSpd==null){
+					p._spiralBaseSpd=Math.sqrt(p.vx*p.vx+p.vy*p.vy)||phaseSpeedPx(p.phase.speed, p.isUltimate, 1);
+				}
+				const spd=p._spiralBaseSpd;
 				const ang=p.aimAngle!=null?p.aimAngle:(p.facing===1?0:Math.PI);
-				const perpAng=ang+Math.PI/2;
 				const radius=(p.phase.spiralRadius||40)+p.width*0.5;
 				const freq=p.phase.spiralFreq||0.12;
-				const lateral=radius*freq;
-				const orbitAng=perpAng+p.age*freq;
-				p.vx=Math.cos(ang)*spd+Math.cos(orbitAng)*lateral;
-				p.vy=Math.sin(ang)*spd+Math.sin(orbitAng)*lateral;
+				const theta=p.age*freq;
+				p.vx=Math.cos(ang)*spd - Math.sin(theta)*radius*freq;
+				p.vy=Math.sin(ang)*spd + Math.cos(theta)*radius*freq;
 				break;
 			}
 			case'teleport':{
@@ -18770,31 +18752,12 @@ function updateProjectiles(){
 		if(!(p.behavior==='orbit'&&p.age<p.orbitDur)){p.x+=p.vx;p.y+=p.vy;}
 		/* Vortex: slow down gradually (slow-moving projectile) */
 		if(p.shape==='vortex'){const slowFactor=0.985;p.vx*=slowFactor;p.vy*=slowFactor;}
-		/* Gravity Well: sandbox/dev only — locked due to bugs in normal play */
-		if(IS_SANDBOX&&p.effects&&p.effects.includes('gravityWell')&&!p.hasHit){
+		/* Gravity Well: pull combat targets, and other players in online matches */
+		if(p.effects&&p.effects.includes('gravityWell')&&!p.hasHit){
 			const _gwSize=Math.max(p.width,p.height);
 			const _gwRadius=_gwSize*3.2*(1+Math.sqrt(p.power||1)*0.44);
 			const _gwStr=(3.15+Math.sqrt(p.power||1)*0.63);
-			for(const _gwen of getAllTargets()){
-				if(_gwen.dead)continue;
-				const _gwdx=p.x-(_gwen.x+_gwen.w/2),_gwdy=p.y-(_gwen.y+_gwen.h/2);
-				const _gwd=Math.sqrt(_gwdx*_gwdx+_gwdy*_gwdy)||1;
-				if(_gwd<_gwRadius){
-					const _pull=_gwStr*Math.pow(1-_gwd/_gwRadius,0.55);
-					_gwen.x+=_gwdx/_gwd*_pull;_gwen.y+=_gwdy/_gwd*_pull;
-				}
-			}
-			// Also pull solidified objects toward the well
-			for(const _gwsp of projectiles){
-				if(!_gwsp.isSolidPlatform||_gwsp===p)continue;
-				const _spdx=p.x-_gwsp.x,_spdy=p.y-_gwsp.y;
-				const _spd=Math.sqrt(_spdx*_spdx+_spdy*_spdy)||1;
-				if(_spd<_gwRadius){
-					const _spPull=_gwStr*Math.pow(1-_spd/_gwRadius,0.55)*0.35;
-					_gwsp.vx+=_spdx/_spd*_spPull;_gwsp.vy+=_spdy/_spd*_spPull;
-					if(_gwsp.momentum!=null)_gwsp.momentum=Math.max(_gwsp.momentum||0,_spPull*0.5);
-				}
-			}
+			applyGravityWellWorld(p.x,p.y,_gwRadius,_gwStr,p);
 		}
 		// Beam wall collision: limit beam length to wall distance unless phaseThrough
 		if(p.shape==='beam'){
@@ -20639,7 +20602,15 @@ function applyEnemyHitEffects(proj,en,rawDmg){
 /* =============================================================
    PARTICLES / IMPACT
    ============================================================= */
-function hexToRgb(hex){return{r:parseInt(hex.slice(1,3),16)||100,g:parseInt(hex.slice(3,5),16)||150,b:parseInt(hex.slice(5,7),16)||255};}
+const _hexRgbCache=Object.create(null);
+function hexToRgb(hex){
+	if(!hex) return {r:100,g:150,b:255};
+	let c=_hexRgbCache[hex];
+	if(c) return c;
+	c={r:parseInt(hex.slice(1,3),16)||100,g:parseInt(hex.slice(3,5),16)||150,b:parseInt(hex.slice(5,7),16)||255};
+	_hexRgbCache[hex]=c;
+	return c;
+}
 /* Tile line-of-sight check: returns true if no solid tiles obstruct the path (only in IS_DUNGEON) */
 function basicLoS(x1, y1, x2, y2){
 	if(!IS_DUNGEON) return true;
@@ -20778,7 +20749,8 @@ function triggerExplosion(proj, excludeTarget){
 	activeExplosions.push({x:proj.x,y:proj.y,maxR:expR,age:0,maxAge:36,color:proj.color});
 	// Burst particles — tinted toward spell color
 	const _eRgb=hexToRgb(proj.color)||{r:255,g:100,b:0};
-	for(let _pi=0;_pi<24;_pi++){
+	const _burstN=particles.length>MAX_PARTICLES*0.55?8:24;
+	for(let _pi=0;_pi<_burstN;_pi++){
 		const _ang=Math.random()*Math.PI*2,_spd=(3+Math.random()*9)*(expR/80);
 		const _pcol=_pi%3===0?{r:255,g:255,b:220}:_pi%3===1?{r:Math.min(255,_eRgb.r+80),g:Math.min(255,_eRgb.g+80),b:Math.min(255,_eRgb.b+80)}:{r:_eRgb.r,g:_eRgb.g,b:_eRgb.b};
 		particles.push({x:proj.x,y:proj.y,vx:Math.cos(_ang)*_spd,vy:Math.sin(_ang)*_spd-2.5,life:Math.round(18+Math.random()*18),maxLife:36,r:(2.5+Math.random()*5)*(expR/80),color:_pcol});
@@ -20851,18 +20823,57 @@ function spawnAmbientParticle(dec){
 	ambientParticles.push({x:px,y:py,vx:(Math.random()-0.5)*0.3,vy:vy2,life:life|0,maxLife:life|0,r:1.5+Math.random(),color});
 }
 
+function gravityPullDelta(wx, wy, cx, cy, radius, str){
+	const dx=wx-cx, dy=wy-cy;
+	const d=Math.sqrt(dx*dx+dy*dy)||1;
+	if(d>=radius) return null;
+	const pull=str*Math.pow(1-d/radius,0.55);
+	return {x:dx/d*pull, y:dy/d*pull};
+}
+function applyGravityWellWorld(wx, wy, radius, str, srcProj){
+	const guest = typeof COOP_GUEST !== 'undefined' && COOP_GUEST;
+	if(!guest){
+		for(const en of getAllTargets()){
+			if(en.dead) continue;
+			const off=gravityPullDelta(wx,wy,en.x+en.w/2,en.y+en.h/2,radius,str);
+			if(off){ en.x+=off.x; en.y+=off.y; }
+		}
+		if(srcProj){
+			for(const sp of projectiles){
+				if(!sp.isSolidPlatform||sp===srcProj) continue;
+				const off=gravityPullDelta(wx,wy,sp.x,sp.y,radius,str);
+				if(off){
+					sp.vx+=off.x*0.35; sp.vy+=off.y*0.35;
+					if(sp.momentum!=null) sp.momentum=Math.max(sp.momentum||0, Math.hypot(off.x,off.y)*0.175);
+				}
+			}
+		}
+	}
+	const fromRemote=!!(srcProj && (srcProj._pvpRemote || srcProj._coopRemote));
+	if(fromRemote){
+		const off=gravityPullDelta(wx,wy,player.x+player.w/2,player.y+player.h/2,radius,str);
+		if(off){
+			player.x+=off.x; player.y+=off.y;
+			player.launchVx=(player.launchVx||0)+off.x*0.35;
+		}
+	} else if(srcProj){
+		if(typeof window.__pvpApplyGravityPull==='function') window.__pvpApplyGravityPull(wx,wy,radius,str);
+		if(typeof window.__coopApplyGravityPull==='function') window.__coopApplyGravityPull(wx,wy,radius,str);
+	}
+}
+
 /* =============================================================
    UPDATE ENEMIES
    ============================================================= */
 /* Update gravity wells: pull enemies (and solidified objects) toward center, expire */
 function updateGravityWells(){
-	if(!IS_SANDBOX) return; // gravity well locked to sandbox/dev mode due to bugs
 	// Age and remove expired wells
 	for(let i=gravityWells.length-1;i>=0;i--){
 		gravityWells[i].age++;
 		if(gravityWells[i].age>=gravityWells[i].life) gravityWells.splice(i,1);
 	}
 	if(!gravityWells.length) return;
+	if(typeof COOP_GUEST !== 'undefined' && COOP_GUEST) return;
 	// Accumulate per-entity pull vectors across all active wells, then apply once (prevents same-direction stacking)
 	const _pullMap=new Map();
 	for(const gw of gravityWells){
@@ -26276,6 +26287,17 @@ function renderSeraphelDialog(){
    ============================================================= */
 let castPressed = false;
 function update(){
+	_simTick++;
+	if(IS_COOP && (IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_CHALLENGER)){
+		MAX_PARTICLES=140; MAX_TRAIL=3;
+	} else if(IS_COOP || IS_COLOSSEUM){
+		MAX_PARTICLES=220; MAX_TRAIL=4;
+	} else if(IS_RAID||IS_CHRONORAID||IS_ZENITH||IS_CHALLENGER){
+		MAX_PARTICLES=240; MAX_TRAIL=5;
+	} else {
+		MAX_PARTICLES=400; MAX_TRAIL=8;
+	}
+
 	/* Necromancer summon selection — open overlay but don't freeze gameplay */
 	if(pendingNecroSummon && !necroSelectOpen){
 		openNecroSelect();
@@ -27893,20 +27915,27 @@ function update(){
 	}
 
 	/* Particles */
-	for(let i=particles.length-1;i>=0;i--){
+	let _pw=0;
+	for(let i=0;i<particles.length;i++){
 		const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.06;p.vx*=0.97;p.life--;
-		if(p.life<=0)particles.splice(i,1);
+		if(p.life>0) particles[_pw++]=p;
 	}
-	for(let i=ambientParticles.length-1;i>=0;i--){
+	particles.length=_pw;
+	let _aw=0;
+	for(let i=0;i<ambientParticles.length;i++){
 		const p=ambientParticles[i];p.x+=p.vx;p.y+=p.vy;p.life--;
-		if(p.life<=0)ambientParticles.splice(i,1);
+		if(p.life>0) ambientParticles[_aw++]=p;
 	}
+	ambientParticles.length=_aw;
 	// Spawn ambient particles from decorations
-	for(const dec of dungeon.decorations){
-		if((dec.type==='embers'||dec.type==='snowfall')&&Math.random()<0.08){
-			spawnAmbientParticle(dec);
+	if(!IS_COOP && dungeon && dungeon.decorations){
+		for(const dec of dungeon.decorations){
+			if((dec.type==='embers'||dec.type==='snowfall')&&Math.random()<0.08){
+				spawnAmbientParticle(dec);
+			}
 		}
 	}
+	if(dmgNumbers.length>48) dmgNumbers.splice(0, dmgNumbers.length-48);
 
 	/* Dmg numbers */
 	for(let i=dmgNumbers.length-1;i>=0;i--){
@@ -35519,15 +35548,29 @@ break;}
 
 	/* Particles */
 	if(particles.length>MAX_PARTICLES)particles.splice(0,particles.length-MAX_PARTICLES);
+	const _pCw=canvas.width, _pCh=canvas.height;
 	for(const p of particles){
-		const alpha=p.life/p.maxLife;
-		ctx.beginPath();ctx.arc(p.x-camera.x,p.y-camera.y,p.r*alpha,0,Math.PI*2);
-		ctx.fillStyle=`rgba(${p.color.r},${p.color.g},${p.color.b},${alpha*0.8})`;ctx.fill();
+		const sx=p.x-camera.x, sy=p.y-camera.y;
+		if(sx<-24||sy<-24||sx>_pCw+24||sy>_pCh+24) continue;
+		const col=p.color;
+		let cr,cg,cb;
+		if(typeof col==='string'){ const rgb=hexToRgb(col); cr=rgb.r; cg=rgb.g; cb=rgb.b; }
+		else if(col&&col.r!=null){ cr=col.r; cg=col.g; cb=col.b; }
+		else continue;
+		const alpha=p.life/(p.maxLife||30);
+		const rr=Math.max(1, (p.r||2)*alpha);
+		ctx.fillStyle=`rgba(${cr},${cg},${cb},${alpha*0.8})`;
+		ctx.fillRect(sx-rr, sy-rr, rr*2, rr*2);
 	}
-	for(const p of ambientParticles){
-		const alpha=p.life/p.maxLife;
-		ctx.beginPath();ctx.arc(p.x-camera.x,p.y-camera.y,p.r*alpha,0,Math.PI*2);
-		ctx.fillStyle=`rgba(${p.color.r},${p.color.g},${p.color.b},${alpha*0.5})`;ctx.fill();
+	if(!IS_COOP){
+		for(const p of ambientParticles){
+			const sx=p.x-camera.x, sy=p.y-camera.y;
+			if(sx<-24||sy<-24||sx>_pCw+24||sy>_pCh+24) continue;
+			const alpha=p.life/p.maxLife;
+			const rr=Math.max(1, p.r*alpha);
+			ctx.fillStyle=`rgba(${p.color.r},${p.color.g},${p.color.b},${alpha*0.5})`;
+			ctx.fillRect(sx-rr, sy-rr, rr*2, rr*2);
+		}
 	}
 
 	/* Dmg numbers */
@@ -37124,10 +37167,10 @@ function drawTrail(proj){
 		const tp=proj.trailParts[t];
 		const alpha=((t+1)/proj.trailParts.length)*0.5;
 		const r2=proj.width*0.5*((t+1)/proj.trailParts.length);
-		ctx.beginPath();ctx.arc(tp.x-camera.x,tp.y-camera.y,r2,0,Math.PI*2);
-		ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;ctx.fill();
+		ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+		ctx.fillRect(tp.x-camera.x-r2,tp.y-camera.y-r2,r2*2,r2*2);
 	}
-	if(['sparkle','flame','lightning'].includes(proj.trail)&&particles.length<MAX_PARTICLES){
+	if(!IS_COOP && ['sparkle','flame','lightning'].includes(proj.trail)&&particles.length<MAX_PARTICLES){
 		const last=proj.trailParts[proj.trailParts.length-1];
 		if(last&&Math.random()<0.25){
 			particles.push({x:last.x+(Math.random()-0.5)*8,y:last.y+(Math.random()-0.5)*8,vx:(Math.random()-0.5)*1.5,vy:(Math.random()-0.5)*1.5-0.5,life:10+Math.random()*8|0,maxLife:18,r:1.5+Math.random()*1.5,color:rgb});
@@ -39634,6 +39677,20 @@ loop();
 	var lastOutgoingCast = null;
 	var lastOutgoingUntil = 0;
 
+	window.__pvpApplyGravityPull = function(wx, wy, radius, str){
+		if(!opp.active) return;
+		var cx = renderX + oppW / 2, cy = renderY + oppH / 2;
+		var dx = wx - cx, dy = wy - cy;
+		var d = Math.sqrt(dx * dx + dy * dy) || 1;
+		if(d >= radius) return;
+		var pull = str * Math.pow(1 - d / radius, 0.55);
+		var ox = dx / d * pull, oy = dy / d * pull;
+		renderX += ox; renderY += oy;
+		opp.x = renderX; opp.y = renderY;
+		opp.renderX = renderX; opp.renderY = renderY;
+		if(snap){ snap.x += ox; snap.y += oy; }
+	};
+
 	function replayIncomingCast(c){
 		if(!c || !c.spell) return;
 		var id = c.cid || (c.from + ':' + Math.round(c.ox) + ':' + Math.round(c.oy) + ':' + (c.slot != null ? c.slot : ''));
@@ -39804,6 +39861,24 @@ loop();
 	var seenCasts = Object.create(null);
 	var lastOutgoingCast = null;
 	var lastOutgoingUntil = 0;
+
+	window.__coopApplyGravityPull = function(wx, wy, radius, str){
+		for(var id in allies){
+			var a = allies[id];
+			if(!a || !a.active) continue;
+			var ax = (a.renderX != null ? a.renderX : a.x);
+			var ay = (a.renderY != null ? a.renderY : a.y);
+			var cx = ax + ALLY_W / 2, cy = ay + ALLY_H / 2;
+			var dx = wx - cx, dy = wy - cy;
+			var d = Math.sqrt(dx * dx + dy * dy) || 1;
+			if(d >= radius) continue;
+			var pull = str * Math.pow(1 - d / radius, 0.55);
+			var ox = dx / d * pull, oy = dy / d * pull;
+			a.renderX = ax + ox; a.renderY = ay + oy;
+			a.x = a.renderX; a.y = a.renderY;
+			if(a.snap){ a.snap.x += ox; a.snap.y += oy; }
+		}
+	};
 
 	function replayIncomingCast(c){
 		if(!c || !c.spell) return;
